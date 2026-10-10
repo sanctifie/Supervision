@@ -110,7 +110,7 @@ function Contenu({ e }: { e: VueEtat }) {
           />
         </Carte>
 
-        <Carte titre="Activité récente" sousTitre="Alertes, incidents, sauvegardes" droite={<Link className="lien-fleche" to="/incidents">Tout voir <ArrowRight size={14} /></Link>}>
+        <Carte titre="Activité récente" sousTitre="Alertes, incidents, sauvegardes" droite={<Link className="lien-fleche" to="/itsm">Service desk <ArrowRight size={14} /></Link>}>
           {e.activite.length ? (
             <ul className="activite">
               {e.activite.slice(0, 7).map((a, i) => (

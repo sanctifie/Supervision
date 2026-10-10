@@ -15,7 +15,11 @@ import Application from './pages/Application';
 import Metier from './pages/Metier';
 import Journaux from './pages/Journaux';
 import Alertes from './pages/Alertes';
-import Incidents from './pages/Incidents';
+import AccueilItsm from './pages/itsm/AccueilItsm';
+import ListeTickets from './pages/itsm/ListeTickets';
+import FicheTicket from './pages/itsm/FicheTicket';
+import NouveauTicket from './pages/itsm/NouveauTicket';
+import Equipe from './pages/itsm/Equipe';
 import Securite from './pages/Securite';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
@@ -31,7 +35,14 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/metier': Metier,
   '/journaux': Journaux,
   '/alertes': Alertes,
-  '/incidents': Incidents,
+  '/itsm': AccueilItsm,
+  '/incidents': () => <ListeTickets key="incident" type="incident" />,
+  '/problemes': () => <ListeTickets key="probleme" type="probleme" />,
+  '/changements': () => <ListeTickets key="changement" type="changement" />,
+  '/demandes': () => <ListeTickets key="demande" type="demande" />,
+  '/equipe': Equipe,
+  '/tickets/nouveau': NouveauTicket,
+  '/tickets/:numero': FicheTicket,
   '/securite': Securite,
   '/automatisations': Automatisations,
   '/feuille-de-route': FeuilleDeRoute,

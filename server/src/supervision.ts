@@ -12,8 +12,9 @@ import {
   analyserServeur,
   analyserServices,
   enrichirAlertes,
+  heureLocale,
 } from './analyse';
-import { Incidents } from './incidents';
+import { Tickets } from './tickets';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
@@ -44,7 +45,7 @@ import type {
 /**
  * Le cœur : choisit la source (réelle ou démonstration), met les lectures en
  * cache quelques secondes, assemble les vues, et fait tourner la boucle de
- * fond (alertes → incidents → fil d'activité).
+ * fond (alertes → tickets d'incident → fil d'activité).
  */
 export class Supervision {
   private readonly reel = new FournisseurReel();
@@ -52,11 +53,19 @@ export class Supervision {
   private fournisseur: Fournisseur;
   private cache = new Map<string, { expire: number; valeur: Promise<unknown> }>();
   private boucle: NodeJS.Timeout | null = null;
-  readonly incidents: Incidents;
+  readonly tickets: Tickets;
 
   constructor(readonly stockage: Stockage) {
     this.fournisseur = config.mode === 'reel' ? this.reel : this.demo;
-    this.incidents = new Incidents(stockage);
+    this.tickets = new Tickets(stockage, {
+      creerSilence: async (ci, debut, fin, commentaire, auteur) => {
+        const id = await this.fournisseur.creerSilence({ correspondances: [{ nom: 'service', valeur: ci }], debut, fin, commentaire, auteur });
+        this.invalider('silences');
+        this.invalider('alertes');
+        return id;
+      },
+      supprimerSilence: (id) => this.supprimerSilence(id),
+    });
   }
 
   get mode() {
@@ -80,7 +89,8 @@ export class Supervision {
       try {
         await this.choisirSource();
         const alertes = await this.alertesEnrichies().catch(() => null);
-        if (alertes) this.incidents.synchroniser(alertes);
+        if (alertes) this.tickets.synchroniser(alertes);
+        this.stockage.copieDuJour();
         await this.suivreSauvegardes();
       } catch (e) {
         console.error('[supervision] boucle :', (e as Error).message);
@@ -421,6 +431,32 @@ export class Supervision {
     return { phases: PHASES, checklist, avancement: faits / checklist.length };
   }
 
+  /**
+   * Avertissements avant de mener un changement (guide, 1 et 5.2) :
+   * budget d'erreur consommé (gel recommandé) et chevauchements de fenêtres.
+   */
+  async avertissementsChangement(numero: string): Promise<string[]> {
+    const t = this.tickets.trouver(numero);
+    if (!t || t.type !== 'changement') return [];
+    const avertissements: string[] = [];
+    const services = await this.services().catch(() => null);
+    const dispo = services?.disponibilite30j ?? null;
+    if (dispo !== null) {
+      const budget = (1 - dispo) / (1 - SLO_DISPONIBILITE);
+      if (budget > 1 && t.typeChangement !== 'urgent') avertissements.push(`Budget d'erreur épuisé (${pourcent(budget * 100, 0)}) : gel des changements recommandé, sauf urgence.`);
+      else if (budget > 0.5) avertissements.push(`Budget d'erreur consommé à ${pourcent(budget * 100, 0)} : prudence, prévoir le retour arrière.`);
+    }
+    for (const c of this.tickets.conflits(t)) {
+      avertissements.push(`Chevauche ${c.numero} (${c.titre})${c.ci ? ` sur ${c.ci}` : ''}.`);
+    }
+    if (t.risque === 'eleve' && !t.planTest?.trim()) avertissements.push('Risque élevé sans plan de test.');
+    if (t.debutPrevu && t.typeChangement !== 'urgent') {
+      const h = heureLocale(t.debutPrevu, config.fuseau);
+      if (h >= config.ouverture && h < config.fermeture) avertissements.push('La fenêtre tombe pendant les heures d’ouverture de l’officine.');
+    }
+    return avertissements;
+  }
+
   /** Page de statut publique : seulement des voyants, aucun détail technique. */
   async statutPublic() {
     const e = await this.etat();
@@ -430,11 +466,7 @@ export class Supervision {
       nom: config.nomProduit,
       services: e.services.filter((s) => s.nom !== 'Base de données').map((s) => ({ nom: s.nom, statut: s.statut })),
       disponibilite: e.slo.disponibilite,
-      incidents: this.incidents
-        .vue()
-        .incidents.filter((i) => i.priorite === 'P1' || i.priorite === 'P2')
-        .slice(0, 5)
-        .map((i) => ({ titre: i.automatique ? 'Perturbation détectée' : i.titre, statut: i.statut, detecteLe: i.detecteLe, resoluLe: i.resoluLe })),
+      incidents: this.tickets.incidentsPublics(),
     };
   }
 }

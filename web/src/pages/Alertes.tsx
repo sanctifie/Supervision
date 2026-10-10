@@ -116,8 +116,20 @@ export default function Alertes() {
   }
 
   async function declarer(a: Alerte) {
-    await appeler('/incidents', { methode: 'POST', corps: { titre: a.resume || a.nom, priorite: a.priorite === 'Info' ? 'P3' : a.priorite, note: `Depuis l’alerte ${a.nom}` } });
-    naviguer('/incidents');
+    const niveaux = { P1: [1, 1], P2: [1, 2], P3: [2, 2], Info: [3, 3] }[a.priorite];
+    const t = await appeler<{ numero: string }>('/tickets', {
+      methode: 'POST',
+      corps: {
+        type: 'incident',
+        titre: a.resume || a.nom,
+        description: `Depuis l’alerte ${a.nom}${a.action ? `\nPremière action : ${a.action}` : ''}`,
+        impact: niveaux[0],
+        urgence: niveaux[1],
+        ci: a.labels.service ?? null,
+        groupe: 'Exploitation',
+      },
+    });
+    naviguer(`/tickets/${t.numero}`);
   }
 
   async function test() {
@@ -133,7 +145,7 @@ export default function Alertes() {
   return (
     <div className="empile">
       <div className="ligne-flex">
-        <span className="discret">Chaque alerte doit être actionnable et pointer vers un runbook. Les alertes P1 et P2 ouvrent un incident automatiquement.</span>
+        <span className="discret">Chaque alerte doit être actionnable et pointer vers un runbook. Les alertes P1 et P2 ouvrent un ticket d’incident automatiquement.</span>
         <span className="espace" />
         <button className="bouton primaire" onClick={test}>
           <Send size={15} /> Envoyer une alerte de test

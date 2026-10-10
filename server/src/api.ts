@@ -3,7 +3,10 @@ import type { Supervision } from './supervision';
 import { accesActif, connexion, deconnexion, exigerSession, sessionDe } from './acces';
 import { CHECKLIST, CONTROLES_SECURITE, AUTOMATISATIONS, PIPELINE } from './catalogues';
 import { RUNBOOKS } from '../../shared/runbooks';
-import type { Priorite } from '../../shared/types';
+import { ErreurMetier } from './tickets';
+import { etatSla, type TypeTicket } from '../../shared/itsm';
+
+const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
 import { config } from './config';
 
 /** Les routes de l'API (/api/...). Toutes en JSON. */
@@ -97,47 +100,133 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
-  // Incidents.
-  api.get('/incidents', (_req, res) => {
-    res.json(sup.incidents.vue());
+  // --- ITSM : incidents, problèmes, changements, demandes ---------------------
+  /** Enveloppe des actions sur tickets : règle métier → 422, introuvable → 404. */
+  const agir =
+    (f: (req: Request, res: Response) => unknown | Promise<unknown>, code = 200) =>
+    async (req: Request, res: Response) => {
+      try {
+        const r = await f(req, res);
+        if (!res.headersSent) res.status(code).json(r);
+      } catch (e) {
+        if (e instanceof ErreurMetier) res.status(/introuvable/.test(e.message) ? 404 : 422).json({ erreur: e.message });
+        else res.status(500).json({ erreur: (e as Error).message });
+      }
+    };
+  const detail = async (numero: string) => {
+    const t = sup.tickets.trouver(numero);
+    if (!t) throw new ErreurMetier(`Ticket ${numero} introuvable`);
+    return {
+      ticket: t,
+      sla: etatSla(t),
+      transitions: sup.tickets.transitions(t),
+      liens: t.liens.map((n) => sup.tickets.trouver(n)).filter((x): x is NonNullable<typeof x> => !!x).map((x) => sup.tickets.resume(x)),
+      avertissements: await sup.avertissementsChangement(t.numero),
+    };
+  };
+
+  api.get(
+    '/tickets',
+    agir((req, res) => {
+      const q = req.query as Record<string, string | undefined>;
+      return sup.tickets.lister({
+        type: TYPES.includes(q.type as TypeTicket) ? (q.type as TypeTicket) : undefined,
+        statut: q.statut || undefined,
+        etat: q.etat || undefined,
+        priorite: q.priorite || undefined,
+        assigneA: q.assigne === 'moi' ? (res.locals.nom as string) : q.assigne || undefined,
+        nonAssignes: q.nonAssignes === '1',
+        groupe: q.groupe || undefined,
+        ci: q.ci || undefined,
+        q: q.q?.slice(0, 200) || undefined,
+      });
+    }),
+  );
+  api.get('/itsm/tableau', agir((_req, res) => sup.tickets.tableau(res.locals.nom)));
+  api.get(
+    '/itsm/calendrier',
+    agir((req) => {
+      const de = Number(req.query.de) || Date.now() - 7 * 86_400_000;
+      const a = Number(req.query.a) || de + 35 * 86_400_000;
+      return sup.tickets.calendrier(de, Math.min(a, de + 120 * 86_400_000));
+    }),
+  );
+  api.get('/itsm/referentiels', (_req, res) => {
+    res.json({ elementsConfiguration: sup.tickets.elementsConfiguration(), equipe: sup.stockage.donnees.equipe });
   });
-  api.post('/incidents', (req, res) => {
-    const { titre, priorite, note } = req.body ?? {};
-    if (typeof titre !== 'string' || !titre.trim() || !['P1', 'P2', 'P3', 'Info'].includes(priorite)) {
-      res.status(400).json({ erreur: 'Titre et priorité (P1, P2, P3, Info) requis' });
+  api.get('/tickets/:numero', agir((req) => detail(String(req.params.numero))));
+  api.post(
+    '/tickets',
+    agir((req, res) => {
+      const { type, lien, ...champs } = req.body ?? {};
+      if (!TYPES.includes(type)) throw new ErreurMetier('Type inconnu (incident, probleme, changement, demande)');
+      return sup.tickets.creer(type, champs, res.locals.nom, { lien: typeof lien === 'string' ? lien : undefined });
+    }, 201),
+  );
+  api.patch(
+    '/tickets/:numero',
+    agir(async (req, res) => {
+      sup.tickets.modifier(String(req.params.numero), req.body ?? {}, res.locals.nom);
+      return detail(String(req.params.numero));
+    }),
+  );
+  api.post(
+    '/tickets/:numero/statut',
+    agir(async (req, res) => {
+      const { statut, commentaire } = req.body ?? {};
+      await sup.tickets.changerStatut(String(req.params.numero), String(statut), res.locals.nom, typeof commentaire === 'string' ? commentaire : undefined);
+      return detail(String(req.params.numero));
+    }),
+  );
+  api.post(
+    '/tickets/:numero/activite',
+    agir(async (req, res) => {
+      const { type, texte } = req.body ?? {};
+      sup.tickets.ajouterActivite(String(req.params.numero), type === 'commentaire' ? 'commentaire' : 'note', String(texte ?? ''), res.locals.nom);
+      return detail(String(req.params.numero));
+    }),
+  );
+  api.post(
+    '/tickets/:numero/approbation',
+    agir(async (req, res) => {
+      const { decision, commentaire } = req.body ?? {};
+      if (decision !== 'approuve' && decision !== 'rejete') throw new ErreurMetier('Décision : approuve ou rejete');
+      sup.tickets.approuver(String(req.params.numero), decision, String(commentaire ?? ''), res.locals.nom);
+      return detail(String(req.params.numero));
+    }),
+  );
+  api.post(
+    '/tickets/:numero/liens',
+    agir(async (req, res) => {
+      sup.tickets.lier(String(req.params.numero), String(req.body?.cible ?? ''), res.locals.nom);
+      return detail(String(req.params.numero));
+    }),
+  );
+  api.delete(
+    '/tickets/:numero/liens/:cible',
+    agir(async (req, res) => {
+      sup.tickets.delier(String(req.params.numero), String(req.params.cible), res.locals.nom);
+      return detail(String(req.params.numero));
+    }),
+  );
+
+  // Équipe : membres (personnes assignables) et groupes d'affectation.
+  api.get('/equipe', (_req, res) => {
+    res.json(sup.stockage.donnees.equipe);
+  });
+  api.put('/equipe', (req, res) => {
+    const propre = (v: unknown) =>
+      Array.isArray(v) ? [...new Set(v.filter((x): x is string => typeof x === 'string').map((x) => x.trim().slice(0, 40)).filter(Boolean))].slice(0, 200) : null;
+    const membres = propre(req.body?.membres);
+    const groupes = propre(req.body?.groupes);
+    if (!membres || !groupes) {
+      res.status(400).json({ erreur: 'membres et groupes : listes de noms' });
       return;
     }
-    res.status(201).json(sup.incidents.ouvrir({ titre: titre.trim().slice(0, 200), priorite: priorite as Priorite, auteur: res.locals.nom, note: typeof note === 'string' ? note.slice(0, 2000) : undefined }));
-  });
-  api.post('/incidents/:id/:action', (req, res) => {
-    const id = String(req.params.id);
-    const { texte } = (req.body ?? {}) as { texte?: string };
-    const nom = res.locals.nom as string;
-    const t = typeof texte === 'string' ? texte.slice(0, 20000) : '';
-    let r;
-    switch (req.params.action) {
-      case 'acquitter':
-        r = sup.incidents.acquitter(id, nom);
-        break;
-      case 'resoudre':
-        r = sup.incidents.resoudre(id, nom, t || undefined);
-        break;
-      case 'note':
-        if (!t.trim()) {
-          res.status(400).json({ erreur: 'Note vide' });
-          return;
-        }
-        r = sup.incidents.noter(id, nom, t);
-        break;
-      case 'post-mortem':
-        r = sup.incidents.ecrirePostMortem(id, t);
-        break;
-      default:
-        res.status(404).json({ erreur: 'Action inconnue' });
-        return;
-    }
-    if (!r) res.status(404).json({ erreur: 'Incident introuvable' });
-    else res.json(r);
+    sup.stockage.modifier((e) => {
+      e.equipe = { membres, groupes };
+    });
+    res.json(sup.stockage.donnees.equipe);
   });
 
   // Confirmations manuelles : checklist, sécurité, automatisations, pipeline.

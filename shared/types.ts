@@ -359,16 +359,6 @@ export interface Incident {
   automatique: boolean;
 }
 
-export interface VueIncidents {
-  incidents: Incident[];
-  indicateurs: {
-    mttaMinutes: number | null;
-    mttrMinutes: number | null;
-    ceMois: number;
-    ouverts: number;
-    postMortemsEnRetard: number;
-  };
-}
 
 export interface ElementChecklist {
   id: string;

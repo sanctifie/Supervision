@@ -35,6 +35,7 @@ function initiales(nom: string) {
 
 export function Coquille({ nom, produit, seDeconnecter, children }: { nom: string; produit: string; seDeconnecter: () => void; children: ReactNode }) {
   const { donnees: etat, erreur, recharger } = useDonnees<VueEtat>('/etat', 15_000);
+  const { donnees: itsm } = useDonnees<{ compteurs: Record<string, number> }>('/itsm/tableau', 30_000);
   const [menuOuvert, setMenuOuvert] = useState(false);
   const [recherche, setRecherche] = useState('');
   const [focus, setFocus] = useState(0);
@@ -48,7 +49,7 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
   const resultats = useMemo(() => {
     const q = recherche.trim().toLowerCase();
     if (!q) return [];
-    return PAGES.filter((p) => `${p.titre} ${p.description} ${p.motsCles ?? ''}`.toLowerCase().includes(q)).slice(0, 6);
+    return PAGES.filter((p) => !p.cachee && `${p.titre} ${p.description} ${p.motsCles ?? ''}`.toLowerCase().includes(q)).slice(0, 6);
   }, [recherche]);
 
   const contexte = useMemo<Contexte>(() => ({ etat, erreurEtat: erreur, rechargerEtat: recharger, nom, produit }), [etat, erreur, recharger, nom, produit]);
@@ -69,14 +70,16 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
           {groupes.map((g) => (
             <div key={g}>
               <div className="nav-titre">{g}</div>
-              {PAGES.filter((p) => p.groupe === g).map((p) => {
+              {PAGES.filter((p) => p.groupe === g && !p.cachee).map((p) => {
                 const s = statutDomaine(p.domaine);
                 const Icone = p.icone;
+                const compte = p.compteur ? itsm?.compteurs[p.compteur] : undefined;
                 return (
                   <NavLink key={p.chemin} to={p.chemin} end={p.chemin === '/'} className={({ isActive }) => `nav-lien ${isActive ? 'actif' : ''}`} onClick={() => setMenuOuvert(false)}>
                     <Icone size={18} />
                     {p.titre}
                     {s && s !== 'vert' && s !== 'inconnu' && <Point statut={s} />}
+                    {!!compte && <span className={`compteur-menu ${p.compteur === 'incidents' && itsm?.compteurs.majeurs ? 'urgent' : ''}`}>{compte}</span>}
                   </NavLink>
                 );
               })}

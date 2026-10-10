@@ -1,9 +1,11 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Evenement, Incident } from '../../shared/types';
+import type { Ticket } from '../../shared/itsm';
+import { GROUPES_DEFAUT } from '../../shared/itsm';
 
 /**
- * Ce que la supervision retient elle-même : incidents, fil d'activité,
+ * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
  * cases cochées de la checklist, confirmations manuelles. Un simple fichier
  * JSON (donnees/etat.json), écrit de façon atomique : pas de base à installer.
  */
@@ -15,9 +17,19 @@ export interface Confirmation {
   note: string;
 }
 
+export interface Equipe {
+  membres: string[];
+  groupes: string[];
+}
+
 export interface Etat {
   version: 1;
-  incidents: Incident[];
+  /** Ancien format (avant l'ITSM) : migré en tickets au démarrage. */
+  incidents?: Incident[];
+  tickets: Ticket[];
+  /** Dernier numéro attribué par préfixe (INC, PRB, CHG, REQ). */
+  compteurs: Record<string, number>;
+  equipe: Equipe;
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;
@@ -25,7 +37,15 @@ export interface Etat {
   vus: { alertes: Record<string, number>; derniereSauvegarde: number | null };
 }
 
-const VIDE: Etat = { version: 1, incidents: [], evenements: [], confirmations: {}, vus: { alertes: {}, derniereSauvegarde: null } };
+const VIDE: Etat = {
+  version: 1,
+  tickets: [],
+  compteurs: {},
+  equipe: { membres: [], groupes: [...GROUPES_DEFAUT] },
+  evenements: [],
+  confirmations: {},
+  vus: { alertes: {}, derniereSauvegarde: null },
+};
 
 export class Stockage {
   private etat: Etat;
@@ -39,16 +59,35 @@ export class Stockage {
   }
 
   private lire(): Etat {
+    if (!fs.existsSync(this.fichier)) return structuredClone(VIDE);
     try {
       const brut = JSON.parse(fs.readFileSync(this.fichier, 'utf8')) as Partial<Etat>;
       return {
         ...structuredClone(VIDE),
         ...brut,
         vus: { ...VIDE.vus, ...(brut.vus ?? {}) },
+        equipe: { ...structuredClone(VIDE.equipe), ...(brut.equipe ?? {}) },
+        tickets: brut.tickets ?? [],
+        compteurs: brut.compteurs ?? {},
       } as Etat;
-    } catch {
+    } catch (e) {
+      // Ne jamais écraser des tickets : on met le fichier illisible de côté.
+      const copie = `${this.fichier}.illisible-${Date.now()}`;
+      fs.copyFileSync(this.fichier, copie);
+      console.error(`[supervision] ${this.fichier} illisible (${(e as Error).message}) : copie dans ${copie}, départ à vide.`);
       return structuredClone(VIDE);
     }
+  }
+
+  /** Une copie par jour (etat-AAAA-MM-JJ.json), les 30 dernières gardées. */
+  copieDuJour(): void {
+    const dossier = path.join(path.dirname(this.fichier), 'copies');
+    fs.mkdirSync(dossier, { recursive: true });
+    const jour = new Date().toISOString().slice(0, 10);
+    const cible = path.join(dossier, `etat-${jour}.json`);
+    if (!fs.existsSync(cible) && fs.existsSync(this.fichier)) fs.copyFileSync(this.fichier, cible);
+    const copies = fs.readdirSync(dossier).filter((f) => /^etat-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+    for (const ancienne of copies.slice(0, Math.max(0, copies.length - 30))) fs.unlinkSync(path.join(dossier, ancienne));
   }
 
   get donnees(): Etat {

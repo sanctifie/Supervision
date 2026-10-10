@@ -1,8 +1,10 @@
 # Supervision Officina
 
 Une application web pour **voir d'un coup d'œil** si Officina (dépôt
-[Pharmatech](https://github.com/sanctifie/Pharmatech)) va bien, et pour **agir**
-quand ce n'est pas le cas. Elle reprend le guide *Automatisation & Supervision* :
+[Pharmatech](https://github.com/sanctifie/Pharmatech)) va bien, pour **agir**
+quand ce n'est pas le cas, et pour **suivre tout le travail d'exploitation**
+comme dans un ITSM (type ServiceNow) : incidents, problèmes, changements et
+demandes. Elle reprend le guide *Automatisation & Supervision* :
 seuils, alertes, incidents, automatisations, sécurité et feuille de route.
 
 L'état global (vert / orange / rouge) se lit en trois secondes. Chaque voyant
@@ -25,12 +27,58 @@ est cliquable et mène au détail.
 | **API** | Métriques RED par service (débit, 5xx, refus, p50/p95/p99), chute de trafic vs J-7, runtime Node.js (event loop lag, heap, GC) | 3.1, 3.2 |
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
-| **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test | 7.1, 7.2 |
-| **Incidents** | Ouverture automatique sur P1/P2, acquittement, résolution, notes, **post-mortem** (modèle fourni), MTTA / MTTR | 7.3 |
+| **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
 | **Feuille de route** | Les 5 phases et la checklist de mise en production, cochée automatiquement quand la supervision peut le vérifier | 10 |
 | **`/statut`** | Page de statut **publique** (sans connexion, sans détail technique) pour informer pendant un incident | 3.7 |
+
+## Service desk (ITSM)
+
+L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
+
+| Ticket | Numéro | Cycle de vie | Règles |
+|--------|--------|--------------|--------|
+| **Incident** | `INC0001001` | Nouveau → En cours → En attente → Résolu → Clos | Priorité = impact × urgence (P1 à P4) ; SLA de prise en charge et de résolution ; résolution avec code + notes obligatoires ; post-mortem pour P1/P2 |
+| **Problème** | `PRB0001001` | Nouveau → Analyse → Erreur connue → Résolu → Clos | Erreur connue = contournement documenté ; résolu = cause racine écrite |
+| **Changement** | `CHG0001001` | Brouillon → Évaluation → Approuvé → Planifié → En cours → Revue → Clos | Standard (pré-approuvé), normal (CAB), urgent ; justification, plan de mise en œuvre, plan de retour arrière ; approbation tracée ; fenêtre obligatoire ; résultat (réussi / échoué / retour arrière) |
+| **Demande** | `REQ0001001` | Nouvelle → En cours → En attente → Traitée → Close | SLA comme les incidents |
+
+- **Accueil service desk** : mes tickets, non assignés, incidents majeurs en cours,
+  SLA dépassés / à risque, changements à approuver et à venir, MTTA, MTTR, taux de SLA tenus.
+- **Fiche ticket** : barre d'étapes, actions possibles (avec la raison quand c'est bloqué),
+  champs modifiables, notes de travail (internes) et commentaires, historique complet de
+  chaque modification, tickets liés (incident → problème → changement, en un clic).
+- **SLA** (temps calendaire, 24 h/24) :
+
+  | Priorité | Prise en charge | Résolution |
+  |----------|-----------------|------------|
+  | P1 | 15 min | 4 h |
+  | P2 | 1 h | 8 h |
+  | P3 | 8 h | 3 jours |
+  | P4 | 24 h | 5 jours |
+
+- **Lien avec la supervision** :
+  - une alerte P1 ou P2 ouvre un incident automatiquement (avec son CI) ; s'il n'a pas été
+    pris en charge quand l'alerte disparaît, il se résout seul, sinon une note le signale ;
+  - un changement « En cours » met en silence les alertes de son CI pendant la fenêtre ;
+  - avant un changement, l'application avertit si le budget d'erreur est entamé (gel
+    recommandé au-delà de 100 %), si la fenêtre chevauche un autre changement sur le même
+    élément, ou si elle tombe pendant les heures d'ouverture.
+- **Calendrier des changements** : deux semaines, couleur selon le risque.
+- **Équipe** : personnes assignables et groupes d'affectation (Exploitation, Développement,
+  Support officine…). Toute personne qui agit est ajoutée automatiquement.
+- Un ticket résolu se clôt seul après 3 jours.
+
+### Où sont les tickets, et comment les sauvegarder
+
+Tout est dans `donnees/etat.json` (volume Docker `donnees`, monté sur `/donnees`).
+L'application en garde **une copie par jour** dans `donnees/copies/` (30 jours). Si le
+fichier devient illisible, il est mis de côté (`etat.json.illisible-…`), jamais écrasé.
+
+C'est désormais l'outil de travail : **incluez ce volume dans les sauvegardes hors site**
+(par exemple `docker run --rm -v supervision_donnees:/d alpine tar czf - /d > supervision.tgz`
+dans la tâche de sauvegarde nocturne).
 
 ## Essayer tout de suite (démonstration)
 
@@ -91,7 +139,7 @@ supervision.mon-officine.ga {
 | `FUSEAU`, `HEURE_OUVERTURE`, `HEURE_FERMETURE` | `Africa/Libreville`, `8`, `20` | Pour l'alerte « zéro vente » |
 | `COOKIE_SECURISE` | `false` | `true` derrière HTTPS |
 | `RESEAU_OFFICINA` | `officine-os_default` | Réseau Docker d'Officina |
-| `DOSSIER_DONNEES` | `./donnees` | Incidents, checklist, fil d'activité (`etat.json`) |
+| `DOSSIER_DONNEES` | `./donnees` | Tickets, équipe, checklist, fil d'activité (`etat.json` + copies quotidiennes) |
 
 ## Comment c'est calculé
 
@@ -115,10 +163,10 @@ server/src/        API Express (TypeScript)
   fournisseurs/    reel.ts (Prometheus, Alertmanager, Loki) et demo.ts
   analyse.ts       valeurs brutes → vues colorées selon les seuils
   supervision.ts   choix de la source, cache, état global, boucle de fond
-  incidents.ts     cycle d'incident, MTTA / MTTR
+  tickets.ts       moteur ITSM : cycle de vie, règles, SLA, liens, approbations
   catalogues.ts    contenu du guide : checklist, phases, sécurité, automatisations
-web/src/           interface React (Vite, Recharts)
-shared/            types, seuils, runbooks, mise en forme (communs)
+web/src/           interface React (Vite, Recharts) ; pages/itsm/ pour le service desk
+shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en forme
 ```
 
 Tests : `npm test`. Vérification des types : `npm run typecheck`.

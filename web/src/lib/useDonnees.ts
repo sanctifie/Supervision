@@ -36,5 +36,8 @@ export function useDonnees<T>(chemin: string | null, intervalleMs = 15_000) {
     return () => clearInterval(id);
   }, [recharger, intervalleMs]);
 
-  return { donnees, erreur, chargement, recharger };
+  /** Remplace les données sans relire (réponse d'une action). */
+  const remplacer = useCallback((d: T) => setDonnees(d), []);
+
+  return { donnees, erreur, chargement, recharger, remplacer };
 }
