@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { AlertOctagon, ArrowRight, CalendarClock, ClipboardList, GitPullRequest, Plus, ShieldCheck, Siren, Timer, Wrench } from 'lucide-react';
+import { ShoppingCart, AlertOctagon, ArrowRight, CalendarClock, ClipboardList, GitPullRequest, Plus, ShieldCheck, Siren, Timer, Wrench } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { useSupervision } from '../../components/Coquille';
 import { Carte, Charge, Vide } from '../../components/ui';
@@ -129,6 +129,15 @@ export default function AccueilItsm() {
                 ))}
             </div>
 
+            <Link className="carte domaine raccourci-catalogue" to="/catalogue">
+              <span className="tuile grande">
+                <ShoppingCart size={22} />
+              </span>
+              <div>
+                <h4>Catalogue de demandes</h4>
+                <p>Compte, départ, PIN, poste, matériel, produit, export, formation : le bon formulaire, la bonne équipe.</p>
+              </div>
+            </Link>
             {d.majeurs.length > 0 && (
               <div className="banniere rouge">
                 <div className="banniere-icone">

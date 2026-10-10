@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft, BookOpen } from 'lucide-react';
+import { ArrowLeft, BookOpen, ShoppingCart } from 'lucide-react';
 import type { ArticleResume } from '../../../../shared/connaissances';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
@@ -112,6 +112,15 @@ export default function NouveauTicket() {
         ))}
       </div>
 
+      {type === 'demande' && (
+        <div className="encadre ligne-flex">
+          <ShoppingCart size={16} color="#2f5bea" />
+          <span>Un compte, un poste, une réparation, un export, une formation ? Le catalogue pose les bonnes questions et envoie la demande à la bonne équipe.</span>
+          <Link className="bouton petit primaire" to="/catalogue">
+            Ouvrir le catalogue
+          </Link>
+        </div>
+      )}
       <Carte titre={LIBELLE_TYPE[type].nouveau} sousTitre={lien ? `Sera lié à ${lien}` : undefined}>
         <div className="champ-groupe" style={{ marginTop: 0 }}>
           <label className="etiquette">Titre *</label>

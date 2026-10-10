@@ -1486,6 +1486,32 @@ label.etiquette {
   font-weight: 600;
 }
 
+/* --- Catalogue -------------------------------------------------------------- */
+.modale.large {
+  width: min(860px, 100%);
+}
+.variable-ligne {
+  display: grid;
+  grid-template-columns: minmax(180px, 1fr) 110px 150px auto auto auto auto;
+  gap: 6px;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px dashed var(--bord);
+}
+.icone-bouton.choisie {
+  background: var(--bleu-clair);
+  color: var(--bleu);
+  border-color: var(--bleu);
+}
+.raccourci-catalogue {
+  background: linear-gradient(120deg, #ffffff, #eef3ff);
+}
+@media (max-width: 860px) {
+  .variable-ligne {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 /* --- ITSM ------------------------------------------------------------------ */
 .champ-groupe {
   margin-top: 12px;

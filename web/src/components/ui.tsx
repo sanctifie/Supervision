@@ -185,10 +185,10 @@ export function Charge<T>({ etat, children, hauteur }: { etat: { donnees: T | nu
   );
 }
 
-export function Modale({ titre, children, fermer }: { titre: string; children: ReactNode; fermer: () => void }) {
+export function Modale({ titre, children, fermer, large }: { titre: string; children: ReactNode; fermer: () => void; large?: boolean }) {
   return (
     <div className="modale-fond" onMouseDown={(e) => e.target === e.currentTarget && fermer()} role="dialog" aria-modal="true" aria-label={titre}>
-      <div className="modale">
+      <div className={`modale ${large ? 'large' : ''}`}>
         <h3>{titre}</h3>
         {children}
       </div>

@@ -200,6 +200,16 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
 
       <div className="grille g-principal" style={{ alignItems: 'start' }}>
         <div className="empile">
+          {t.variables && t.variables.length > 0 && (
+            <Carte titre={`Formulaire : ${t.catalogue?.nom ?? 'catalogue'}`}>
+              {t.variables.map((v) => (
+                <div className="fiche-ligne" key={v.libelle}>
+                  <span>{v.libelle}</span>
+                  <div style={{ whiteSpace: 'pre-wrap' }}>{v.valeur}</div>
+                </div>
+              ))}
+            </Carte>
+          )}
           <Carte titre="Description">
             <ChampTexte
               label=""

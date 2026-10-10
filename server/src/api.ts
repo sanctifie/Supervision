@@ -371,6 +371,38 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
+  // Catalogue de demandes.
+  api.get('/catalogue', (req, res) => {
+    res.json(sup.catalogue.lister(req.query.tous !== undefined && peut(res, 'administrer')));
+  });
+  api.get(
+    '/catalogue/:id',
+    agir((req, res) => sup.catalogue.trouver(String(req.params.id), peut(res, 'administrer'))),
+  );
+  api.post(
+    '/catalogue/:id/commander',
+    exiger('creer'),
+    agir((req, res) => sup.catalogue.commander(String(req.params.id), req.body?.valeurs ?? {}, String(req.body?.commentaire ?? '').slice(0, 5000), res.locals.nom), 201),
+  );
+  api.post(
+    '/catalogue',
+    exiger('administrer'),
+    agir((req) => sup.catalogue.creer(req.body ?? {}), 201),
+  );
+  api.patch(
+    '/catalogue/:id',
+    exiger('administrer'),
+    agir((req) => sup.catalogue.modifier(String(req.params.id), req.body ?? {})),
+  );
+  api.delete(
+    '/catalogue/:id',
+    exiger('administrer'),
+    agir((req) => {
+      sup.catalogue.supprimer(String(req.params.id));
+      return { ok: true };
+    }),
+  );
+
   // Base de connaissances.
   api.get(
     '/connaissances',

@@ -9,6 +9,7 @@ import {
   Users,
   Settings,
   BookOpen,
+  ShoppingCart,
   Wrench,
   Cpu,
   Database,
@@ -94,6 +95,14 @@ export const PAGES: DescriptionPage[] = [
     icone: ClipboardList,
     compteur: 'demandes',
     motsCles: 'req demande service compte',
+  },
+  {
+    chemin: '/catalogue',
+    titre: 'Catalogue',
+    description: 'Commander ce dont vous avez besoin : compte, poste, matériel, export, formation.',
+    groupe: 'Service desk',
+    icone: ShoppingCart,
+    motsCles: 'catalogue commander demande compte poste formation export',
   },
   {
     chemin: '/connaissances',

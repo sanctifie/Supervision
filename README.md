@@ -119,6 +119,12 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
   glisser-déposer, sélection ou collage direct d'une capture (Ctrl+V). Un demandeur peut
   joindre des fichiers à ses tickets. Les fichiers sont servis sans jamais s'exécuter dans
   la page (bac à sable, types non affichables téléchargés).
+- **Catalogue de demandes** : des demandes prêtes à commander, chacune avec son formulaire
+  (créer un compte Officina, désactiver un compte au départ, réinitialiser un PIN, installer un
+  poste comptoir, réparer un matériel, ajouter ou corriger un produit, export de données,
+  formation). Les réponses sont contrôlées (champs requis, listes, dates, nombres) ; la demande
+  arrive avec un titre clair, sa priorité et le bon groupe. Les administrateurs ajoutent,
+  modifient ou masquent les articles et leurs champs (**Catalogue → Gérer le catalogue**).
 - **Base de connaissances** (`KB0001001`) : articles en Markdown simple (brouillon → publié →
   retiré, versions gardées), visibles par l'équipe seulement ou par tout le monde ; recherche
   sans accents (titre, mots-clés, texte) ; avis « utile / pas utile » (un par personne).
@@ -234,7 +240,7 @@ server/src/        API Express (TypeScript)
   comptes.ts       comptes, mots de passe, sessions ; acces.ts : contrôle d'accès
   notifications.ts qui prévenir ; canaux.ts : Telegram et e-mail
   pieces.ts        pièces jointes
-  connaissances.ts base de connaissances
+  connaissances.ts base de connaissances ; catalogue.ts : catalogue de demandes
   catalogues.ts    contenu du guide : checklist, phases, sécurité, automatisations
 web/src/           interface React (Vite, Recharts) ; pages/itsm/ pour le service desk
 shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en forme

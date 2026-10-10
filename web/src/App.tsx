@@ -24,6 +24,8 @@ import Equipe from './pages/itsm/Equipe';
 import Parametres from './pages/itsm/Parametres';
 import Connaissances from './pages/itsm/Connaissances';
 import Article, { NouvelArticle } from './pages/itsm/Article';
+import Catalogue, { CommandeCatalogue } from './pages/itsm/Catalogue';
+import GestionCatalogue from './pages/itsm/GestionCatalogue';
 import Securite from './pages/Securite';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
@@ -46,6 +48,9 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/demandes': () => <ListeTickets key="demande" type="demande" />,
   '/equipe': Equipe,
   '/parametres': Parametres,
+  '/catalogue': Catalogue,
+  '/catalogue/gerer': GestionCatalogue,
+  '/catalogue/:id': CommandeCatalogue,
   '/connaissances': Connaissances,
   '/connaissances/nouveau': NouvelArticle,
   '/connaissances/:numero': Article,

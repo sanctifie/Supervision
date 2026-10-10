@@ -19,6 +19,7 @@ import { Comptes } from './comptes';
 import { Notifications } from './notifications';
 import { PiecesJointes } from './pieces';
 import { BaseConnaissances } from './connaissances';
+import { Catalogue } from './catalogue';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -63,6 +64,7 @@ export class Supervision {
   readonly notifications: Notifications;
   readonly pieces: PiecesJointes;
   readonly connaissances: BaseConnaissances;
+  readonly catalogue: Catalogue;
 
   constructor(
     readonly stockage: Stockage,
@@ -83,6 +85,7 @@ export class Supervision {
     this.notifications = new Notifications(stockage, this.comptes, canaux);
     this.pieces = new PiecesJointes(stockage.dossier, stockage, this.tickets);
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
+    this.catalogue = new Catalogue(stockage, this.tickets);
   }
 
   get mode() {

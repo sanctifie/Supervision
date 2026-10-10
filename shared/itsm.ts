@@ -69,6 +69,9 @@ export interface Ticket {
   alertes: string[];
   automatique: boolean;
   piecesJointes?: PieceJointe[];
+  /** Demande commandée depuis le catalogue, avec les réponses du formulaire. */
+  catalogue?: { id: string; nom: string };
+  variables?: { libelle: string; valeur: string }[];
   /** SLA déjà signalés (« reponse:a-risque »…), pour ne prévenir qu'une fois. */
   slaNotifie?: string[];
   /** SLA en pause (ticket « En attente ») depuis… */

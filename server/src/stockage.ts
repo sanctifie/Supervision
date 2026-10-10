@@ -7,6 +7,7 @@ import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
 import type { Article } from '../../shared/connaissances';
+import type { ArticleCatalogue } from '../../shared/catalogue';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -43,6 +44,9 @@ export interface Etat {
   sessions: SessionStockee[];
   notifications: Notification[];
   articles: Article[];
+  catalogue: ArticleCatalogue[];
+  /** Le catalogue de départ a été posé (on ne le remet pas si l'administrateur le vide). */
+  catalogueInitialise?: boolean;
   /** Absent : valeurs par défaut (config + délais du guide). */
   parametres?: Parametres;
   evenements: Evenement[];
@@ -61,6 +65,7 @@ const VIDE: Etat = {
   sessions: [],
   notifications: [],
   articles: [],
+  catalogue: [],
   evenements: [],
   confirmations: {},
   vus: { alertes: {}, derniereSauvegarde: null },
@@ -92,6 +97,7 @@ export class Stockage {
         sessions: brut.sessions ?? [],
         notifications: brut.notifications ?? [],
         articles: brut.articles ?? [],
+        catalogue: brut.catalogue ?? [],
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.
