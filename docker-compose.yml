@@ -1,0 +1,43 @@
+# ============================================================================
+# Supervision Officina — à côté d'Officina, sur le même serveur.
+#
+# Elle rejoint le réseau Docker d'Officina pour lire Prometheus, Alertmanager
+# et Loki par leur nom (installés par supervision/docker-compose.supervision.yml
+# du dépôt Pharmatech). Rien n'est modifié côté Officina.
+#
+#   cp .env.exemple .env      # puis remplir le mot de passe
+#   docker compose up -d --build
+#
+# L'interface écoute sur 127.0.0.1:8080 : on l'ouvre par un tunnel SSH
+#   ssh -L 8080:127.0.0.1:8080 utilisateur@serveur   puis http://localhost:8080
+# ou on la publie derrière Caddy (voir le README).
+# ============================================================================
+services:
+  supervision:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      PROMETHEUS_URL: ${PROMETHEUS_URL:-http://prometheus:9090}
+      ALERTMANAGER_URL: ${ALERTMANAGER_URL:-http://alertmanager:9093}
+      LOKI_URL: ${LOKI_URL:-http://loki:3100}
+    ports:
+      - '127.0.0.1:${PORT_PUBLIE:-8080}:8080'
+    volumes:
+      - donnees:/donnees
+    networks:
+      - officina
+    mem_limit: 192m
+    logging:
+      driver: json-file
+      options: { max-size: '10m', max-file: '3' }
+
+networks:
+  # Réseau par défaut du projet Officina : « <dossier>_default ».
+  # Officina installée dans /opt/officine-os → officine-os_default.
+  officina:
+    external: true
+    name: ${RESEAU_OFFICINA:-officine-os_default}
+
+volumes:
+  donnees:
