@@ -4,6 +4,7 @@ import type { Evenement, Incident } from '../../shared/types';
 import type { Ticket } from '../../shared/itsm';
 import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
+import type { Notification } from './notifications';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -33,6 +34,7 @@ export interface Etat {
   equipe: Equipe;
   comptes: CompteStocke[];
   sessions: SessionStockee[];
+  notifications: Notification[];
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;
@@ -47,6 +49,7 @@ const VIDE: Etat = {
   equipe: { membres: [], groupes: [...GROUPES_DEFAUT] },
   comptes: [],
   sessions: [],
+  notifications: [],
   evenements: [],
   confirmations: {},
   vus: { alertes: {}, derniereSauvegarde: null },
@@ -76,6 +79,7 @@ export class Stockage {
         compteurs: brut.compteurs ?? {},
         comptes: brut.comptes ?? [],
         sessions: brut.sessions ?? [],
+        notifications: brut.notifications ?? [],
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.

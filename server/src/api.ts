@@ -41,6 +41,21 @@ export function creerApi(sup: Supervision): Router {
   // --- Protégés -------------------------------------------------------------
   api.use(acces.exigerSession);
 
+  // Mes notifications (la cloche).
+  api.get('/notifications', (_req, res) => {
+    res.json(sup.notifications.lister((res.locals.compte as CompteStocke).id));
+  });
+  api.post('/notifications/lues', (req, res) => {
+    sup.notifications.marquerLues((res.locals.compte as CompteStocke).id, typeof req.body?.id === 'string' ? req.body.id : undefined);
+    res.json(sup.notifications.lister((res.locals.compte as CompteStocke).id));
+  });
+  api.get('/notifications/canaux', (_req, res) => {
+    res.json(sup.notifications.etatCanaux());
+  });
+  api.post('/notifications/test', async (_req, res) => {
+    res.json(await sup.notifications.tester(res.locals.compte as CompteStocke));
+  });
+
   // Mon compte.
   api.get('/profil', (_req, res) => {
     res.json(sup.comptes.lister().find((c) => c.id === (res.locals.compte as CompteStocke).id));

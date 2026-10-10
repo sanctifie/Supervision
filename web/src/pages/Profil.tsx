@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { KeyRound, Save } from 'lucide-react';
+import { KeyRound, Save, Send } from 'lucide-react';
 import { appeler } from '../lib/api';
 import { useSupervision } from '../components/Coquille';
 import { Carte, Pastille } from '../components/ui';
@@ -19,6 +19,12 @@ export default function Profil() {
   const [nouveau, setNouveau] = useState('');
   const [confirmation, setConfirmation] = useState('');
   const [messageMdp, setMessageMdp] = useState<{ ok: boolean; texte: string } | null>(null);
+
+  const [canaux, setCanaux] = useState<{ telegram: boolean; email: boolean; equipe: boolean } | null>(null);
+  const [test, setTest] = useState<Record<string, string> | null>(null);
+  useEffect(() => {
+    appeler<{ telegram: boolean; email: boolean; equipe: boolean }>('/notifications/canaux').then(setCanaux, () => undefined);
+  }, []);
 
   useEffect(() => {
     setEmail(compte.email);
@@ -82,9 +88,36 @@ export default function Profil() {
                 {message.texte}
               </div>
             )}
-            <button className="bouton primaire" type="submit" style={{ marginTop: 14 }}>
-              <Save size={14} /> Enregistrer
-            </button>
+            <div className="ligne-flex" style={{ marginTop: 14 }}>
+              <button className="bouton primaire" type="submit">
+                <Save size={14} /> Enregistrer
+              </button>
+              <button
+                type="button"
+                className="bouton"
+                onClick={async () => {
+                  setTest(null);
+                  setTest(await appeler<Record<string, string>>('/notifications/test', { methode: 'POST', corps: {} }));
+                }}
+              >
+                <Send size={14} /> M’envoyer un test
+              </button>
+            </div>
+            {canaux && (
+              <p className="discret" style={{ fontSize: '0.76rem', marginBottom: 0 }}>
+                Sur ce serveur : Telegram {canaux.telegram ? 'configuré' : 'non configuré'} · e-mail {canaux.email ? 'configuré' : 'non configuré'}
+                {canaux.equipe ? ' · les incidents P1/P2 partent aussi dans la conversation de l’équipe' : ''}.
+              </p>
+            )}
+            {test && (
+              <div className="encadre" style={{ marginTop: 12 }}>
+                {Object.entries(test).map(([canal, r]) => (
+                  <div key={canal}>
+                    <strong>{canal === 'application' ? 'Cloche' : canal === 'telegram' ? 'Telegram' : 'E-mail'}</strong> : {r === 'ok' ? '✅ envoyé' : r}
+                  </div>
+                ))}
+              </div>
+            )}
           </form>
         </Carte>
       </div>

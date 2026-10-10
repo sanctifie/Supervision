@@ -57,6 +57,8 @@ export interface Ticket {
   /** Empreintes des alertes Alertmanager à l'origine (incidents automatiques). */
   alertes: string[];
   automatique: boolean;
+  /** SLA déjà signalés (« reponse:a-risque »…), pour ne prévenir qu'une fois. */
+  slaNotifie?: string[];
 
   // Incident
   codeResolution?: string;

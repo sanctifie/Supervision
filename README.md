@@ -55,6 +55,32 @@ Chacun a son compte (identifiant + mot de passe) : ses actions sont signées de 
 - **Mot de passe administrateur perdu** : sur l'écran de connexion, « Secours
   administrateur », avec le code d'installation : un mot de passe provisoire est donné.
 
+## Notifications
+
+Chaque notification arrive dans la **cloche** de l'application ; elle part aussi sur
+**Telegram** et par **e-mail** si le serveur est configuré (`.env`) et selon les choix de
+chacun dans **Mon profil** (avec un bouton « M'envoyer un test »). On n'est jamais prévenu
+de sa propre action.
+
+| Événement | Qui est prévenu |
+|-----------|-----------------|
+| Incident P1/P2 ouvert | Tous les agents + la conversation Telegram de l'équipe |
+| Incident P3/P4 ou demande ouverts | L'assigné, sinon les agents de son groupe, sinon tous les agents |
+| Ticket assigné | La personne assignée |
+| Changement soumis au CAB | Les approbateurs |
+| Changement approuvé / rejeté | Le demandeur et l'auteur du changement |
+| Réponse de l'équipe (commentaire) | Le demandeur |
+| Message du demandeur | L'assigné (ou son groupe) |
+| Note de travail d'un collègue | L'assigné |
+| Incident ou demande résolu | Le demandeur |
+| Ticket rouvert | L'assigné (ou son groupe) |
+| SLA à risque (75 % du délai écoulé) | L'assigné (ou son groupe) |
+| SLA dépassé | L'assigné, les administrateurs, et l'équipe pour un P1/P2 |
+
+Les variables reprennent celles de la supervision d'Officina : `TELEGRAM_BOT_TOKEN`,
+`TELEGRAM_CHAT_ID`, `SMTP_HOTE`, `SMTP_UTILISATEUR`, `SMTP_MOT_DE_PASSE` (voir `.env.exemple`),
+plus `URL_PUBLIQUE` pour mettre un lien vers le ticket dans chaque message.
+
 ## Service desk (ITSM)
 
 L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.

@@ -38,6 +38,16 @@ export const config = {
   /** Nom affiché de l'officine / du produit supervisé. */
   nomProduit: texte('NOM_PRODUIT', 'Officina'),
   delaiRequeteMs: Number(texte('DELAI_REQUETE_MS', '4000')),
+  /** Adresse publique de l'interface, pour les liens dans les notifications. */
+  urlPublique: texte('URL_PUBLIQUE').replace(/\/$/, ''),
+  /** Telegram : même bot que les alertes d'Officina ; TELEGRAM_CHAT_ID = la conversation de l'équipe. */
+  telegramJeton: texte('TELEGRAM_BOT_TOKEN'),
+  telegramEquipe: texte('TELEGRAM_CHAT_ID'),
+  /** E-mail (SMTP) : mêmes variables que la supervision d'Officina. SMTP_HOTE accepte « hote:port ». */
+  smtpHote: texte('SMTP_HOTE'),
+  smtpUtilisateur: texte('SMTP_UTILISATEUR'),
+  smtpMotDePasse: texte('SMTP_MOT_DE_PASSE'),
+  smtpExpediteur: texte('SMTP_EXPEDITEUR') || texte('SMTP_UTILISATEUR'),
   /** Fuseau et heures d'ouverture de l'officine (alerte « zéro vente »). */
   fuseau: texte('FUSEAU', 'Africa/Libreville'),
   ouverture: Number(texte('HEURE_OUVERTURE', '8')),

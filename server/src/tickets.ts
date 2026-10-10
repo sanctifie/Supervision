@@ -25,6 +25,7 @@ import {
   type TypeTicket,
 } from '../../shared/itsm';
 import type { Alerte, Priorite } from '../../shared/types';
+import type { EvenementTicket } from './notifications';
 
 /**
  * Le moteur ITSM : création, cycle de vie, règles de passage, SLA, liens,
@@ -41,6 +42,8 @@ const CLOTURE_AUTO = 3 * JOUR;
 export interface EffetsTickets {
   creerSilence(ci: string, debut: number, fin: number, commentaire: string, auteur: string): Promise<string>;
   supprimerSilence(id: string): Promise<void>;
+  /** Ce qui arrive aux tickets (notifications). */
+  signaler?(e: EvenementTicket): void;
 }
 
 export interface FiltreTickets {
@@ -298,7 +301,16 @@ export class Tickets {
         statut: type === 'changement' ? 'vert' : statutDeLaPriorite(t.priorite === 'P4' ? 'P3' : t.priorite),
       });
     }
+    this.signaler({ type: 'cree', ticket: t, auteur });
     return t;
+  }
+
+  private signaler(e: EvenementTicket): void {
+    try {
+      this.effets.signaler?.(e);
+    } catch (x) {
+      console.error('[tickets] notification :', (x as Error).message);
+    }
   }
 
   modifier(cle: string, champs: Record<string, unknown>, auteur: string): Ticket {
@@ -307,6 +319,7 @@ export class Tickets {
       throw new ErreurMetier(`${t.numero} est ${libelleStatut(t.type, t.statut).toLowerCase()} : rouvrez-le pour le modifier`);
     }
     const permis = CHAMPS_PAR_TYPE[t.type];
+    const assigneAvant = t.assigneA;
     this.stockage.modifier(() => {
       for (const [cleChamp, brut] of Object.entries(champs)) {
         if (!permis.includes(cleChamp)) continue;
@@ -338,9 +351,11 @@ export class Tickets {
         this.tracer(t, auteur, `Priorité : ${t.priorite} → ${priorite}`);
         t.priorite = priorite;
         this.calculerSla(t);
+        t.slaNotifie = [];
       }
       t.majLe = Date.now();
     });
+    if (t.assigneA && t.assigneA !== assigneAvant) this.signaler({ type: 'assigne', ticket: t, auteur });
     return t;
   }
 
@@ -394,6 +409,7 @@ export class Tickets {
     if (bloque) throw new ErreurMetier(bloque);
 
     const avant = t.statut;
+    const assigneAvant = t.assigneA;
     const maintenant = Date.now();
 
     // Effets de bord des changements : silence pendant la fenêtre.
@@ -439,6 +455,8 @@ export class Tickets {
         statut: echec ? 'orange' : 'vert',
       });
     }
+    this.signaler({ type: 'statut', ticket: t, avant, auteur });
+    if (assigneAvant !== t.assigneA && t.assigneA && t.assigneA !== auteur) this.signaler({ type: 'assigne', ticket: t, auteur });
     return t;
   }
 
@@ -448,6 +466,7 @@ export class Tickets {
     this.stockage.modifier(() => {
       this.tracer(t, auteur, contenu.trim().slice(0, 20000), type);
     });
+    this.signaler({ type: 'activite', ticket: t, nature: type, texte: contenu.trim(), auteur });
     return t;
   }
 
@@ -465,6 +484,7 @@ export class Tickets {
       if (decision === 'rejete') t.closLe = Date.now();
       this.tracer(t, 'supervision', `État : Évaluation → ${decision === 'approuve' ? 'Approuvé' : 'Rejeté'}`);
     });
+    this.signaler({ type: 'approbation', ticket: t, decision, commentaire, auteur });
     return t;
   }
 
@@ -584,6 +604,23 @@ export class Tickets {
           this.tracer(t, 'supervision', 'Clos automatiquement 3 jours après la résolution.');
         });
       }
+    }
+    this.verifierSla(maintenant);
+  }
+
+  /** Prévient une seule fois par phase quand un SLA devient à risque, puis dépassé. */
+  verifierSla(maintenant = Date.now()): void {
+    for (const t of this.liste) {
+      if (!estOuvert(t) || (t.type !== 'incident' && t.type !== 'demande')) continue;
+      const s = etatSla(t, maintenant);
+      if ((s.etat !== 'a-risque' && s.etat !== 'depasse') || !s.phase) continue;
+      const cle = `${s.phase}:${s.etat}`;
+      if (t.slaNotifie?.includes(cle)) continue;
+      this.stockage.modifier(() => {
+        t.slaNotifie = [...(t.slaNotifie ?? []), cle];
+        if (s.etat === 'depasse') this.tracer(t, 'supervision', `SLA dépassé (${s.phase === 'reponse' ? 'prise en charge' : 'résolution'}).`);
+      });
+      this.signaler({ type: 'sla', ticket: t, etat: s.etat, phase: s.phase });
     }
   }
 

@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react';
 import { NavLink, useLocation, useNavigate } from 'react-router-dom';
-import { Bell, ExternalLink, LogOut, Menu, Search, Sparkles } from 'lucide-react';
+import { ExternalLink, LogOut, Menu, Search, Siren, Sparkles } from 'lucide-react';
+import { Cloche } from './Cloche';
 import { PAGES } from '../pages/liste';
 import { useDonnees } from '../lib/useDonnees';
 import { Point } from './ui';
@@ -194,8 +195,9 @@ export function Coquille({
                   </div>
                 )}
               </div>
-              <button className="icone-bouton" onClick={() => naviguer('/alertes')} aria-label={`${alertesActives} alertes actives`} title="Alertes actives">
-                <Bell size={18} />
+              <Cloche />
+              <button className="icone-bouton" onClick={() => naviguer('/alertes')} aria-label={`${alertesActives} alertes actives`} title="Alertes de supervision actives">
+                <Siren size={18} />
                 {alertesActives !== '0' && <span className="badge-compteur">{alertesActives}</span>}
               </button>
               <button className="icone-bouton" onClick={seDeconnecter} title="Se déconnecter" aria-label="Se déconnecter">

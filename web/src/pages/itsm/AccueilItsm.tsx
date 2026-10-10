@@ -51,10 +51,14 @@ function Liste({ tickets, vide, sla = true }: { tickets: TicketResume[]; vide: s
                   <PastillePriorite p={t.priorite} />
                 </td>
               )}
-              <td>
-                <PastilleStatut type={t.type} statut={t.statut} />
+              {sla && (
+                <td>
+                  <PastilleStatut type={t.type} statut={t.statut} />
+                </td>
+              )}
+              <td style={{ whiteSpace: 'nowrap' }}>
+                {sla ? <BadgeSla etat={t.sla} echeance={t.echeance} /> : <span className="discret">{t.debutPrevu ? dateHeure(t.debutPrevu) : '—'}</span>}
               </td>
-              <td>{sla ? <BadgeSla etat={t.sla} echeance={t.echeance} /> : <span className="discret">{t.debutPrevu ? dateHeure(t.debutPrevu) : '—'}</span>}</td>
             </tr>
           ))}
         </tbody>

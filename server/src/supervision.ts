@@ -16,6 +16,8 @@ import {
 } from './analyse';
 import { Tickets } from './tickets';
 import { Comptes } from './comptes';
+import { Notifications } from './notifications';
+import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
@@ -56,8 +58,12 @@ export class Supervision {
   private boucle: NodeJS.Timeout | null = null;
   readonly tickets: Tickets;
   readonly comptes: Comptes;
+  readonly notifications: Notifications;
 
-  constructor(readonly stockage: Stockage) {
+  constructor(
+    readonly stockage: Stockage,
+    canaux: Canaux = canauxReels(),
+  ) {
     this.fournisseur = config.mode === 'reel' ? this.reel : this.demo;
     this.tickets = new Tickets(stockage, {
       creerSilence: async (ci, debut, fin, commentaire, auteur) => {
@@ -67,8 +73,10 @@ export class Supervision {
         return id;
       },
       supprimerSilence: (id) => this.supprimerSilence(id),
+      signaler: (e) => this.notifications.traiter(e),
     });
     this.comptes = new Comptes(stockage, config.dureeSessionHeures * 3_600_000, (ancien, nouveau) => this.tickets.renommerPersonne(ancien, nouveau));
+    this.notifications = new Notifications(stockage, this.comptes, canaux);
   }
 
   get mode() {
