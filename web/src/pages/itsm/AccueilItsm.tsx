@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { AlertOctagon, ArrowRight, CalendarClock, ClipboardList, GitPullRequest, Plus, ShieldCheck, Siren, Timer, Wrench } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
+import { useSupervision } from '../../components/Coquille';
 import { Carte, Charge, Vide } from '../../components/ui';
 import { BadgeSla, LienTicket, PastillePriorite, PastilleStatut } from '../../components/itsm';
 import { dateHeure, duree, pourcent } from '../../../../shared/format';
@@ -65,16 +66,45 @@ function Liste({ tickets, vide, sla = true }: { tickets: TicketResume[]; vide: s
 /** L'accueil du service desk : ce qui m'attend, ce qui brûle, ce qui arrive. */
 export default function AccueilItsm() {
   const etat = useDonnees<Tableau>('/itsm/tableau', 15_000);
+  const agent = useSupervision().peut('agir');
   return (
     <Charge etat={etat}>
       {(d) => {
         const c = d.compteurs;
         const tuiles = [
-          { libelle: 'Incidents ouverts', valeur: c.incidents, sous: c.majeurs ? `dont ${c.majeurs} majeur(s) P1/P2` : 'aucun majeur', statut: c.majeurs ? 'rouge' : 'vert', icone: Siren, lien: '/incidents' },
-          { libelle: 'SLA dépassés', valeur: c.slaDepasses, sous: `${c.slaARisque} à risque`, statut: c.slaDepasses ? 'rouge' : c.slaARisque ? 'orange' : 'vert', icone: Timer, lien: '/incidents' },
+          {
+            libelle: 'Incidents ouverts',
+            valeur: c.incidents,
+            sous: c.majeurs ? `dont ${c.majeurs} majeur(s) P1/P2` : 'aucun majeur',
+            statut: c.majeurs ? 'rouge' : 'vert',
+            icone: Siren,
+            lien: '/incidents',
+          },
+          {
+            libelle: 'SLA dépassés',
+            valeur: c.slaDepasses,
+            sous: `${c.slaARisque} à risque`,
+            statut: c.slaDepasses ? 'rouge' : c.slaARisque ? 'orange' : 'vert',
+            icone: Timer,
+            lien: '/incidents',
+          },
           { libelle: 'Problèmes ouverts', valeur: c.problemes, sous: `${c.erreursConnues} erreur(s) connue(s)`, statut: 'inconnu', icone: Wrench, lien: '/problemes' },
-          { libelle: 'Changements en cours', valeur: c.changements, sous: c.aApprouver ? `${c.aApprouver} à approuver` : 'rien à approuver', statut: c.aApprouver ? 'orange' : 'vert', icone: GitPullRequest, lien: '/changements' },
-          { libelle: 'Demandes ouvertes', valeur: c.demandes, sous: `${c.nonAssignes} ticket(s) sans personne`, statut: c.nonAssignes ? 'orange' : 'vert', icone: ClipboardList, lien: '/demandes' },
+          {
+            libelle: 'Changements en cours',
+            valeur: c.changements,
+            sous: c.aApprouver ? `${c.aApprouver} à approuver` : 'rien à approuver',
+            statut: c.aApprouver ? 'orange' : 'vert',
+            icone: GitPullRequest,
+            lien: '/changements',
+          },
+          {
+            libelle: 'Demandes ouvertes',
+            valeur: c.demandes,
+            sous: `${c.nonAssignes} ticket(s) sans personne`,
+            statut: c.nonAssignes ? 'orange' : 'vert',
+            icone: ClipboardList,
+            lien: '/demandes',
+          },
         ];
         return (
           <div className="empile">
@@ -86,11 +116,13 @@ export default function AccueilItsm() {
                   ['changement', 'Changement'],
                   ['probleme', 'Problème'],
                 ] as const
-              ).map(([type, libelle], i) => (
-                <Link key={type} className={`bouton ${i === 0 ? 'primaire' : ''}`} to={`/tickets/nouveau?type=${type}`}>
-                  <Plus size={14} /> {libelle}
-                </Link>
-              ))}
+              )
+                .filter(([type]) => agent || type === 'incident' || type === 'demande')
+                .map(([type, libelle], i) => (
+                  <Link key={type} className={`bouton ${i === 0 ? 'primaire' : ''}`} to={`/tickets/nouveau?type=${type}`}>
+                    <Plus size={14} /> {libelle}
+                  </Link>
+                ))}
             </div>
 
             {d.majeurs.length > 0 && (
@@ -137,7 +169,16 @@ export default function AccueilItsm() {
                 <Carte serree titre={`Mes tickets (${d.mesTickets.length})`} sousTitre="Assignés à moi, les plus urgents d’abord">
                   <Liste tickets={d.mesTickets} vide="Rien ne vous est assigné." />
                 </Carte>
-                <Carte serree titre={`Non assignés (${d.nonAssignes.length})`} sousTitre="À prendre en charge" droite={<Link className="lien-fleche" to="/incidents">Tout voir <ArrowRight size={13} /></Link>}>
+                <Carte
+                  serree
+                  titre={`Non assignés (${d.nonAssignes.length})`}
+                  sousTitre="À prendre en charge"
+                  droite={
+                    <Link className="lien-fleche" to="/incidents">
+                      Tout voir <ArrowRight size={13} />
+                    </Link>
+                  }
+                >
                   <Liste tickets={d.nonAssignes} vide="Tout est pris en charge." />
                 </Carte>
               </div>
@@ -170,7 +211,15 @@ export default function AccueilItsm() {
                 <Carte serree titre="À approuver (CAB)" droite={<ShieldCheck size={16} color="#2f5bea" />}>
                   <Liste tickets={d.aApprouver} vide="Aucun changement en attente d’approbation." sla={false} />
                 </Carte>
-                <Carte serree titre="Prochains changements (14 j)" droite={<Link className="lien-fleche" to="/changements"><CalendarClock size={14} /> Calendrier</Link>}>
+                <Carte
+                  serree
+                  titre="Prochains changements (14 j)"
+                  droite={
+                    <Link className="lien-fleche" to="/changements">
+                      <CalendarClock size={14} /> Calendrier
+                    </Link>
+                  }
+                >
                   {d.prochainsChangements.length ? (
                     <ul className="activite" style={{ padding: '6px 20px 14px' }}>
                       {d.prochainsChangements.slice(0, 6).map((t) => (

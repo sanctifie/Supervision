@@ -4,7 +4,27 @@ import { useDonnees } from '../lib/useDonnees';
 import { Carte, Erreur, Squelette, Vide } from '../components/ui';
 import type { LigneJournal } from '../../../shared/types';
 
-const SERVICES = ['gateway', 'identity', 'catalog', 'inventory', 'syncd', 'sales', 'regulatory', 'purchasing', 'insurance', 'billing', 'ledger', 'payments', 'notify', 'hr', 'documents', 'postgres', 'caddy', 'redis', 'nats'];
+const SERVICES = [
+  'gateway',
+  'identity',
+  'catalog',
+  'inventory',
+  'syncd',
+  'sales',
+  'regulatory',
+  'purchasing',
+  'insurance',
+  'billing',
+  'ledger',
+  'payments',
+  'notify',
+  'hr',
+  'documents',
+  'postgres',
+  'caddy',
+  'redis',
+  'nats',
+];
 
 export default function Journaux() {
   const [service, setService] = useState('');
@@ -55,7 +75,13 @@ export default function Journaux() {
             <option value={360}>6 dernières heures</option>
             <option value={1440}>24 dernières heures</option>
           </select>
-          <input className="champ" style={{ flex: 1, minWidth: 180 }} placeholder="Chercher : ECONNREFUSED, timeout, migration…" value={texte} onChange={(e) => setTexte(e.target.value)} />
+          <input
+            className="champ"
+            style={{ flex: 1, minWidth: 180 }}
+            placeholder="Chercher : ECONNREFUSED, timeout, migration…"
+            value={texte}
+            onChange={(e) => setTexte(e.target.value)}
+          />
           <button className="bouton primaire" type="submit">
             Chercher
           </button>
@@ -65,10 +91,7 @@ export default function Journaux() {
         </form>
       </Carte>
 
-      <Carte
-        titre="Journaux"
-        sousTitre={etat.donnees ? `${etat.donnees.length} lignes · ${compte('error')} erreur(s) · ${compte('warn')} avertissement(s)` : 'Lecture…'}
-      >
+      <Carte titre="Journaux" sousTitre={etat.donnees ? `${etat.donnees.length} lignes · ${compte('error')} erreur(s) · ${compte('warn')} avertissement(s)` : 'Lecture…'}>
         {etat.erreur ? (
           <Erreur message={etat.erreur} />
         ) : !etat.donnees ? (

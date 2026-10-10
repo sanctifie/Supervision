@@ -24,8 +24,12 @@ export const config = {
   lokiUrl: texte('LOKI_URL', 'http://loki:3100').replace(/\/$/, ''),
   /** Lien vers Grafana pour « voir plus » (facultatif). */
   grafanaUrl: texte('GRAFANA_URL') || null,
-  /** Mot de passe d'accès. Vide : pas de connexion demandée (à éviter en production). */
-  motDePasse: texte('SUPERVISION_MOT_DE_PASSE'),
+  /**
+   * Code d'installation : crée le premier administrateur depuis un autre poste,
+   * et sert de secours si un administrateur perd son mot de passe.
+   * (SUPERVISION_MOT_DE_PASSE, l'ancien nom, est encore lu.)
+   */
+  codeInstallation: texte('SUPERVISION_CODE_INSTALLATION') || texte('SUPERVISION_MOT_DE_PASSE'),
   /** Durée de la session, en heures. */
   dureeSessionHeures: Number(texte('SUPERVISION_SESSION_HEURES', '12')),
   /** Cookies « Secure » : à laisser à true derrière HTTPS. */

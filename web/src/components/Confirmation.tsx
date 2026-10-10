@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { Check } from 'lucide-react';
 import { appeler } from '../lib/api';
+import { useSupervision } from './Coquille';
 
 /**
  * Case à cocher enregistrée côté serveur : « c'est en place », signé du nom
@@ -8,6 +9,7 @@ import { appeler } from '../lib/api';
  */
 export function CaseConfirmation({ cle, faite, auto, apres, titre }: { cle: string; faite: boolean; auto?: boolean; apres: () => void; titre?: string }) {
   const [enCours, setEnCours] = useState(false);
+  const { peut } = useSupervision();
   if (auto) {
     return (
       <span className="case-coche auto" title="Vérifié automatiquement par la supervision">
@@ -18,7 +20,7 @@ export function CaseConfirmation({ cle, faite, auto, apres, titre }: { cle: stri
   return (
     <button
       className={`case-coche ${faite ? 'faite' : ''}`}
-      disabled={enCours}
+      disabled={enCours || !peut('agir')}
       aria-pressed={faite}
       aria-label={titre ?? (faite ? 'Décocher' : 'Confirmer')}
       title={faite ? 'Confirmé — cliquer pour annuler' : 'Confirmer que c’est en place'}

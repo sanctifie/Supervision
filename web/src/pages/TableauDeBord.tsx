@@ -28,7 +28,18 @@ const TITRE_BANNIERE: Record<Statut, string> = {
 };
 
 function IconeEvenement({ e }: { e: Evenement }) {
-  const Icone = e.type === 'alerte' ? Bell : e.type === 'incident' ? Siren : e.type === 'resolution' ? CheckCircle2 : e.type === 'sauvegarde' ? Archive : e.type === 'deploiement' ? Rocket : Info;
+  const Icone =
+    e.type === 'alerte'
+      ? Bell
+      : e.type === 'incident'
+        ? Siren
+        : e.type === 'resolution'
+          ? CheckCircle2
+          : e.type === 'sauvegarde'
+            ? Archive
+            : e.type === 'deploiement'
+              ? Rocket
+              : Info;
   return (
     <span className={`tuile ${e.statut}`}>
       <Icone size={15} />
@@ -110,7 +121,15 @@ function Contenu({ e }: { e: VueEtat }) {
           />
         </Carte>
 
-        <Carte titre="Activité récente" sousTitre="Alertes, incidents, sauvegardes" droite={<Link className="lien-fleche" to="/itsm">Service desk <ArrowRight size={14} /></Link>}>
+        <Carte
+          titre="Activité récente"
+          sousTitre="Alertes, incidents, sauvegardes"
+          droite={
+            <Link className="lien-fleche" to="/itsm">
+              Service desk <ArrowRight size={14} />
+            </Link>
+          }
+        >
           {e.activite.length ? (
             <ul className="activite">
               {e.activite.slice(0, 7).map((a, i) => (
@@ -131,7 +150,16 @@ function Contenu({ e }: { e: VueEtat }) {
       </div>
 
       <div className="grille g-principal">
-        <Carte serree titre="Produits et services" sousTitre="Un voyant par service métier (vue direction)" droite={<Link className="lien-fleche" to="/services">Sondes <ArrowRight size={14} /></Link>}>
+        <Carte
+          serree
+          titre="Produits et services"
+          sousTitre="Un voyant par service métier (vue direction)"
+          droite={
+            <Link className="lien-fleche" to="/services">
+              Sondes <ArrowRight size={14} />
+            </Link>
+          }
+        >
           <div className="tableau-conteneur">
             <table className="tableau">
               <thead>

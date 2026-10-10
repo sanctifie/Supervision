@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { BellOff, BellRing, BookOpen, ChevronDown, ChevronUp, Copy, Send, Siren, Trash2 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useSupervision } from '../components/Coquille';
 import { useDonnees } from '../lib/useDonnees';
 import { appeler } from '../lib/api';
 import { Carte, Charge, Modale, Pastille, Vide } from '../components/ui';
@@ -17,7 +18,7 @@ const NIVEAUX = [
   { p: 'Info', def: 'Tendance à surveiller (disque qui monte)', canal: 'Tableau de bord, rapport hebdo', delai: 'Planification' },
 ];
 
-function CarteAlerte({ a, silence, declarer }: { a: Alerte; silence: (a: Alerte) => void; declarer: (a: Alerte) => void }) {
+function CarteAlerte({ a, silence, declarer }: { a: Alerte; silence: ((a: Alerte) => void) | null; declarer: (a: Alerte) => void }) {
   const [ouvert, setOuvert] = useState(a.priorite === 'P1');
   const rb = runbookDe(a.nom);
   const etiquettes = Object.entries(a.labels).filter(([k]) => !['alertname', 'gravite', 'priorite'].includes(k));
@@ -61,7 +62,7 @@ function CarteAlerte({ a, silence, declarer }: { a: Alerte; silence: (a: Alerte)
           </button>
         )}
         <span className="espace" />
-        {!a.silencieuse && (
+        {!a.silencieuse && silence && (
           <button className="bouton petit" onClick={() => silence(a)}>
             <BellOff size={13} /> Mettre en silence
           </button>
@@ -97,6 +98,7 @@ function CarteAlerte({ a, silence, declarer }: { a: Alerte; silence: (a: Alerte)
 export default function Alertes() {
   const etat = useDonnees<VueAlertes>('/alertes', 10_000);
   const naviguer = useNavigate();
+  const agent = useSupervision().peut('agir');
   const [cible, setCible] = useState<Alerte | null>(null);
   const [minutes, setMinutes] = useState(60);
   const [commentaire, setCommentaire] = useState('Maintenance planifiée');
@@ -147,9 +149,11 @@ export default function Alertes() {
       <div className="ligne-flex">
         <span className="discret">Chaque alerte doit être actionnable et pointer vers un runbook. Les alertes P1 et P2 ouvrent un ticket d’incident automatiquement.</span>
         <span className="espace" />
-        <button className="bouton primaire" onClick={test}>
-          <Send size={15} /> Envoyer une alerte de test
-        </button>
+        {agent && (
+          <button className="bouton primaire" onClick={test}>
+            <Send size={15} /> Envoyer une alerte de test
+          </button>
+        )}
       </div>
       {message && <div className="encadre">{message}</div>}
 
@@ -159,7 +163,7 @@ export default function Alertes() {
             {v.alertes.length ? (
               <div className="empile">
                 {v.alertes.map((a) => (
-                  <CarteAlerte key={a.id} a={a} silence={setCible} declarer={declarer} />
+                  <CarteAlerte key={a.id} a={a} silence={agent ? setCible : null} declarer={declarer} />
                 ))}
               </div>
             ) : (
@@ -188,15 +192,17 @@ export default function Alertes() {
                         <td>{s.auteur}</td>
                         <td>{dateHeure(s.fin)}</td>
                         <td className="num">
-                          <button
-                            className="bouton petit danger"
-                            onClick={async () => {
-                              await appeler(`/silences/${encodeURIComponent(s.id)}`, { methode: 'DELETE' });
-                              void etat.recharger();
-                            }}
-                          >
-                            <Trash2 size={13} /> Lever
-                          </button>
+                          {agent && (
+                            <button
+                              className="bouton petit danger"
+                              onClick={async () => {
+                                await appeler(`/silences/${encodeURIComponent(s.id)}`, { methode: 'DELETE' });
+                                void etat.recharger();
+                              }}
+                            >
+                              <Trash2 size={13} /> Lever
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))}
@@ -284,7 +290,9 @@ export default function Alertes() {
             Motif
           </label>
           <input className="champ" value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
-          <p className="discret">Le silence ne masque que cette alerte {cible.labels.service ? `pour le service ${cible.labels.service}` : ''}. Elle reste visible ici, marquée « silencieuse ».</p>
+          <p className="discret">
+            Le silence ne masque que cette alerte {cible.labels.service ? `pour le service ${cible.labels.service}` : ''}. Elle reste visible ici, marquée « silencieuse ».
+          </p>
           <div className="ligne-flex" style={{ justifyContent: 'flex-end' }}>
             <button className="bouton" onClick={() => setCible(null)}>
               Annuler

@@ -34,7 +34,13 @@ export default function Automatisations() {
                     {v.serveur.map((a) => (
                       <tr key={a.cle}>
                         <td>
-                          <CaseConfirmation cle={`automatisation:${a.cle}`} faite={a.statut === 'vert'} auto={MESUREES.has(a.cle) && a.statut !== 'inconnu'} apres={etat.recharger} titre={a.domaine} />
+                          <CaseConfirmation
+                            cle={`automatisation:${a.cle}`}
+                            faite={a.statut === 'vert'}
+                            auto={MESUREES.has(a.cle) && a.statut !== 'inconnu'}
+                            apres={etat.recharger}
+                            titre={a.domaine}
+                          />
                         </td>
                         <td>
                           <strong>{a.domaine}</strong>

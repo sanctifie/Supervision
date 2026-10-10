@@ -47,7 +47,8 @@ export default function FeuilleDeRoute() {
                   <Jauge valeur={v.avancement * 100} statut={v.avancement === 1 ? 'vert' : v.avancement >= 0.6 ? 'orange' : 'rouge'} libelle="de la checklist" taille={170} />
                 </div>
                 <p className="discret" style={{ textAlign: 'center' }}>
-                  {v.checklist.filter(fait).length} éléments sur {v.checklist.length}. Une case verte est vérifiée par la supervision elle-même ; une case bleue a été confirmée à la main.
+                  {v.checklist.filter(fait).length} éléments sur {v.checklist.length}. Une case verte est vérifiée par la supervision elle-même ; une case bleue a été confirmée à
+                  la main.
                 </p>
               </Carte>
             </div>

@@ -7,6 +7,7 @@ import { BadgeSla, IconeType, LienTicket, PastillePriorite, PastilleStatut } fro
 import { depuis, dateHeure } from '../../../../shared/format';
 import { LIBELLE_TYPE, type TicketResume, type TypeTicket } from '../../../../shared/itsm';
 import Calendrier from './Calendrier';
+import { useSupervision } from '../../components/Coquille';
 
 const VUES: { cle: string; libelle: string; parametres: Record<string, string> }[] = [
   { cle: 'ouverts', libelle: 'Ouverts', parametres: { etat: 'ouverts' } },
@@ -32,6 +33,8 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
   if (q) parametres.set('q', q);
   const etat = useDonnees<TicketResume[]>(`/tickets?${parametres}`, 20_000);
   const changement = type === 'changement';
+  const { peut } = useSupervision();
+  const peutCreer = peut('agir') || type === 'incident' || type === 'demande';
 
   return (
     <div className="empile">
@@ -47,9 +50,11 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
           </div>
         )}
         <span className="espace" />
-        <Link className="bouton primaire" to={`/tickets/nouveau?type=${type}`}>
-          <Plus size={15} /> {LIBELLE_TYPE[type].nouveau}
-        </Link>
+        {peutCreer && (
+          <Link className="bouton primaire" to={`/tickets/nouveau?type=${type}`}>
+            <Plus size={15} /> {LIBELLE_TYPE[type].nouveau}
+          </Link>
+        )}
       </div>
 
       {affichage === 'calendrier' && changement ? (
@@ -79,7 +84,13 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
               }}
             >
               <Search size={16} />
-              <input style={{ width: '100%' }} placeholder="Numéro, titre, CI, personne… (Entrée)" value={recherche} onChange={(e) => setRecherche(e.target.value)} onBlur={() => setQ(recherche)} />
+              <input
+                style={{ width: '100%' }}
+                placeholder="Numéro, titre, CI, personne… (Entrée)"
+                value={recherche}
+                onChange={(e) => setRecherche(e.target.value)}
+                onBlur={() => setQ(recherche)}
+              />
             </form>
           </div>
           {etat.erreur ? (
@@ -134,7 +145,9 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
                           <td>{t.typeChangement ? LIBELLE_TYPE_CHG[t.typeChangement] : '—'}</td>
                           <td>{t.risque ? LIBELLE_RISQUE[t.risque] : '—'}</td>
                           <td className="discret" style={{ whiteSpace: 'nowrap' }}>
-                            {t.debutPrevu ? `${dateHeure(t.debutPrevu)} → ${t.finPrevue ? new Date(t.finPrevue).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}` : 'à planifier'}
+                            {t.debutPrevu
+                              ? `${dateHeure(t.debutPrevu)} → ${t.finPrevue ? new Date(t.finPrevue).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}`
+                              : 'à planifier'}
                           </td>
                         </>
                       ) : (

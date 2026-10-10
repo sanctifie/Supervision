@@ -68,14 +68,10 @@ export const prometheus = {
       const fin = Math.floor(Date.now() / 1000);
       const debut = fin - heures * 3600;
       const pas = Math.max(15, Math.floor((heures * 3600) / points));
-      const url =
-        `${config.prometheusUrl}/api/v1/query_range?query=${encodeURIComponent(promql)}` +
-        `&start=${debut}&end=${fin}&step=${pas}`;
+      const url = `${config.prometheusUrl}/api/v1/query_range?query=${encodeURIComponent(promql)}` + `&start=${debut}&end=${fin}&step=${pas}`;
       const r = await lireJson<ReponsePrometheus>(url);
       const valeurs = r.data.result[0]?.values ?? [];
-      return valeurs
-        .map(([t, v]) => ({ t: t * 1000, v: Number(v) }))
-        .filter((p) => Number.isFinite(p.v));
+      return valeurs.map(([t, v]) => ({ t: t * 1000, v: Number(v) })).filter((p) => Number.isFinite(p.v));
     } catch {
       return [];
     }
@@ -148,9 +144,7 @@ export const loki = {
   async requete(logql: string, minutes: number, limite: number) {
     const fin = BigInt(Date.now()) * 1_000_000n;
     const debut = fin - BigInt(minutes) * 60n * 1_000_000_000n;
-    const url =
-      `${config.lokiUrl}/loki/api/v1/query_range?query=${encodeURIComponent(logql)}` +
-      `&start=${debut}&end=${fin}&limit=${limite}&direction=backward`;
+    const url = `${config.lokiUrl}/loki/api/v1/query_range?query=${encodeURIComponent(logql)}` + `&start=${debut}&end=${fin}&limit=${limite}&direction=backward`;
     const r = await lireJson<ReponseLoki>(url);
     return r.data.result;
   },

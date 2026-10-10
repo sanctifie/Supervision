@@ -59,7 +59,7 @@ function bruit(graine: number, t: number, pas = MINUTE): number {
 
 /** Heure locale de Libreville (UTC+1), en heures décimales. */
 function heureLocale(t: number): number {
-  return (((t + HEURE) % JOUR) + JOUR) % JOUR / HEURE;
+  return ((((t + HEURE) % JOUR) + JOUR) % JOUR) / HEURE;
 }
 
 /** Activité de l'officine : 0 la nuit, 1 en pointe (10 h et 17 h). */
@@ -148,12 +148,20 @@ export class FournisseurDemo implements Fournisseur {
     const t = Date.now();
     const panne = notifyEnPanne(t);
     const memoires: Record<string, number> = {
-      postgres: 620, redis: 48, nats: 34, caddy: 42, syncd: 38, prometheus: 410, grafana: 160, loki: 290, alloy: 120,
+      postgres: 620,
+      redis: 48,
+      nats: 34,
+      caddy: 42,
+      syncd: 38,
+      prometheus: 410,
+      grafana: 160,
+      loki: 290,
+      alloy: 120,
     };
     const noms = [...SERVICES_OFFICINA, 'postgres', 'redis', 'nats', 'caddy', 'prometheus', 'alertmanager', 'grafana', 'loki', 'alloy'];
     return noms.sort().map((nom, i) => {
       const enPanne = nom === 'notify' && panne;
-      const mo = memoires[nom] ?? 95 + (i * 37) % 80;
+      const mo = memoires[nom] ?? 95 + ((i * 37) % 80);
       return {
         nom,
         cpuPct: enPanne ? 0 : Math.max(0.1, (nom === 'gateway' || nom === 'sales' ? 9 : 2) * affluence(t) + bruit(10 + i, t)),
@@ -190,8 +198,20 @@ export class FournisseurDemo implements Fournisseur {
     const t = Date.now();
     const a = affluence(t);
     const poids: Record<string, number> = {
-      sales: 0.24, catalog: 0.18, inventory: 0.14, syncd: 0.16, identity: 0.06, regulatory: 0.04, purchasing: 0.03,
-      insurance: 0.04, billing: 0.03, ledger: 0.02, payments: 0.03, notify: 0.01, hr: 0.01, documents: 0.01,
+      sales: 0.24,
+      catalog: 0.18,
+      inventory: 0.14,
+      syncd: 0.16,
+      identity: 0.06,
+      regulatory: 0.04,
+      purchasing: 0.03,
+      insurance: 0.04,
+      billing: 0.03,
+      ledger: 0.02,
+      payments: 0.03,
+      notify: 0.01,
+      hr: 0.01,
+      documents: 0.01,
     };
     const total = debit(t);
     return {
@@ -229,7 +249,21 @@ export class FournisseurDemo implements Fournisseur {
 
   async bdd(): Promise<BrutBdd> {
     const t = Date.now();
-    const bases = ['identity_db', 'catalog_db', 'inventory_db', 'sales_db', 'regulatory_db', 'purchasing_db', 'insurance_db', 'billing_db', 'ledger_db', 'payments_db', 'notify_db', 'hr_db', 'documents_db'];
+    const bases = [
+      'identity_db',
+      'catalog_db',
+      'inventory_db',
+      'sales_db',
+      'regulatory_db',
+      'purchasing_db',
+      'insurance_db',
+      'billing_db',
+      'ledger_db',
+      'payments_db',
+      'notify_db',
+      'hr_db',
+      'documents_db',
+    ];
     const tailles = [38, 412, 286, 1240, 96, 74, 61, 88, 530, 44, 120, 27, 690];
     return {
       enMarche: true,
@@ -245,7 +279,7 @@ export class FournisseurDemo implements Fournisseur {
 
   async metier(): Promise<BrutMetier> {
     const t = Date.now();
-    const debutJour = t - (((t + HEURE) % JOUR) + JOUR) % JOUR;
+    const debutJour = t - ((((t + HEURE) % JOUR) + JOUR) % JOUR);
     let jour = 0;
     for (let x = debutJour; x < t; x += HEURE) jour += ventesHeure(x);
     return {

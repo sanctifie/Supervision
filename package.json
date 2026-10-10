@@ -12,7 +12,8 @@
     "build": "vite build && esbuild server/src/index.ts --bundle --platform=node --target=node20 --format=esm --packages=external --outfile=dist/server/index.js",
     "start": "node dist/server/index.js",
     "typecheck": "tsc -p server/tsconfig.json --noEmit && tsc -p web/tsconfig.json --noEmit",
-    "test": "vitest run"
+    "test": "vitest run",
+    "format": "prettier --write \"web/src/**/*.{ts,tsx}\" \"server/src/**/*.ts\" \"shared/**/*.ts\""
   },
   "engines": {
     "node": ">=20"
@@ -30,6 +31,7 @@
     "concurrently": "^10.0.6",
     "esbuild": "^0.28.2",
     "lucide-react": "^1.55.0",
+    "prettier": "^3.9.10",
     "react": "^19.3.0",
     "react-dom": "^19.3.0",
     "react-router-dom": "^7.18.4",

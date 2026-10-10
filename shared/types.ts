@@ -359,7 +359,6 @@ export interface Incident {
   automatique: boolean;
 }
 
-
 export interface ElementChecklist {
   id: string;
   libelle: string;

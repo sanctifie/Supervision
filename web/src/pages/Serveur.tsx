@@ -21,11 +21,7 @@ export default function Serveur() {
         return (
           <div className="empile">
             <div className="grille g-principal">
-              <Carte
-                titre={s.hote}
-                sousTitre={`${s.coeurs ?? '—'} cœurs · ${octets(s.memoireTotaleOctets)} de mémoire`}
-                droite={<Pastille statut={s.statut} />}
-              >
+              <Carte titre={s.hote} sousTitre={`${s.coeurs ?? '—'} cœurs · ${octets(s.memoireTotaleOctets)} de mémoire`} droite={<Pastille statut={s.statut} />}>
                 <div className="ligne-flex" style={{ justifyContent: 'space-around', gap: 24, padding: '6px 0' }}>
                   <Jauge valeur={cpu?.valeur ?? null} statut={cpu?.statut ?? 'inconnu'} libelle="Processeur" />
                   <Jauge valeur={ram?.valeur ?? null} statut={ram?.statut ?? 'inconnu'} libelle="Mémoire" />
@@ -44,7 +40,8 @@ export default function Serveur() {
                       </div>
                       <BarreProgres valeur={p.utilisePct} statut={evaluer(p.utilisePct, SEUILS.disque)} />
                       <div className="discret" style={{ marginTop: 5, fontSize: '0.74rem' }}>
-                        Inodes {pourcent(p.inodesPct, 0)} · {p.joursAvantPlein === null ? 'ne se remplit pas' : `plein dans ~${nombre(p.joursAvantPlein, p.joursAvantPlein < 3 ? 1 : 0)} jours au rythme actuel`}
+                        Inodes {pourcent(p.inodesPct, 0)} ·{' '}
+                        {p.joursAvantPlein === null ? 'ne se remplit pas' : `plein dans ~${nombre(p.joursAvantPlein, p.joursAvantPlein < 3 ? 1 : 0)} jours au rythme actuel`}
                       </div>
                     </div>
                   ))}
@@ -57,10 +54,22 @@ export default function Serveur() {
                 <Courbe series={[{ nom: 'CPU', points: s.series.cpu }]} format={(v) => `${Math.round(v)} %`} domaine={[0, 100]} seuils={seuilsPct(80, 95)} hauteur={220} />
               </Carte>
               <Carte titre="Mémoire" sousTitre="6 dernières heures, hors cache">
-                <Courbe series={[{ nom: 'RAM', points: s.series.memoire, couleur: '#7c5cff' }]} format={(v) => `${Math.round(v)} %`} domaine={[0, 100]} seuils={seuilsPct(85, 95)} hauteur={220} />
+                <Courbe
+                  series={[{ nom: 'RAM', points: s.series.memoire, couleur: '#7c5cff' }]}
+                  format={(v) => `${Math.round(v)} %`}
+                  domaine={[0, 100]}
+                  seuils={seuilsPct(85, 95)}
+                  hauteur={220}
+                />
               </Carte>
               <Carte titre="Remplissage du disque /" sousTitre="24 dernières heures">
-                <Courbe series={[{ nom: 'Disque', points: s.series.disque, couleur: '#e5860a' }]} format={(v) => `${Math.round(v)} %`} domaine={[0, 100]} seuils={seuilsPct(80, 90)} hauteur={220} />
+                <Courbe
+                  series={[{ nom: 'Disque', points: s.series.disque, couleur: '#e5860a' }]}
+                  format={(v) => `${Math.round(v)} %`}
+                  domaine={[0, 100]}
+                  seuils={seuilsPct(80, 90)}
+                  hauteur={220}
+                />
               </Carte>
               <Carte titre="Réseau" sousTitre="Trafic entrant et sortant, 6 dernières heures">
                 <Courbe

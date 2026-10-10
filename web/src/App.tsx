@@ -2,8 +2,9 @@ import { useCallback, useEffect, useState, type ComponentType } from 'react';
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom';
 import { Coquille } from './components/Coquille';
 import { Squelette } from './components/ui';
-import { appeler, nomLocal, quandDeconnecte } from './lib/api';
-import Connexion from './pages/Connexion';
+import { appeler, quandDeconnecte } from './lib/api';
+import Connexion, { ChangerMotDePasse, Installation, type CompteSession } from './pages/Connexion';
+import Profil from './pages/Profil';
 import StatutPublic from './pages/StatutPublic';
 import TableauDeBord from './pages/TableauDeBord';
 import Serveur from './pages/Serveur';
@@ -41,6 +42,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/changements': () => <ListeTickets key="changement" type="changement" />,
   '/demandes': () => <ListeTickets key="demande" type="demande" />,
   '/equipe': Equipe,
+  '/profil': Profil,
   '/tickets/nouveau': NouveauTicket,
   '/tickets/:numero': FicheTicket,
   '/securite': Securite,
@@ -49,47 +51,46 @@ const COMPOSANTS: Record<string, ComponentType> = {
 };
 
 interface Session {
-  connecte: boolean;
-  nom: string | null;
-  accesActif: boolean;
+  installation: boolean;
+  codeRequis: boolean;
+  compte: CompteSession | null;
   produit: string;
 }
 
 function Espace() {
   const [session, setSession] = useState<Session | null>(null);
-  const [nom, setNom] = useState<string | null>(null);
 
   const lireSession = useCallback(async () => {
     try {
-      const s = await appeler<Session>('/session');
-      setSession(s);
-      // Sans mot de passe : on entre dès qu'un nom est connu sur ce poste.
-      setNom(s.accesActif ? (s.connecte ? s.nom : null) : nomLocal() || null);
+      setSession(await appeler<Session>('/session'));
     } catch {
-      setSession({ connecte: false, nom: null, accesActif: true, produit: 'Officina' });
+      setSession({ installation: false, codeRequis: true, compte: null, produit: 'Officina' });
     }
   }, []);
 
   useEffect(() => {
     void lireSession();
-    quandDeconnecte(() => setNom(null));
+    quandDeconnecte(() => setSession((s) => (s ? { ...s, compte: null } : s)));
   }, [lireSession]);
 
-  if (!session) return <div style={{ padding: 40 }}><Squelette hauteur={400} /></div>;
-  if (!nom) return <Connexion produit={session.produit} accesActif={session.accesActif} connecte={setNom} />;
+  if (!session)
+    return (
+      <div style={{ padding: 40 }}>
+        <Squelette hauteur={400} />
+      </div>
+    );
+  const connecte = (compte: CompteSession) => setSession({ ...session, installation: false, compte });
+  if (session.installation) return <Installation produit={session.produit} codeRequis={session.codeRequis} connecte={connecte} />;
+  if (!session.compte) return <Connexion produit={session.produit} connecte={connecte} />;
+  if (session.compte.doitChangerMotDePasse) return <ChangerMotDePasse produit={session.produit} compte={session.compte} fait={lireSession} />;
 
   const deconnecter = async () => {
     await appeler('/deconnexion', { methode: 'POST', corps: {} }).catch(() => undefined);
-    try {
-      localStorage.removeItem('supervision.nom');
-    } catch {
-      /* rien */
-    }
-    setNom(null);
+    setSession({ ...session, compte: null });
   };
 
   return (
-    <Coquille nom={nom} produit={session.produit} seDeconnecter={deconnecter}>
+    <Coquille compte={session.compte} produit={session.produit} seDeconnecter={deconnecter} rafraichirCompte={lireSession}>
       <Routes>
         {Object.entries(COMPOSANTS).map(([chemin, Composant]) => (
           <Route key={chemin} path={chemin} element={<Composant />} />

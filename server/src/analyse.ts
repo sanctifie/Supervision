@@ -27,15 +27,7 @@ import type {
  * Fonctions pures : testées sans serveur.
  */
 
-function mesure(
-  cle: string,
-  libelle: string,
-  valeur: number | null,
-  unite: string,
-  seuil?: Seuil,
-  detail?: string,
-  statutForce?: Statut,
-): Mesure {
+function mesure(cle: string, libelle: string, valeur: number | null, unite: string, seuil?: Seuil, detail?: string, statutForce?: Statut): Mesure {
   return {
     cle,
     libelle,
@@ -53,11 +45,7 @@ const statutGlobal = (mesures: { statut: Statut }[]) => pire('vert', ...mesures.
 export function analyserServeur(b: BrutServeur): VueServeur {
   const partitions = b.partitions.map((p) => ({
     ...p,
-    statut: pire(
-      evaluer(p.utilisePct, SEUILS.disque),
-      evaluer(p.inodesPct, SEUILS.inodes),
-      p.joursAvantPlein !== null && p.joursAvantPlein < 1 ? 'rouge' : 'vert',
-    ),
+    statut: pire(evaluer(p.utilisePct, SEUILS.disque), evaluer(p.inodesPct, SEUILS.inodes), p.joursAvantPlein !== null && p.joursAvantPlein < 1 ? 'rouge' : 'vert'),
   }));
 
   const oom = b.oom1h === null ? 'inconnu' : b.oom1h > 0 ? 'rouge' : 'vert';
@@ -66,8 +54,22 @@ export function analyserServeur(b: BrutServeur): VueServeur {
       titre: 'Processeur et mémoire',
       mesures: [
         mesure('cpu', 'Processeur', b.cpuPct, '%', SEUILS.cpu, 'Utilisation moyenne de tous les cœurs (5 min)'),
-        mesure('iowait', 'Attente disque (iowait)', b.iowaitPct, '%', { ...SEUILS.cpu, warning: 20, critique: 40, libelleWarning: '> 20 %', libelleCritique: '> 40 %' }, 'Temps passé à attendre le disque'),
-        mesure('steal', 'Vol de CPU (steal)', b.stealPct, '%', { ...SEUILS.cpu, warning: 10, critique: 25, libelleWarning: '> 10 %', libelleCritique: '> 25 %' }, 'Temps pris par l’hébergeur (machine virtuelle)'),
+        mesure(
+          'iowait',
+          'Attente disque (iowait)',
+          b.iowaitPct,
+          '%',
+          { ...SEUILS.cpu, warning: 20, critique: 40, libelleWarning: '> 20 %', libelleCritique: '> 40 %' },
+          'Temps passé à attendre le disque',
+        ),
+        mesure(
+          'steal',
+          'Vol de CPU (steal)',
+          b.stealPct,
+          '%',
+          { ...SEUILS.cpu, warning: 10, critique: 25, libelleWarning: '> 10 %', libelleCritique: '> 25 %' },
+          'Temps pris par l’hébergeur (machine virtuelle)',
+        ),
         mesure('charge', 'Charge par cœur', b.chargeParCoeur, '', SEUILS.charge, 'Load average 5 min / nombre de cœurs'),
         mesure('memoire', 'Mémoire utilisée', b.memoirePct, '%', SEUILS.memoire, 'RAM hors cache'),
         mesure('swap', 'Swap utilisé', b.swapPct, '%', SEUILS.swap),
@@ -78,7 +80,14 @@ export function analyserServeur(b: BrutServeur): VueServeur {
       titre: 'Disques',
       mesures: [
         mesure('disque-latence', 'Latence disque', b.disqueLatenceMs, 'ms', SEUILS.disqueLatence, 'Temps moyen par opération de lecture/écriture'),
-        mesure('disque-occupe', 'Disque occupé', b.disqueOccupePct, '%', { ...SEUILS.cpu, libelleWarning: '> 80 %', libelleCritique: '> 95 %' }, 'Part du temps où le disque travaille'),
+        mesure(
+          'disque-occupe',
+          'Disque occupé',
+          b.disqueOccupePct,
+          '%',
+          { ...SEUILS.cpu, libelleWarning: '> 80 %', libelleCritique: '> 95 %' },
+          'Part du temps où le disque travaille',
+        ),
       ],
     },
     {
@@ -87,10 +96,34 @@ export function analyserServeur(b: BrutServeur): VueServeur {
         mesure('fd', 'Descripteurs de fichiers', b.descripteursPct, '%', SEUILS.descripteurs, 'Fichiers et sockets ouverts / limite'),
         mesure('processus', 'Processus', b.processus, ''),
         mesure('zombies', 'Processus zombies', b.zombies, '', undefined, undefined, b.zombies === null ? 'inconnu' : b.zombies > 5 ? 'orange' : 'vert'),
-        mesure('uptime', 'Démarré depuis', b.uptimeSecondes, 's', undefined, 'Un redémarrage inattendu remet ce compteur à zéro', b.uptimeSecondes === null ? 'inconnu' : b.uptimeSecondes < 600 ? 'orange' : 'vert'),
-        mesure('reboot', 'Redémarrage requis', b.redemarrageRequis === null ? null : b.redemarrageRequis ? 1 : 0, 'bool', undefined, 'Noyau ou bibliothèques mis à jour', b.redemarrageRequis === null ? 'inconnu' : b.redemarrageRequis ? 'orange' : 'vert'),
+        mesure(
+          'uptime',
+          'Démarré depuis',
+          b.uptimeSecondes,
+          's',
+          undefined,
+          'Un redémarrage inattendu remet ce compteur à zéro',
+          b.uptimeSecondes === null ? 'inconnu' : b.uptimeSecondes < 600 ? 'orange' : 'vert',
+        ),
+        mesure(
+          'reboot',
+          'Redémarrage requis',
+          b.redemarrageRequis === null ? null : b.redemarrageRequis ? 1 : 0,
+          'bool',
+          undefined,
+          'Noyau ou bibliothèques mis à jour',
+          b.redemarrageRequis === null ? 'inconnu' : b.redemarrageRequis ? 'orange' : 'vert',
+        ),
         mesure('horloge', 'Dérive de l’horloge', b.derivHorlogeSecondes, 's', SEUILS.horloge, 'Une horloge fausse casse les jetons, le HTTPS et les journaux'),
-        mesure('ntp', 'Horloge synchronisée', b.horlogeSynchronisee === null ? null : b.horlogeSynchronisee ? 1 : 0, 'bool', undefined, 'NTP / chrony', b.horlogeSynchronisee === null ? 'inconnu' : b.horlogeSynchronisee ? 'vert' : 'orange'),
+        mesure(
+          'ntp',
+          'Horloge synchronisée',
+          b.horlogeSynchronisee === null ? null : b.horlogeSynchronisee ? 1 : 0,
+          'bool',
+          undefined,
+          'NTP / chrony',
+          b.horlogeSynchronisee === null ? 'inconnu' : b.horlogeSynchronisee ? 'vert' : 'orange',
+        ),
       ],
     },
     {
@@ -98,10 +131,26 @@ export function analyserServeur(b: BrutServeur): VueServeur {
       mesures: [
         mesure('entree', 'Trafic entrant', b.reseau.entreeOctetsS, 'o/s'),
         mesure('sortie', 'Trafic sortant', b.reseau.sortieOctetsS, 'o/s'),
-        mesure('erreurs-reseau', 'Erreurs d’interface', b.reseau.erreursS, '/s', undefined, undefined, b.reseau.erreursS === null ? 'inconnu' : b.reseau.erreursS > 1 ? 'orange' : 'vert'),
+        mesure(
+          'erreurs-reseau',
+          'Erreurs d’interface',
+          b.reseau.erreursS,
+          '/s',
+          undefined,
+          undefined,
+          b.reseau.erreursS === null ? 'inconnu' : b.reseau.erreursS > 1 ? 'orange' : 'vert',
+        ),
         mesure('pertes', 'Paquets perdus', b.reseau.pertesS, '/s', undefined, undefined, b.reseau.pertesS === null ? 'inconnu' : b.reseau.pertesS > 10 ? 'orange' : 'vert'),
         mesure('tcp', 'Connexions TCP établies', b.reseau.tcpEtablies, ''),
-        mesure('timewait', 'TCP en TIME_WAIT', b.reseau.tcpTimeWait, '', undefined, undefined, b.reseau.tcpTimeWait === null ? 'inconnu' : b.reseau.tcpTimeWait > 20000 ? 'orange' : 'vert'),
+        mesure(
+          'timewait',
+          'TCP en TIME_WAIT',
+          b.reseau.tcpTimeWait,
+          '',
+          undefined,
+          undefined,
+          b.reseau.tcpTimeWait === null ? 'inconnu' : b.reseau.tcpTimeWait > 20000 ? 'orange' : 'vert',
+        ),
       ],
     },
   ];
@@ -109,9 +158,7 @@ export function analyserServeur(b: BrutServeur): VueServeur {
   return {
     hote: b.hote,
     statut:
-      b.cpuPct === null && b.memoirePct === null && !partitions.length
-        ? 'inconnu'
-        : pire(statutGlobal(groupes.flatMap((g) => g.mesures)), ...partitions.map((p) => p.statut)),
+      b.cpuPct === null && b.memoirePct === null && !partitions.length ? 'inconnu' : pire(statutGlobal(groupes.flatMap((g) => g.mesures)), ...partitions.map((p) => p.statut)),
     groupes,
     partitions,
     series: b.series,
@@ -156,11 +203,7 @@ export function analyserServices(b: BrutServices): VueServices {
 export function analyserApplication(b: BrutApplication): VueApplication {
   const routes = b.routes.map((r) => ({
     ...r,
-    statut: pire(
-      'vert',
-      (r.debitRps ?? 0) > 0.01 ? evaluer(r.erreurs5xx === null ? null : r.erreurs5xx * 100, SEUILS.erreurs5xx) : 'vert',
-      evaluer(r.p95, SEUILS.latenceP95),
-    ),
+    statut: pire('vert', (r.debitRps ?? 0) > 0.01 ? evaluer(r.erreurs5xx === null ? null : r.erreurs5xx * 100, SEUILS.erreurs5xx) : 'vert', evaluer(r.p95, SEUILS.latenceP95)),
   }));
 
   const debitTotal = routes.reduce((s, r) => s + (r.debitRps ?? 0), 0);
@@ -168,10 +211,7 @@ export function analyserApplication(b: BrutApplication): VueApplication {
   const actives = routes.filter((r) => (r.debitRps ?? 0) > 0.01 && r.p95 !== null);
   const p95 = actives.length ? Math.max(...actives.map((r) => r.p95 as number)) : null;
   // Chute de trafic : seulement si la même heure il y a 7 jours avait du monde.
-  const chute =
-    b.debitTotalRps !== null && b.debitJ7Rps !== null && b.debitJ7Rps > 0.5
-      ? Math.max(0, (100 * (b.debitJ7Rps - b.debitTotalRps)) / b.debitJ7Rps)
-      : null;
+  const chute = b.debitTotalRps !== null && b.debitJ7Rps !== null && b.debitJ7Rps > 0.5 ? Math.max(0, (100 * (b.debitJ7Rps - b.debitTotalRps)) / b.debitJ7Rps) : null;
 
   const resume = [
     mesure('debit', 'Débit', b.debitTotalRps, 'req/s', undefined, 'Requêtes par seconde, tous services'),
@@ -185,8 +225,23 @@ export function analyserApplication(b: BrutApplication): VueApplication {
     mesure('heap', 'Heap utilisé', r.heapOctets, 'o'),
     mesure('rss', 'Mémoire du processus', r.memoireOctets, 'o'),
     mesure('handles', 'Handles actifs', r.handles, ''),
-    mesure('gc', 'Temps de GC', r.gcSecondesParS === null ? null : r.gcSecondesParS * 100, '%', { ...SEUILS.cpu, warning: 10, critique: 25, libelleWarning: '> 10 %', libelleCritique: '> 25 %' }, 'Part du temps passée à libérer la mémoire'),
-    mesure('redemarrages', 'Redémarrages (24 h)', r.redemarrages24h, '', undefined, undefined, r.redemarrages24h === null ? 'inconnu' : r.redemarrages24h > 2 ? 'rouge' : r.redemarrages24h > 0 ? 'orange' : 'vert'),
+    mesure(
+      'gc',
+      'Temps de GC',
+      r.gcSecondesParS === null ? null : r.gcSecondesParS * 100,
+      '%',
+      { ...SEUILS.cpu, warning: 10, critique: 25, libelleWarning: '> 10 %', libelleCritique: '> 25 %' },
+      'Part du temps passée à libérer la mémoire',
+    ),
+    mesure(
+      'redemarrages',
+      'Redémarrages (24 h)',
+      r.redemarrages24h,
+      '',
+      undefined,
+      undefined,
+      r.redemarrages24h === null ? 'inconnu' : r.redemarrages24h > 2 ? 'rouge' : r.redemarrages24h > 0 ? 'orange' : 'vert',
+    ),
   ];
   return {
     statut: routes.length ? pire(statutGlobal(routes), statutGlobal(resume), statutGlobal(runtime)) : 'inconnu',
@@ -200,7 +255,15 @@ export function analyserApplication(b: BrutApplication): VueApplication {
 export function analyserBdd(b: BrutBdd): VueBdd {
   const pctConnexions = b.connexions !== null && b.connexionsMax ? (100 * b.connexions) / b.connexionsMax : null;
   const mesures = [
-    mesure('pg-up', 'PostgreSQL', b.enMarche === null ? null : b.enMarche ? 1 : 0, 'bool', undefined, 'Sans lui, aucune vente ne s’enregistre au serveur', b.enMarche === null ? 'inconnu' : b.enMarche ? 'vert' : 'rouge'),
+    mesure(
+      'pg-up',
+      'PostgreSQL',
+      b.enMarche === null ? null : b.enMarche ? 1 : 0,
+      'bool',
+      undefined,
+      'Sans lui, aucune vente ne s’enregistre au serveur',
+      b.enMarche === null ? 'inconnu' : b.enMarche ? 'vert' : 'rouge',
+    ),
     mesure('connexions', 'Connexions utilisées', pctConnexions, '%', SEUILS.connexionsBdd, `${b.connexions ?? '—'} sur ${b.connexionsMax ?? '—'} autorisées`),
     mesure('cache', 'Taux de cache', b.cacheHit === null ? null : b.cacheHit * 100, '%', SEUILS.cacheHit, 'Lectures servies par la mémoire'),
     mesure('deadlocks', 'Deadlocks', b.deadlocksParMin, '/min', undefined, undefined, b.deadlocksParMin === null ? 'inconnu' : b.deadlocksParMin > 0.1 ? 'orange' : 'vert'),
@@ -226,10 +289,7 @@ export function analyserMetier(b: BrutMetier, options: { fuseau: string; ouvertu
   if (ouvert && b.ventesHeure !== null && b.ventesHeure < 1 && (b.ventesJ7MemeHeure ?? 0) >= 5) {
     anomalie = `Aucune vente depuis une heure alors que l’officine est ouverte (${Math.round(b.ventesJ7MemeHeure ?? 0)} à la même heure il y a 7 jours).`;
   }
-  const ecart =
-    b.ventesHeure !== null && b.ventesJ7MemeHeure !== null && b.ventesJ7MemeHeure > 0
-      ? (100 * (b.ventesHeure - b.ventesJ7MemeHeure)) / b.ventesJ7MemeHeure
-      : null;
+  const ecart = b.ventesHeure !== null && b.ventesJ7MemeHeure !== null && b.ventesJ7MemeHeure > 0 ? (100 * (b.ventesHeure - b.ventesJ7MemeHeure)) / b.ventesJ7MemeHeure : null;
   const mesures = [
     mesure('ventes-heure', 'Ventes (dernière heure)', b.ventesHeure, '', undefined, 'POST /v1/sales acceptées', anomalie ? 'rouge' : b.ventesHeure === null ? 'inconnu' : 'vert'),
     mesure('ventes-jour', 'Ventes (24 h)', b.ventesJour, ''),

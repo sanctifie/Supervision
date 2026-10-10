@@ -1,26 +1,22 @@
-import { randomBytes, timingSafeEqual, createHash } from 'node:crypto';
 import type { NextFunction, Request, Response } from 'express';
+import { createHash, timingSafeEqual } from 'node:crypto';
 import { config } from './config';
+import type { Comptes, CompteStocke } from './comptes';
+import { publique } from './comptes';
+import { permissionsDe, type Permission } from '../../shared/comptes';
 
 /**
- * Accès par mot de passe partagé (SUPERVISION_MOT_DE_PASSE) et session en
- * cookie HttpOnly. Le nom saisi à la connexion signe les acquittements et les
- * notes d'incident. Les essais sont limités : 10 par quart d'heure et par IP.
+ * Contrôle d'accès : session en cookie HttpOnly, permissions par rôle,
+ * limitation des essais de connexion (10 par quart d'heure, par adresse et
+ * par identifiant), première installation et secours administrateur.
  */
 
 const COOKIE = 'supervision_session';
-const sessions = new Map<string, { nom: string; expire: number }>();
 const essais = new Map<string, { nombre: number; depuis: number }>();
-
-export const accesActif = () => config.motDePasse.length > 0;
-
-function empreinte(x: string) {
-  return createHash('sha256').update(x).digest();
-}
+const FENETRE = 15 * 60_000;
 
 function lireCookie(req: Request): string | null {
-  const brut = req.headers.cookie ?? '';
-  for (const morceau of brut.split(';')) {
+  for (const morceau of (req.headers.cookie ?? '').split(';')) {
     const [cle, ...reste] = morceau.trim().split('=');
     if (cle !== COOKIE) continue;
     try {
@@ -32,80 +28,163 @@ function lireCookie(req: Request): string | null {
   return null;
 }
 
-export function sessionDe(req: Request): { nom: string } | null {
-  if (!accesActif()) {
-    let nom = '';
-    try {
-      nom = decodeURIComponent(String(req.headers['x-supervision-nom'] ?? '')).trim();
-    } catch {
-      /* en-tête mal formé : nom par défaut */
+function trop(cle: string): boolean {
+  const e = essais.get(cle);
+  return !!e && Date.now() - e.depuis < FENETRE && e.nombre >= 10;
+}
+function echec(cle: string) {
+  const e = essais.get(cle);
+  const maintenant = Date.now();
+  essais.set(cle, e && maintenant - e.depuis < FENETRE ? { nombre: e.nombre + 1, depuis: e.depuis } : { nombre: 1, depuis: maintenant });
+}
+
+/** Le code d'installation / de secours (SUPERVISION_CODE_INSTALLATION). */
+function codeValide(code: unknown): boolean {
+  if (!config.codeInstallation || typeof code !== 'string') return false;
+  const h = (x: string) => createHash('sha256').update(x).digest();
+  return timingSafeEqual(h(code), h(config.codeInstallation));
+}
+
+function depuisLaMachine(req: Request): boolean {
+  const ip = req.socket.remoteAddress ?? '';
+  return ip === '127.0.0.1' || ip === '::1' || ip === '::ffff:127.0.0.1';
+}
+
+export function creerAcces(comptes: Comptes) {
+  const ecrireCookie = (res: Response, jeton: string) =>
+    res.cookie(COOKIE, jeton, { httpOnly: true, sameSite: 'strict', secure: config.cookieSecurise, maxAge: config.dureeSessionHeures * 3_600_000, path: '/' });
+
+  const moi = (c: CompteStocke) => ({ ...publique(c), permissions: permissionsDe(c) });
+
+  return {
+    /** Qui est connecté (ou ce qu'il faut faire : installer, se connecter). */
+    session(req: Request, res: Response) {
+      const c = comptes.sessionDe(lireCookie(req));
+      res.json({
+        installation: comptes.aucun(),
+        codeRequis: !!config.codeInstallation || !depuisLaMachine(req),
+        compte: c ? moi(c) : null,
+        produit: config.nomProduit,
+      });
+    },
+
+    installer(req: Request, res: Response) {
+      if (!comptes.aucun()) {
+        res.status(409).json({ erreur: 'La supervision est déjà installée' });
+        return;
+      }
+      const ip = `ip:${req.ip}`;
+      if (trop(ip)) {
+        res.status(429).json({ erreur: 'Trop d’essais. Réessayez dans un quart d’heure.' });
+        return;
+      }
+      if (config.codeInstallation ? !codeValide(req.body?.code) : !depuisLaMachine(req)) {
+        echec(ip);
+        res.status(403).json({
+          erreur: config.codeInstallation ? 'Code d’installation incorrect' : 'Définissez SUPERVISION_CODE_INSTALLATION pour installer depuis un autre poste',
+        });
+        return;
+      }
+      try {
+        const c = comptes.installer(req.body ?? {});
+        ecrireCookie(res, comptes.ouvrirSession(c.id));
+        res.status(201).json(moi(comptes.trouver(c.id) as CompteStocke));
+      } catch (e) {
+        res.status(422).json({ erreur: (e as Error).message });
+      }
+    },
+
+    connexion(req: Request, res: Response) {
+      const { identifiant, motDePasse } = (req.body ?? {}) as Record<string, unknown>;
+      const ip = `ip:${req.ip}`;
+      const id = `id:${String(identifiant ?? '').toLowerCase()}`;
+      if (trop(ip) || trop(id)) {
+        res.status(429).json({ erreur: 'Trop d’essais. Réessayez dans un quart d’heure.' });
+        return;
+      }
+      const c = comptes.verifier(identifiant, motDePasse);
+      if (!c) {
+        echec(ip);
+        echec(id);
+        res.status(401).json({ erreur: 'Identifiant ou mot de passe incorrect' });
+        return;
+      }
+      essais.delete(id);
+      ecrireCookie(res, comptes.ouvrirSession(c.id));
+      res.json(moi(c));
+    },
+
+    deconnexion(req: Request, res: Response) {
+      const jeton = lireCookie(req);
+      if (jeton) comptes.fermerSession(jeton);
+      res.clearCookie(COOKIE, { path: '/' });
+      res.json({ ok: true });
+    },
+
+    /** Secours : un administrateur a perdu son mot de passe (code d'installation requis). */
+    secours(req: Request, res: Response) {
+      const ip = `ip:${req.ip}`;
+      if (trop(ip)) {
+        res.status(429).json({ erreur: 'Trop d’essais. Réessayez dans un quart d’heure.' });
+        return;
+      }
+      if (!codeValide(req.body?.code)) {
+        echec(ip);
+        res.status(403).json({ erreur: config.codeInstallation ? 'Code incorrect' : 'Secours désactivé : SUPERVISION_CODE_INSTALLATION n’est pas défini' });
+        return;
+      }
+      const c = comptes.lister().find(
+        (x) =>
+          x.identifiant ===
+            String(req.body?.identifiant ?? '')
+              .trim()
+              .toLowerCase() && x.role === 'admin',
+      );
+      if (!c) {
+        echec(ip);
+        res.status(404).json({ erreur: 'Aucun administrateur avec cet identifiant' });
+        return;
+      }
+      res.json({ motDePasseProvisoire: comptes.reinitialiser(c.id) });
+    },
+
+    /** Exige une session ; refuse tout le reste tant que le mot de passe provisoire n'est pas changé. */
+    exigerSession(req: Request, res: Response, suivant: NextFunction) {
+      const jeton = lireCookie(req);
+      const c = comptes.sessionDe(jeton);
+      if (!c) {
+        res.status(401).json({ erreur: 'Connexion requise' });
+        return;
+      }
+      if (c.doitChangerMotDePasse && req.path !== '/profil/mot-de-passe') {
+        res.status(403).json({ erreur: 'Changez d’abord votre mot de passe provisoire' });
+        return;
+      }
+      res.locals.compte = c;
+      res.locals.nom = c.nom;
+      res.locals.jeton = jeton;
+      res.locals.permissions = permissionsDe(c);
+      suivant();
+    },
+  };
+}
+
+/** Exige une permission (après exigerSession). */
+export function exiger(p: Permission) {
+  return (_req: Request, res: Response, suivant: NextFunction) => {
+    if (!peut(res, p)) {
+      res.status(403).json({ erreur: 'Votre rôle ne permet pas cette action' });
+      return;
     }
-    return { nom: nom.slice(0, 40) || 'Équipe' };
-  }
-  const jeton = lireCookie(req);
-  if (!jeton) return null;
-  const s = sessions.get(jeton);
-  if (!s || s.expire < Date.now()) {
-    sessions.delete(jeton);
-    return null;
-  }
-  return { nom: s.nom };
+    suivant();
+  };
 }
 
-export function exigerSession(req: Request, res: Response, suivant: NextFunction) {
-  const s = sessionDe(req);
-  if (!s) {
-    res.status(401).json({ erreur: 'Connexion requise' });
-    return;
-  }
-  res.locals.nom = s.nom;
-  suivant();
+export function peut(res: Response, p: Permission): boolean {
+  return (res.locals.permissions as Permission[] | undefined)?.includes(p) ?? false;
 }
 
-export function connexion(req: Request, res: Response) {
-  if (!accesActif()) {
-    res.json({ nom: 'Équipe', accesActif: false });
-    return;
-  }
-  const ip = req.ip ?? 'inconnue';
-  const e = essais.get(ip);
+export function purgerEssais() {
   const maintenant = Date.now();
-  if (e && maintenant - e.depuis < 15 * 60_000 && e.nombre >= 10) {
-    res.status(429).json({ erreur: 'Trop d’essais. Réessayez dans un quart d’heure.' });
-    return;
-  }
-  const { motDePasse, nom } = (req.body ?? {}) as { motDePasse?: string; nom?: string };
-  const bon = typeof motDePasse === 'string' && timingSafeEqual(empreinte(motDePasse), empreinte(config.motDePasse));
-  if (!bon) {
-    essais.set(ip, e && maintenant - e.depuis < 15 * 60_000 ? { nombre: e.nombre + 1, depuis: e.depuis } : { nombre: 1, depuis: maintenant });
-    res.status(401).json({ erreur: 'Mot de passe incorrect' });
-    return;
-  }
-  essais.delete(ip);
-  const jeton = randomBytes(32).toString('base64url');
-  const nomPropre = (typeof nom === 'string' ? nom.trim().slice(0, 40) : '') || 'Équipe';
-  const duree = config.dureeSessionHeures * 3_600_000;
-  sessions.set(jeton, { nom: nomPropre, expire: maintenant + duree });
-  res.cookie(COOKIE, jeton, {
-    httpOnly: true,
-    sameSite: 'strict',
-    secure: config.cookieSecurise,
-    maxAge: duree,
-    path: '/',
-  });
-  res.json({ nom: nomPropre, accesActif: true });
-}
-
-export function deconnexion(req: Request, res: Response) {
-  const jeton = lireCookie(req);
-  if (jeton) sessions.delete(jeton);
-  res.clearCookie(COOKIE, { path: '/' });
-  res.json({ ok: true });
-}
-
-/** Nettoie les sessions expirées (appelé de temps en temps). */
-export function purgerSessions() {
-  const maintenant = Date.now();
-  for (const [k, s] of sessions) if (s.expire < maintenant) sessions.delete(k);
-  for (const [k, e] of essais) if (maintenant - e.depuis > 15 * 60_000) essais.delete(k);
+  for (const [k, e] of essais) if (maintenant - e.depuis > FENETRE) essais.delete(k);
 }

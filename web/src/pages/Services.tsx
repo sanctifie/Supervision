@@ -24,7 +24,9 @@ export default function Services() {
                       <Pastille statut={p.statut}>{p.ok ? `HTTP ${p.code ?? 200}` : p.ok === false ? 'En échec' : '—'}</Pastille>
                     </div>
                     <div className="mesure-valeur">{millisecondes(p.dureeMs)}</div>
-                    <div className="mesure-detail mono" style={{ wordBreak: 'break-all' }}>{p.url}</div>
+                    <div className="mesure-detail mono" style={{ wordBreak: 'break-all' }}>
+                      {p.url}
+                    </div>
                     <div className="mesure-seuils">
                       <span className="ligne-flex" style={{ gap: 5 }}>
                         <Lock size={11} /> Certificat : {p.joursCertificat === null ? 'non vérifié' : `${nombre(p.joursCertificat)} jours`} <Point statut={p.statutCertificat} />

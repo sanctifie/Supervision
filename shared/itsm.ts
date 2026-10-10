@@ -86,7 +86,23 @@ export interface Ticket {
 /** Version allégée pour les listes. */
 export type TicketResume = Pick<
   Ticket,
-  'id' | 'numero' | 'type' | 'titre' | 'statut' | 'priorite' | 'ci' | 'groupe' | 'assigneA' | 'demandeur' | 'creeLe' | 'majLe' | 'automatique' | 'typeChangement' | 'debutPrevu' | 'finPrevue' | 'risque'
+  | 'id'
+  | 'numero'
+  | 'type'
+  | 'titre'
+  | 'statut'
+  | 'priorite'
+  | 'ci'
+  | 'groupe'
+  | 'assigneA'
+  | 'demandeur'
+  | 'creeLe'
+  | 'majLe'
+  | 'automatique'
+  | 'typeChangement'
+  | 'debutPrevu'
+  | 'finPrevue'
+  | 'risque'
 > & { sla: EtatSla; echeance: number | null; liens: number };
 
 export interface EtapeStatut {

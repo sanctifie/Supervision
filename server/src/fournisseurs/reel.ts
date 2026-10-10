@@ -64,7 +64,10 @@ export class FournisseurReel implements Fournisseur {
       tcp,
       tw,
     ] = await Promise.all([
-      p.requete('node_uname_info').then((r) => r[0]?.metric.nodename ?? 'serveur').catch(() => 'serveur'),
+      p
+        .requete('node_uname_info')
+        .then((r) => r[0]?.metric.nodename ?? 'serveur')
+        .catch(() => 'serveur'),
       p.valeur('count(count by (cpu) (node_cpu_seconds_total))'),
       p.valeur('100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m])))'),
       p.valeur('100 * avg(rate(node_cpu_seconds_total{mode="iowait"}[5m]))'),
@@ -300,10 +303,7 @@ export class FournisseurReel implements Fournisseur {
   }
 
   async sauvegardes(): Promise<BrutSauvegardes> {
-    const [derniere, taille] = await Promise.all([
-      p.valeur('max(officine_sauvegarde_derniere_reussite_secondes)'),
-      p.valeur('max(officine_sauvegarde_taille_octets)'),
-    ]);
+    const [derniere, taille] = await Promise.all([p.valeur('max(officine_sauvegarde_derniere_reussite_secondes)'), p.valeur('max(officine_sauvegarde_taille_octets)')]);
     return { derniereReussite: derniere === null ? null : derniere * 1000, tailleOctets: taille };
   }
 

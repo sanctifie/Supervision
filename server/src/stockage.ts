@@ -3,6 +3,7 @@ import path from 'node:path';
 import type { Evenement, Incident } from '../../shared/types';
 import type { Ticket } from '../../shared/itsm';
 import { GROUPES_DEFAUT } from '../../shared/itsm';
+import type { CompteStocke, SessionStockee } from './comptes';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -30,6 +31,8 @@ export interface Etat {
   /** Dernier numéro attribué par préfixe (INC, PRB, CHG, REQ). */
   compteurs: Record<string, number>;
   equipe: Equipe;
+  comptes: CompteStocke[];
+  sessions: SessionStockee[];
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;
@@ -42,6 +45,8 @@ const VIDE: Etat = {
   tickets: [],
   compteurs: {},
   equipe: { membres: [], groupes: [...GROUPES_DEFAUT] },
+  comptes: [],
+  sessions: [],
   evenements: [],
   confirmations: {},
   vus: { alertes: {}, derniereSauvegarde: null },
@@ -69,6 +74,8 @@ export class Stockage {
         equipe: { ...structuredClone(VIDE.equipe), ...(brut.equipe ?? {}) },
         tickets: brut.tickets ?? [],
         compteurs: brut.compteurs ?? {},
+        comptes: brut.comptes ?? [],
+        sessions: brut.sessions ?? [],
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.
@@ -86,7 +93,10 @@ export class Stockage {
     const jour = new Date().toISOString().slice(0, 10);
     const cible = path.join(dossier, `etat-${jour}.json`);
     if (!fs.existsSync(cible) && fs.existsSync(this.fichier)) fs.copyFileSync(this.fichier, cible);
-    const copies = fs.readdirSync(dossier).filter((f) => /^etat-\d{4}-\d{2}-\d{2}\.json$/.test(f)).sort();
+    const copies = fs
+      .readdirSync(dossier)
+      .filter((f) => /^etat-\d{4}-\d{2}-\d{2}\.json$/.test(f))
+      .sort();
     for (const ancienne of copies.slice(0, Math.max(0, copies.length - 30))) fs.unlinkSync(path.join(dossier, ancienne));
   }
 

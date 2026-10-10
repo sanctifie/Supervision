@@ -62,13 +62,37 @@ Pourquoi c'est arrivé (sans chercher de coupable).
 `;
 
 /** Zone de texte enregistrée quand on la quitte. */
-function ChampTexte({ label, valeur, enregistrer, lignes = 4, lecture, aide, mono }: { label: string; valeur: string; enregistrer: (v: string) => void; lignes?: number; lecture?: boolean; aide?: string; mono?: boolean }) {
+function ChampTexte({
+  label,
+  valeur,
+  enregistrer,
+  lignes = 4,
+  lecture,
+  aide,
+  mono,
+}: {
+  label: string;
+  valeur: string;
+  enregistrer: (v: string) => void;
+  lignes?: number;
+  lecture?: boolean;
+  aide?: string;
+  mono?: boolean;
+}) {
   const [v, setV] = useState(valeur);
   useEffect(() => setV(valeur), [valeur]);
   return (
     <div className="champ-groupe">
       <label className="etiquette">{label}</label>
-      <textarea className={`champ ${mono ? 'mono' : ''}`} rows={lignes} value={v} readOnly={lecture} placeholder={aide} onChange={(e) => setV(e.target.value)} onBlur={() => v !== valeur && enregistrer(v)} />
+      <textarea
+        className={`champ ${mono ? 'mono' : ''}`}
+        rows={lignes}
+        value={v}
+        readOnly={lecture}
+        placeholder={aide}
+        onChange={(e) => setV(e.target.value)}
+        onBlur={() => v !== valeur && enregistrer(v)}
+      />
     </div>
   );
 }
@@ -90,12 +114,14 @@ export default function FicheTicket() {
 
 function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) => void; recharger: () => Promise<void> }) {
   const t = d.ticket;
-  const { nom } = useSupervision();
+  const { nom, peut } = useSupervision();
+  const agent = peut('agir');
   const ref = useReferentiels();
   const naviguer = useNavigate();
   const [erreur, setErreur] = useState<string | null>(null);
   const [cible, setCible] = useState<{ statut: string; libelle: string; bloque: string | null } | null>(null);
-  const ouvert = estOuvert(t);
+  // Un demandeur consulte et commente ; seul un agent modifie.
+  const ouvert = estOuvert(t) && agent;
 
   const action = async (chemin: string, corps: unknown, methode = 'POST') => {
     setErreur(null);
@@ -140,12 +166,7 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
         <BarreEtapes type={t.type} statut={t.statut} />
         <div className="ligne-flex" style={{ marginTop: 14 }}>
           {d.transitions.map((x, i) => (
-            <button
-              key={x.statut}
-              className={`bouton ${i === 0 && !x.bloque ? 'primaire' : ''}`}
-              title={x.bloque ?? undefined}
-              onClick={() => setCible(x)}
-            >
+            <button key={x.statut} className={`bouton ${i === 0 && !x.bloque ? 'primaire' : ''}`} title={x.bloque ?? undefined} onClick={() => setCible(x)}>
               {x.bloque && <Lock size={13} />} {x.libelle}
             </button>
           ))}
@@ -176,15 +197,34 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
       <div className="grille g-principal" style={{ alignItems: 'start' }}>
         <div className="empile">
           <Carte titre="Description">
-            <ChampTexte label="" valeur={t.description} lecture={!ouvert} lignes={5} aide="Ce qui se passe, depuis quand, qui est touché, ce qui a déjà été essayé…" enregistrer={(description) => patch({ description })} />
+            <ChampTexte
+              label=""
+              valeur={t.description}
+              lecture={!ouvert}
+              lignes={5}
+              aide="Ce qui se passe, depuis quand, qui est touché, ce qui a déjà été essayé…"
+              enregistrer={(description) => patch({ description })}
+            />
           </Carte>
 
-          {t.type === 'changement' && <SectionsChangement t={t} ouvert={ouvert} patch={patch} action={action} nom={nom} />}
+          {t.type === 'changement' && <SectionsChangement t={t} ouvert={ouvert} patch={patch} action={action} peutApprouver={peut('approuver')} />}
 
           {t.type === 'probleme' && (
             <Carte titre="Analyse" sousTitre="Erreur connue = contournement documenté ; résolu = cause racine corrigée">
-              <ChampTexte label="Cause racine" valeur={t.causeRacine ?? ''} lecture={!ouvert} aide="Pourquoi c'est arrivé (5 pourquoi)…" enregistrer={(causeRacine) => patch({ causeRacine })} />
-              <ChampTexte label="Contournement" valeur={t.contournement ?? ''} lecture={!ouvert} aide="Comment rétablir le service en attendant la correction…" enregistrer={(contournement) => patch({ contournement })} />
+              <ChampTexte
+                label="Cause racine"
+                valeur={t.causeRacine ?? ''}
+                lecture={!ouvert}
+                aide="Pourquoi c'est arrivé (5 pourquoi)…"
+                enregistrer={(causeRacine) => patch({ causeRacine })}
+              />
+              <ChampTexte
+                label="Contournement"
+                valeur={t.contournement ?? ''}
+                lecture={!ouvert}
+                aide="Comment rétablir le service en attendant la correction…"
+                enregistrer={(contournement) => patch({ contournement })}
+              />
             </Carte>
           )}
 
@@ -201,11 +241,17 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
                   </select>
                 </div>
               )}
-              <ChampTexte label="Notes de résolution" valeur={t.notesResolution ?? ''} aide="Ce qui a été fait pour rétablir le service" enregistrer={(notesResolution) => patch({ notesResolution })} />
+              <ChampTexte
+                label="Notes de résolution"
+                valeur={t.notesResolution ?? ''}
+                lecture={!agent}
+                aide="Ce qui a été fait pour rétablir le service"
+                enregistrer={(notesResolution) => patch({ notesResolution })}
+              />
             </Carte>
           )}
 
-          {t.type === 'incident' && (t.priorite === 'P1' || t.priorite === 'P2') && !ouvert && (
+          {t.type === 'incident' && (t.priorite === 'P1' || t.priorite === 'P2') && !estOuvert(t) && agent && (
             <Carte
               titre="Post-mortem sans blâme"
               sousTitre="À rédiger sous 5 jours pour un incident P1 ou P2"
@@ -221,7 +267,7 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
             </Carte>
           )}
 
-          <Activite t={t} action={action} />
+          <Activite t={t} action={action} agent={agent} peutCommenter={agent || t.demandeur === nom} />
         </div>
 
         <div className="empile">
@@ -298,13 +344,16 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
                 <div className="discret">avant {dateHeure(t.echeanceReponse)}</div>
               </Ligne>
               <Ligne label="Résolution">
-                <BadgeSla etat={d.sla.etat === 'non-applicable' ? 'ok' : d.sla.phase === 'reponse' ? (t.echeanceResolution < Date.now() ? 'depasse' : 'ok') : d.sla.etat} echeance={t.echeanceResolution} />
+                <BadgeSla
+                  etat={d.sla.etat === 'non-applicable' ? 'ok' : d.sla.phase === 'reponse' ? (t.echeanceResolution < Date.now() ? 'depasse' : 'ok') : d.sla.etat}
+                  echeance={t.echeanceResolution}
+                />
                 <div className="discret">avant {dateHeure(t.echeanceResolution)}</div>
               </Ligne>
             </Carte>
           )}
 
-          <Liens d={d} action={action} naviguer={naviguer} recharger={recharger} />
+          <Liens d={d} action={action} naviguer={naviguer} recharger={recharger} agent={agent} />
         </div>
       </div>
 
@@ -340,13 +389,13 @@ function SectionsChangement({
   ouvert,
   patch,
   action,
-  nom,
+  peutApprouver,
 }: {
   t: Ticket;
   ouvert: boolean;
   patch: (c: Record<string, unknown>) => Promise<boolean>;
   action: (chemin: string, corps: unknown) => Promise<boolean>;
-  nom: string;
+  peutApprouver: boolean;
 }) {
   const [commentaire, setCommentaire] = useState('');
   const modifiable = ouvert && ['brouillon', 'evaluation', 'rejete'].includes(t.statut);
@@ -373,11 +422,23 @@ function SectionsChangement({
           </div>
           <div className="champ-groupe">
             <label className="etiquette">Début prévu</label>
-            <input className="champ" type="datetime-local" disabled={!fenetreModifiable} value={versChampDate(t.debutPrevu)} onChange={(e) => patch({ debutPrevu: depuisChampDate(e.target.value) })} />
+            <input
+              className="champ"
+              type="datetime-local"
+              disabled={!fenetreModifiable}
+              value={versChampDate(t.debutPrevu)}
+              onChange={(e) => patch({ debutPrevu: depuisChampDate(e.target.value) })}
+            />
           </div>
           <div className="champ-groupe">
             <label className="etiquette">Fin prévue</label>
-            <input className="champ" type="datetime-local" disabled={!fenetreModifiable} value={versChampDate(t.finPrevue)} onChange={(e) => patch({ finPrevue: depuisChampDate(e.target.value) })} />
+            <input
+              className="champ"
+              type="datetime-local"
+              disabled={!fenetreModifiable}
+              value={versChampDate(t.finPrevue)}
+              onChange={(e) => patch({ finPrevue: depuisChampDate(e.target.value) })}
+            />
           </div>
         </div>
         <label className="ligne-flex" style={{ marginTop: 12, fontSize: '0.85rem', gap: 8 }}>
@@ -388,13 +449,45 @@ function SectionsChangement({
       </Carte>
 
       <Carte titre="Plans" sousTitre="Obligatoires avant l’évaluation d’un changement normal ou urgent">
-        <ChampTexte label="Justification" valeur={t.justification ?? ''} lecture={!modifiable} aide="Pourquoi ce changement, quel bénéfice, que se passe-t-il si on ne le fait pas" enregistrer={(justification) => patch({ justification })} lignes={3} />
-        <ChampTexte label="Plan de mise en œuvre" valeur={t.planMiseEnOeuvre ?? ''} lecture={!modifiable} mono aide="1. … 2. … (commandes, ordre, qui fait quoi)" enregistrer={(planMiseEnOeuvre) => patch({ planMiseEnOeuvre })} />
-        <ChampTexte label="Plan de retour arrière" valeur={t.planRetourArriere ?? ''} lecture={!modifiable} mono aide="Comment revenir à l’état d’avant, et en combien de temps" enregistrer={(planRetourArriere) => patch({ planRetourArriere })} />
-        <ChampTexte label="Plan de test" valeur={t.planTest ?? ''} lecture={!modifiable} mono aide="Comment vérifier que tout marche après (tests de fumée)" enregistrer={(planTest) => patch({ planTest })} lignes={3} />
+        <ChampTexte
+          label="Justification"
+          valeur={t.justification ?? ''}
+          lecture={!modifiable}
+          aide="Pourquoi ce changement, quel bénéfice, que se passe-t-il si on ne le fait pas"
+          enregistrer={(justification) => patch({ justification })}
+          lignes={3}
+        />
+        <ChampTexte
+          label="Plan de mise en œuvre"
+          valeur={t.planMiseEnOeuvre ?? ''}
+          lecture={!modifiable}
+          mono
+          aide="1. … 2. … (commandes, ordre, qui fait quoi)"
+          enregistrer={(planMiseEnOeuvre) => patch({ planMiseEnOeuvre })}
+        />
+        <ChampTexte
+          label="Plan de retour arrière"
+          valeur={t.planRetourArriere ?? ''}
+          lecture={!modifiable}
+          mono
+          aide="Comment revenir à l’état d’avant, et en combien de temps"
+          enregistrer={(planRetourArriere) => patch({ planRetourArriere })}
+        />
+        <ChampTexte
+          label="Plan de test"
+          valeur={t.planTest ?? ''}
+          lecture={!modifiable}
+          mono
+          aide="Comment vérifier que tout marche après (tests de fumée)"
+          enregistrer={(planTest) => patch({ planTest })}
+          lignes={3}
+        />
       </Carte>
 
-      <Carte titre="Approbation (CAB)" sousTitre={t.typeChangement === 'standard' ? 'Changement standard : pré-approuvé' : 'Le comité valide le risque, la fenêtre et le retour arrière'}>
+      <Carte
+        titre="Approbation (CAB)"
+        sousTitre={t.typeChangement === 'standard' ? 'Changement standard : pré-approuvé' : 'Le comité valide le risque, la fenêtre et le retour arrière'}
+      >
         {(t.approbations ?? []).length ? (
           <ul className="activite" style={{ marginBottom: 10 }}>
             {(t.approbations ?? []).map((a, i) => (
@@ -415,7 +508,8 @@ function SectionsChangement({
             Aucune décision pour l’instant.
           </p>
         )}
-        {t.statut === 'evaluation' && (
+        {t.statut === 'evaluation' && !peutApprouver && <p className="discret">En attente d’un approbateur du CAB.</p>}
+        {t.statut === 'evaluation' && peutApprouver && (
           <>
             <input className="champ" placeholder="Commentaire (obligatoire pour un rejet)" value={commentaire} onChange={(e) => setCommentaire(e.target.value)} />
             <div className="ligne-flex" style={{ marginTop: 10 }}>
@@ -425,7 +519,7 @@ function SectionsChangement({
               <button className="bouton danger" onClick={async () => (await action('/approbation', { decision: 'rejete', commentaire })) && setCommentaire('')}>
                 <X size={14} /> Rejeter
               </button>
-              {t.demandeur === nom && <span className="discret">Bonne pratique : faire approuver par quelqu’un d’autre que le demandeur.</span>}
+              <span className="discret">Le demandeur du changement ne peut pas l’approuver lui-même.</span>
             </div>
           </>
         )}
@@ -433,7 +527,7 @@ function SectionsChangement({
 
       {['en-cours', 'revue', 'clos'].includes(t.statut) && (
         <Carte titre="Résultat">
-          <select className="champ" value={t.resultat ?? ''} disabled={t.statut === 'clos'} onChange={(e) => patch({ resultat: e.target.value || null })}>
+          <select className="champ" value={t.resultat ?? ''} disabled={t.statut === 'clos' || !ouvert} onChange={(e) => patch({ resultat: e.target.value || null })}>
             <option value="">— à renseigner —</option>
             <option value="reussi">Réussi</option>
             <option value="echoue">Échoué</option>
@@ -446,62 +540,76 @@ function SectionsChangement({
   );
 }
 
-function Activite({ t, action }: { t: Ticket; action: (chemin: string, corps: unknown) => Promise<boolean> }) {
+function Activite({ t, action, agent, peutCommenter }: { t: Ticket; action: (chemin: string, corps: unknown) => Promise<boolean>; agent: boolean; peutCommenter: boolean }) {
   const [filtre, setFiltre] = useState<'tout' | 'note' | 'commentaire'>('tout');
-  const [type, setType] = useState<'note' | 'commentaire'>('note');
+  const [type, setType] = useState<'note' | 'commentaire'>(agent ? 'note' : 'commentaire');
   const [texte, setTexte] = useState('');
   const entrees = [...t.activite].reverse().filter((a) => filtre === 'tout' || a.type === filtre);
   return (
     <Carte
       titre="Activité"
       droite={
-        <div className="onglets">
-          {(
-            [
-              ['tout', 'Tout'],
-              ['note', 'Notes de travail'],
-              ['commentaire', 'Commentaires'],
-            ] as const
-          ).map(([c, l]) => (
-            <button key={c} className={filtre === c ? 'actif' : ''} onClick={() => setFiltre(c)}>
-              {l}
-            </button>
-          ))}
-        </div>
+        agent && (
+          <div className="onglets">
+            {(
+              [
+                ['tout', 'Tout'],
+                ['note', 'Notes de travail'],
+                ['commentaire', 'Commentaires'],
+              ] as const
+            ).map(([c, l]) => (
+              <button key={c} className={filtre === c ? 'actif' : ''} onClick={() => setFiltre(c)}>
+                {l}
+              </button>
+            ))}
+          </div>
+        )
       }
     >
-      <form
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (texte.trim() && (await action('/activite', { type, texte }))) setTexte('');
-        }}
-      >
-        <textarea
-          className={`champ ${type === 'note' ? 'champ-note' : ''}`}
-          rows={3}
-          placeholder={type === 'note' ? 'Note de travail (interne à l’équipe) : diagnostic, actions menées…' : 'Commentaire pour le demandeur'}
-          value={texte}
-          onChange={(e) => setTexte(e.target.value)}
-        />
-        <div className="ligne-flex" style={{ marginTop: 8 }}>
-          <div className="onglets">
-            <button type="button" className={type === 'note' ? 'actif' : ''} onClick={() => setType('note')}>
-              Note de travail
-            </button>
-            <button type="button" className={type === 'commentaire' ? 'actif' : ''} onClick={() => setType('commentaire')}>
-              Commentaire
+      {peutCommenter && (
+        <form
+          onSubmit={async (e) => {
+            e.preventDefault();
+            if (texte.trim() && (await action('/activite', { type, texte }))) setTexte('');
+          }}
+        >
+          <textarea
+            className={`champ ${type === 'note' ? 'champ-note' : ''}`}
+            rows={3}
+            placeholder={
+              type === 'note'
+                ? 'Note de travail (interne à l’équipe) : diagnostic, actions menées…'
+                : agent
+                  ? 'Commentaire pour le demandeur'
+                  : 'Votre message à l’équipe : précision, réponse à une question…'
+            }
+            value={texte}
+            onChange={(e) => setTexte(e.target.value)}
+          />
+          <div className="ligne-flex" style={{ marginTop: 8 }}>
+            {agent && (
+              <div className="onglets">
+                <button type="button" className={type === 'note' ? 'actif' : ''} onClick={() => setType('note')}>
+                  Note de travail
+                </button>
+                <button type="button" className={type === 'commentaire' ? 'actif' : ''} onClick={() => setType('commentaire')}>
+                  Commentaire
+                </button>
+              </div>
+            )}
+            <span className="espace" />
+            <button className="bouton primaire" type="submit" disabled={!texte.trim()}>
+              <MessageSquare size={14} /> Publier
             </button>
           </div>
-          <span className="espace" />
-          <button className="bouton primaire" type="submit" disabled={!texte.trim()}>
-            <MessageSquare size={14} /> Publier
-          </button>
-        </div>
-      </form>
+        </form>
+      )}
       <ul className="activite fil-activite" style={{ marginTop: 14 }}>
         {entrees.map((a, i) => (
           <li key={i} className={`entree-${a.type}`}>
-            <span className={`tuile ${a.type === 'systeme' ? 'inconnu' : a.type === 'note' ? 'orange' : ''}`}>{a.type === 'systeme' ? <Check size={13} /> : <MessageSquare size={13} />}</span>
+            <span className={`tuile ${a.type === 'systeme' ? 'inconnu' : a.type === 'note' ? 'orange' : ''}`}>
+              {a.type === 'systeme' ? <Check size={13} /> : <MessageSquare size={13} />}
+            </span>
             <div style={{ minWidth: 0 }}>
               <strong>
                 {a.auteur}
@@ -520,7 +628,18 @@ function Activite({ t, action }: { t: Ticket; action: (chemin: string, corps: un
   );
 }
 
-function Liens({ d, action, naviguer }: { d: Detail; action: (chemin: string, corps: unknown, methode?: string) => Promise<boolean>; naviguer: (c: string) => void; recharger: () => Promise<void> }) {
+function Liens({
+  d,
+  action,
+  naviguer,
+  agent,
+}: {
+  d: Detail;
+  action: (chemin: string, corps: unknown, methode?: string) => Promise<boolean>;
+  naviguer: (c: string) => void;
+  recharger: () => Promise<void>;
+  agent: boolean;
+}) {
   const t = d.ticket;
   const [cible, setCible] = useState('');
   const creations: { type: 'probleme' | 'changement' | 'incident'; libelle: string }[] =
@@ -541,31 +660,37 @@ function Liens({ d, action, naviguer }: { d: Detail; action: (chemin: string, co
           <LienTicket t={l} />
           <span className="lien-titre">{l.titre}</span>
           <PastilleStatut type={l.type} statut={l.statut} />
-          <button className="bouton petit" title="Retirer le lien" aria-label="Retirer le lien" onClick={() => action(`/liens/${l.numero}`, undefined, 'DELETE')}>
-            <X size={12} />
-          </button>
+          {agent && (
+            <button className="bouton petit" title="Retirer le lien" aria-label="Retirer le lien" onClick={() => action(`/liens/${l.numero}`, undefined, 'DELETE')}>
+              <X size={12} />
+            </button>
+          )}
         </div>
       ))}
-      <form
-        className="ligne-flex"
-        style={{ marginTop: 10 }}
-        onSubmit={async (e) => {
-          e.preventDefault();
-          if (cible.trim() && (await action('/liens', { cible: cible.trim().toUpperCase() }))) setCible('');
-        }}
-      >
-        <input className="champ mono" style={{ flex: 1 }} placeholder="INC0001001, PRB…" value={cible} onChange={(e) => setCible(e.target.value)} />
-        <button className="bouton" type="submit">
-          <Link2 size={14} /> Lier
-        </button>
-      </form>
-      <div className="ligne-flex" style={{ marginTop: 10 }}>
-        {creations.map((c) => (
-          <button key={c.type} className="bouton petit" onClick={() => naviguer(`/tickets/nouveau?type=${c.type}&lien=${t.numero}`)}>
-            <Plus size={13} /> {c.libelle}
-          </button>
-        ))}
-      </div>
+      {agent && (
+        <>
+          <form
+            className="ligne-flex"
+            style={{ marginTop: 10 }}
+            onSubmit={async (e) => {
+              e.preventDefault();
+              if (cible.trim() && (await action('/liens', { cible: cible.trim().toUpperCase() }))) setCible('');
+            }}
+          >
+            <input className="champ mono" style={{ flex: 1 }} placeholder="INC0001001, PRB…" value={cible} onChange={(e) => setCible(e.target.value)} />
+            <button className="bouton" type="submit">
+              <Link2 size={14} /> Lier
+            </button>
+          </form>
+          <div className="ligne-flex" style={{ marginTop: 10 }}>
+            {creations.map((c) => (
+              <button key={c.type} className="bouton petit" onClick={() => naviguer(`/tickets/nouveau?type=${c.type}&lien=${t.numero}`)}>
+                <Plus size={13} /> {c.libelle}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
     </Carte>
   );
 }

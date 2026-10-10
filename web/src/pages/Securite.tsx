@@ -17,7 +17,11 @@ export default function Securite() {
             <Carte titre="Signaux mesurés" sousTitre="Ce que la supervision voit elle-même" droite={<Pastille statut={v.statut} />}>
               <GrilleMesures mesures={v.mesures} />
             </Carte>
-            <Carte serree titre={`Contrôles de sécurité — ${enPlace}/${v.controles.length} en place`} sousTitre="Guide, chapitres 2.6 et 6. Cochez ce qui est en place ; les signaux mesurés se cochent seuls.">
+            <Carte
+              serree
+              titre={`Contrôles de sécurité — ${enPlace}/${v.controles.length} en place`}
+              sousTitre="Guide, chapitres 2.6 et 6. Cochez ce qui est en place ; les signaux mesurés se cochent seuls."
+            >
               {couches.map((couche) => (
                 <div key={couche}>
                   <div className="nav-titre" style={{ padding: '14px 18px 4px' }}>
@@ -27,7 +31,13 @@ export default function Securite() {
                     .filter((c) => c.couche === couche)
                     .map((c) => (
                       <div className="case" key={c.cle}>
-                        <CaseConfirmation cle={`securite:${c.cle}`} faite={c.statut === 'vert'} auto={MESURES_AUTO.has(c.cle) && c.statut !== 'inconnu'} apres={etat.recharger} titre={c.libelle} />
+                        <CaseConfirmation
+                          cle={`securite:${c.cle}`}
+                          faite={c.statut === 'vert'}
+                          auto={MESURES_AUTO.has(c.cle) && c.statut !== 'inconnu'}
+                          apres={etat.recharger}
+                          titre={c.libelle}
+                        />
                         <div className="case-texte">
                           <strong>{c.libelle}</strong>
                           <span>

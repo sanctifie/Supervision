@@ -1,5 +1,8 @@
 import { randomUUID } from 'node:crypto';
 import type { Stockage } from './stockage';
+import { ErreurMetier } from './erreurs';
+
+export { ErreurMetier };
 import { statutDeLaPriorite } from './analyse';
 import {
   CODES_RESOLUTION,
@@ -28,8 +31,6 @@ import type { Alerte, Priorite } from '../../shared/types';
  * approbations, et incidents ouverts automatiquement par les alertes.
  * Les erreurs de règle métier sont des `ErreurMetier` (→ HTTP 422).
  */
-
-export class ErreurMetier extends Error {}
 
 const HEURE = 3_600_000;
 const JOUR = 24 * HEURE;
@@ -208,10 +209,14 @@ export class Tickets {
     t.majLe = Date.now();
   }
 
-  private connaitre(auteur: string): void {
-    if (!auteur || ['supervision', 'Équipe'].includes(auteur)) return;
-    const membres = this.stockage.donnees.equipe.membres;
-    if (!membres.includes(auteur)) membres.push(auteur);
+  /** Un nom affiché a changé : on le reporte sur les tickets. */
+  renommerPersonne(ancien: string, nouveau: string): void {
+    this.stockage.modifier(() => {
+      for (const t of this.liste) {
+        if (t.assigneA === ancien) t.assigneA = nouveau;
+        if (t.demandeur === ancien) t.demandeur = nouveau;
+      }
+    });
   }
 
   trouver(cle: string): Ticket | undefined {
@@ -275,9 +280,13 @@ export class Tickets {
       t = this.nouveauTicket(type, champs, auteur, options.creeLe);
       t.automatique = !!options.automatique;
       t.alertes = options.alertes ?? [];
-      t.activite.push({ t: Date.now(), auteur, type: 'systeme', texte: options.automatique ? 'Ouvert automatiquement par une alerte.' : `${type === 'changement' ? 'Changement créé' : 'Ticket ouvert'}.` });
+      t.activite.push({
+        t: Date.now(),
+        auteur,
+        type: 'systeme',
+        texte: options.automatique ? 'Ouvert automatiquement par une alerte.' : `${type === 'changement' ? 'Changement créé' : 'Ticket ouvert'}.`,
+      });
       e.tickets.unshift(t);
-      this.connaitre(auteur);
     });
     if (options.lien) this.lier(t.numero, options.lien, auteur);
     if ((type === 'incident' && (t.priorite === 'P1' || t.priorite === 'P2')) || type === 'changement') {
@@ -318,7 +327,8 @@ export class Tickets {
         if (avant === valeur) continue;
         (t as unknown as Record<string, unknown>)[cleChamp] = valeur;
         if (LIBELLES_CHAMPS[cleChamp]) {
-          const affiche = (v: unknown) => (v === null || v === undefined || v === '' ? '—' : cleChamp.endsWith('Prevu') || cleChamp === 'finPrevue' ? new Date(Number(v)).toLocaleString('fr-FR') : String(v));
+          const affiche = (v: unknown) =>
+            v === null || v === undefined || v === '' ? '—' : cleChamp.endsWith('Prevu') || cleChamp === 'finPrevue' ? new Date(Number(v)).toLocaleString('fr-FR') : String(v);
           this.tracer(t, auteur, `${LIBELLES_CHAMPS[cleChamp]} : ${affiche(avant)} → ${affiche(valeur)}`);
         }
         if (cleChamp === 'assigneA' && valeur && !t.prisEnChargeLe) t.prisEnChargeLe = Date.now();
@@ -330,8 +340,6 @@ export class Tickets {
         this.calculerSla(t);
       }
       t.majLe = Date.now();
-      this.connaitre(auteur);
-      if (t.assigneA) this.connaitre(t.assigneA);
     });
     return t;
   }
@@ -416,7 +424,6 @@ export class Tickets {
       }
       this.tracer(t, auteur, `État : ${libelleStatut(t.type, avant)} → ${libelleStatut(t.type, cible)}`);
       if (commentaire?.trim()) this.tracer(t, auteur, commentaire.trim().slice(0, 20000), 'note');
-      this.connaitre(auteur);
     });
 
     if (t.type === 'changement' && cible === 'en-cours') {
@@ -440,7 +447,6 @@ export class Tickets {
     if (!contenu.trim()) throw new ErreurMetier('Message vide');
     this.stockage.modifier(() => {
       this.tracer(t, auteur, contenu.trim().slice(0, 20000), type);
-      this.connaitre(auteur);
     });
     return t;
   }
@@ -450,13 +456,14 @@ export class Tickets {
     if (t.type !== 'changement') throw new ErreurMetier('Seuls les changements s’approuvent');
     if (t.statut !== 'evaluation') throw new ErreurMetier('Le changement doit être en évaluation');
     if (decision === 'rejete' && !commentaire.trim()) throw new ErreurMetier('Expliquer le rejet');
+    // Séparation des tâches : on n'approuve pas son propre changement.
+    if (auteur === t.demandeur || t.activite[0]?.auteur === auteur) throw new ErreurMetier('Un changement doit être approuvé par quelqu’un d’autre que son demandeur');
     this.stockage.modifier(() => {
       t.approbations = [...(t.approbations ?? []), { par: auteur, decision, commentaire: commentaire.slice(0, 2000), le: Date.now() }];
       this.tracer(t, auteur, `${decision === 'approuve' ? 'Approuvé' : 'Rejeté'}${commentaire.trim() ? ` : ${commentaire.trim()}` : ''}`);
       t.statut = decision === 'approuve' ? 'approuve' : 'rejete';
       if (decision === 'rejete') t.closLe = Date.now();
       this.tracer(t, 'supervision', `État : Évaluation → ${decision === 'approuve' ? 'Approuvé' : 'Rejeté'}`);
-      this.connaitre(auteur);
     });
     return t;
   }
@@ -606,7 +613,8 @@ export class Tickets {
         nonAssignes: ouverts.filter((t) => !t.assigneA && t.type !== 'changement').length,
         incidentsCeMois: this.liste.filter((t) => t.type === 'incident' && t.creeLe >= debutMois.getTime()).length,
         postMortemsEnRetard: this.liste.filter(
-          (t) => t.type === 'incident' && (t.priorite === 'P1' || t.priorite === 'P2') && t.resoluLe && maintenant - t.resoluLe > 5 * JOUR && !t.postMortem?.trim() && !t.automatique,
+          (t) =>
+            t.type === 'incident' && (t.priorite === 'P1' || t.priorite === 'P2') && t.resoluLe && maintenant - t.resoluLe > 5 * JOUR && !t.postMortem?.trim() && !t.automatique,
         ).length,
       },
       indicateurs: {

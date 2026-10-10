@@ -15,6 +15,7 @@ import {
   heureLocale,
 } from './analyse';
 import { Tickets } from './tickets';
+import { Comptes } from './comptes';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
@@ -54,6 +55,7 @@ export class Supervision {
   private cache = new Map<string, { expire: number; valeur: Promise<unknown> }>();
   private boucle: NodeJS.Timeout | null = null;
   readonly tickets: Tickets;
+  readonly comptes: Comptes;
 
   constructor(readonly stockage: Stockage) {
     this.fournisseur = config.mode === 'reel' ? this.reel : this.demo;
@@ -66,6 +68,7 @@ export class Supervision {
       },
       supprimerSilence: (id) => this.supprimerSilence(id),
     });
+    this.comptes = new Comptes(stockage, config.dureeSessionHeures * 3_600_000, (ancien, nouveau) => this.tickets.renommerPersonne(ancien, nouveau));
   }
 
   get mode() {
@@ -127,9 +130,7 @@ export class Supervision {
   application = (): Promise<VueApplication> => this.memo('application', 10_000, async () => analyserApplication(await this.fournisseur.application()));
   bdd = (): Promise<VueBdd> => this.memo('bdd', 10_000, async () => analyserBdd(await this.fournisseur.bdd()));
   metier = (): Promise<VueMetier> =>
-    this.memo('metier', 10_000, async () =>
-      analyserMetier(await this.fournisseur.metier(), { fuseau: config.fuseau, ouverture: config.ouverture, fermeture: config.fermeture }),
-    );
+    this.memo('metier', 10_000, async () => analyserMetier(await this.fournisseur.metier(), { fuseau: config.fuseau, ouverture: config.ouverture, fermeture: config.fermeture }));
   sauvegardes = (): Promise<VueSauvegardes> => this.memo('sauvegardes', 10_000, async () => analyserSauvegardes(await this.fournisseur.sauvegardes()));
 
   private alertesEnrichies = (): Promise<Alerte[]> => this.memo('alertes', 5_000, async () => enrichirAlertes(await this.fournisseur.alertes()));
@@ -209,14 +210,56 @@ export class Supervision {
 
     const st = (v: { statut: Statut } | null) => v?.statut ?? 'inconnu';
     const domaines: Domaine[] = [
-      { cle: 'serveur', libelle: 'Serveur', statut: st(serveur), resume: serveur ? `CPU ${pourcent(serveur.groupes[0].mesures[0].valeur, 0)} · RAM ${pourcent(serveur.groupes[0].mesures[4].valeur, 0)}` : 'Non mesuré', lien: '/serveur' },
-      { cle: 'conteneurs', libelle: 'Conteneurs', statut: st(conteneurs), resume: conteneurs ? `${conteneurs.conteneurs.filter((c) => c.enMarche).length}/${conteneurs.conteneurs.length} en marche` : 'Non mesuré', lien: '/conteneurs' },
-      { cle: 'services', libelle: 'Services et sondes', statut: st(services), resume: services ? `${services.internes.filter((s) => s.ok).length}/${services.internes.length} services répondent` : 'Non mesuré', lien: '/services' },
-      { cle: 'application', libelle: 'API', statut: st(application), resume: application ? `${nombre(application.resume[0].valeur, 1)} req/s · p95 ${nombre(application.resume[3].valeur)} ms` : 'Non mesuré', lien: '/application' },
+      {
+        cle: 'serveur',
+        libelle: 'Serveur',
+        statut: st(serveur),
+        resume: serveur ? `CPU ${pourcent(serveur.groupes[0].mesures[0].valeur, 0)} · RAM ${pourcent(serveur.groupes[0].mesures[4].valeur, 0)}` : 'Non mesuré',
+        lien: '/serveur',
+      },
+      {
+        cle: 'conteneurs',
+        libelle: 'Conteneurs',
+        statut: st(conteneurs),
+        resume: conteneurs ? `${conteneurs.conteneurs.filter((c) => c.enMarche).length}/${conteneurs.conteneurs.length} en marche` : 'Non mesuré',
+        lien: '/conteneurs',
+      },
+      {
+        cle: 'services',
+        libelle: 'Services et sondes',
+        statut: st(services),
+        resume: services ? `${services.internes.filter((s) => s.ok).length}/${services.internes.length} services répondent` : 'Non mesuré',
+        lien: '/services',
+      },
+      {
+        cle: 'application',
+        libelle: 'API',
+        statut: st(application),
+        resume: application ? `${nombre(application.resume[0].valeur, 1)} req/s · p95 ${nombre(application.resume[3].valeur)} ms` : 'Non mesuré',
+        lien: '/application',
+      },
       { cle: 'bdd', libelle: 'Base de données', statut: st(bdd), resume: bdd ? `Connexions ${pourcent(bdd.mesures[1].valeur, 0)}` : 'Non mesuré', lien: '/bdd' },
-      { cle: 'metier', libelle: 'Métier', statut: st(metier), resume: metier ? metier.anomalie ?? `${nombre(metier.mesures[0].valeur)} ventes la dernière heure` : 'Non mesuré', lien: '/metier' },
-      { cle: 'sauvegardes', libelle: 'Sauvegardes', statut: st(sauvegardes), resume: sauvegardes ? (sauvegardes.mesures[0].valeur === null ? 'Aucune connue' : `Il y a ${nombre(sauvegardes.mesures[0].valeur, 0)} h`) : 'Non mesuré', lien: '/sauvegardes' },
-      { cle: 'securite', libelle: 'Sécurité', statut: st(secu), resume: secu ? `${secu.controles.filter((c) => c.statut === 'vert').length}/${secu.controles.length} contrôles en place` : 'Non mesuré', lien: '/securite' },
+      {
+        cle: 'metier',
+        libelle: 'Métier',
+        statut: st(metier),
+        resume: metier ? (metier.anomalie ?? `${nombre(metier.mesures[0].valeur)} ventes la dernière heure`) : 'Non mesuré',
+        lien: '/metier',
+      },
+      {
+        cle: 'sauvegardes',
+        libelle: 'Sauvegardes',
+        statut: st(sauvegardes),
+        resume: sauvegardes ? (sauvegardes.mesures[0].valeur === null ? 'Aucune connue' : `Il y a ${nombre(sauvegardes.mesures[0].valeur, 0)} h`) : 'Non mesuré',
+        lien: '/sauvegardes',
+      },
+      {
+        cle: 'securite',
+        libelle: 'Sécurité',
+        statut: st(secu),
+        resume: secu ? `${secu.controles.filter((c) => c.statut === 'vert').length}/${secu.controles.length} contrôles en place` : 'Non mesuré',
+        lien: '/securite',
+      },
     ];
 
     // Règle de calcul du guide (chapitre 8).
@@ -291,11 +334,31 @@ export class Supervision {
     const route = (nom: string) => application?.routes.find((r) => r.service === nom);
     const voyant = (nom: string, statuts: Statut[], detail: string) => ({ nom, statut: pire(...statuts), detail });
     const produits = [
-      voyant('API Officina', [sonde('gateway')?.statut ?? 'inconnu', application?.resume[2].statut ?? 'inconnu', application?.resume[3].statut ?? 'inconnu'], application ? `${pourcent(application.resume[2].valeur, 2)} d’erreurs · p95 ${nombre(application.resume[3].valeur)} ms` : 'Non mesuré'),
-      voyant('Comptoir (caisse)', [pub('/comptoir')?.statut ?? 'inconnu', sonde('sales')?.statut ?? 'inconnu', route('sales')?.statut ?? 'inconnu'], pub('/comptoir') ? `HTTPS ${pub('/comptoir')?.code ?? '—'} en ${nombre(pub('/comptoir')?.dureeMs ?? null)} ms` : 'Non sondé'),
-      voyant('Application de l’officine', [pub('/officine')?.statut ?? 'inconnu'], pub('/officine') ? `HTTPS ${pub('/officine')?.code ?? '—'} en ${nombre(pub('/officine')?.dureeMs ?? null)} ms` : 'Non sondé'),
-      voyant('Paiements mobile money', [sonde('payments')?.statut ?? 'inconnu', route('payments')?.statut ?? 'inconnu'], route('payments') ? `${pourcent((route('payments')?.erreurs5xx ?? 0) * 100, 2)} d’erreurs` : 'Non mesuré'),
-      voyant('Synchronisation hors ligne', [sonde('syncd')?.statut ?? 'inconnu'], sonde('syncd')?.ok === false ? 'Les postes ne se synchronisent plus' : 'Les postes se synchronisent'),
+      voyant(
+        'API Officina',
+        [sonde('gateway')?.statut ?? 'inconnu', application?.resume[2].statut ?? 'inconnu', application?.resume[3].statut ?? 'inconnu'],
+        application ? `${pourcent(application.resume[2].valeur, 2)} d’erreurs · p95 ${nombre(application.resume[3].valeur)} ms` : 'Non mesuré',
+      ),
+      voyant(
+        'Comptoir (caisse)',
+        [pub('/comptoir')?.statut ?? 'inconnu', sonde('sales')?.statut ?? 'inconnu', route('sales')?.statut ?? 'inconnu'],
+        pub('/comptoir') ? `HTTPS ${pub('/comptoir')?.code ?? '—'} en ${nombre(pub('/comptoir')?.dureeMs ?? null)} ms` : 'Non sondé',
+      ),
+      voyant(
+        'Application de l’officine',
+        [pub('/officine')?.statut ?? 'inconnu'],
+        pub('/officine') ? `HTTPS ${pub('/officine')?.code ?? '—'} en ${nombre(pub('/officine')?.dureeMs ?? null)} ms` : 'Non sondé',
+      ),
+      voyant(
+        'Paiements mobile money',
+        [sonde('payments')?.statut ?? 'inconnu', route('payments')?.statut ?? 'inconnu'],
+        route('payments') ? `${pourcent((route('payments')?.erreurs5xx ?? 0) * 100, 2)} d’erreurs` : 'Non mesuré',
+      ),
+      voyant(
+        'Synchronisation hors ligne',
+        [sonde('syncd')?.statut ?? 'inconnu'],
+        sonde('syncd')?.ok === false ? 'Les postes ne se synchronisent plus' : 'Les postes se synchronisent',
+      ),
       voyant('Notifications SMS / WhatsApp', [sonde('notify')?.statut ?? 'inconnu'], sonde('notify')?.ok === false ? 'Service injoignable' : 'Envois opérationnels'),
       voyant('Base de données', [bdd?.statut ?? 'inconnu'], bdd ? `${bdd.bases.length} bases · cache ${pourcent(bdd.mesures[2].valeur, 1)}` : 'Non mesuré'),
     ];
@@ -321,11 +384,7 @@ export class Supervision {
 
   async securite(): Promise<VueSecurite> {
     return this.memo('securite', 10_000, async () => {
-      const [services, metier, application] = await Promise.all([
-        this.services().catch(() => null),
-        this.metier().catch(() => null),
-        this.application().catch(() => null),
-      ]);
+      const [services, metier, application] = await Promise.all([this.services().catch(() => null), this.metier().catch(() => null), this.application().catch(() => null)]);
       const refus = metier?.mesures.find((m) => m.cle === 'refus') ?? null;
       const jours = services?.publiques.map((p) => p.joursCertificat).filter((j): j is number => j !== null) ?? [];
       const joursMin = jours.length ? Math.min(...jours) : null;
@@ -333,7 +392,13 @@ export class Supervision {
 
       const auto: Record<string, { statut: Statut; detail: string } | undefined> = {
         pin: refus && refus.valeur !== null ? { statut: refus.statut, detail: `${nombre(refus.valeur)} connexion(s) refusée(s) la dernière heure` } : undefined,
-        https: joursMin !== null ? { statut: pire(evaluer(joursMin, SEUILS.certificat), services?.publiques.some((p) => p.ok === false) ? 'rouge' : 'vert'), detail: `Certificat valide encore ${nombre(joursMin)} jours` } : undefined,
+        https:
+          joursMin !== null
+            ? {
+                statut: pire(evaluer(joursMin, SEUILS.certificat), services?.publiques.some((p) => p.ok === false) ? 'rouge' : 'vert'),
+                detail: `Certificat valide encore ${nombre(joursMin)} jours`,
+              }
+            : undefined,
         'rate-limit': identity ? { statut: 'vert', detail: `Gateway : ${pourcent((identity.refus4xx ?? 0) * 100, 1)} de réponses 401/403/429 sur identity` } : undefined,
       };
 
@@ -372,12 +437,24 @@ export class Supervision {
     const jours = services?.publiques.map((p) => p.joursCertificat).filter((j): j is number => j !== null) ?? [];
     const disque = serveur?.partitions.find((p) => p.point === '/');
     const auto: Record<string, { statut: Statut; detail: string } | undefined> = {
-      sauvegardes: sauvegardes ? { statut: sauvegardes.statut, detail: sauvegardes.mesures[0].valeur === null ? 'Aucune sauvegarde connue' : `Dernière réussite il y a ${nombre(sauvegardes.mesures[0].valeur, 0)} h` } : undefined,
-      certificats: jours.length ? { statut: evaluer(Math.min(...jours), SEUILS.certificat), detail: `Renouvelé par Caddy — expire dans ${nombre(Math.min(...jours))} j` } : undefined,
-      'auto-reparation': conteneurs?.conteneurs.length
-        ? { statut: conteneurs.conteneurs.every((c) => c.enMarche) ? 'vert' : 'orange', detail: `${conteneurs.conteneurs.filter((c) => c.enMarche).length}/${conteneurs.conteneurs.length} conteneurs en marche (restart: unless-stopped)` }
+      sauvegardes: sauvegardes
+        ? {
+            statut: sauvegardes.statut,
+            detail: sauvegardes.mesures[0].valeur === null ? 'Aucune sauvegarde connue' : `Dernière réussite il y a ${nombre(sauvegardes.mesures[0].valeur, 0)} h`,
+          }
         : undefined,
-      nettoyage: disque ? { statut: disque.statut, detail: `Disque / à ${pourcent(disque.utilisePct, 0)}${disque.joursAvantPlein ? `, plein dans ~${nombre(disque.joursAvantPlein)} j` : ''}` } : undefined,
+      certificats: jours.length
+        ? { statut: evaluer(Math.min(...jours), SEUILS.certificat), detail: `Renouvelé par Caddy — expire dans ${nombre(Math.min(...jours))} j` }
+        : undefined,
+      'auto-reparation': conteneurs?.conteneurs.length
+        ? {
+            statut: conteneurs.conteneurs.every((c) => c.enMarche) ? 'vert' : 'orange',
+            detail: `${conteneurs.conteneurs.filter((c) => c.enMarche).length}/${conteneurs.conteneurs.length} conteneurs en marche (restart: unless-stopped)`,
+          }
+        : undefined,
+      nettoyage: disque
+        ? { statut: disque.statut, detail: `Disque / à ${pourcent(disque.utilisePct, 0)}${disque.joursAvantPlein ? `, plein dans ~${nombre(disque.joursAvantPlein)} j` : ''}` }
+        : undefined,
     };
     const statutManuel = (cle: string): { statut: Statut; detail: string } => {
       const c = this.confirme(cle);
@@ -410,7 +487,9 @@ export class Supervision {
       health: services?.internes.length ? a(services.internes.every((s) => s.ok !== null) ? 'vert' : 'orange', `${services.internes.length} services sondés sur /health`) : null,
       red: application?.routes.length ? a('vert', 'Débit, erreurs et latence par service ; alertes ErreursServeur et ApiLente') : null,
       logs: sources.loki ? a('vert', 'Loki joignable : journaux de tous les conteneurs centralisés') : a('rouge', 'Loki injoignable'),
-      sauvegarde: sauvegardes ? a(sauvegardes.statut === 'vert' ? 'orange' : sauvegardes.statut, 'Sauvegarde mesurée ; confirmer le chiffrement hors site et une restauration testée') : null,
+      sauvegarde: sauvegardes
+        ? a(sauvegardes.statut === 'vert' ? 'orange' : sauvegardes.statut, 'Sauvegarde mesurée ; confirmer le chiffrement hors site et une restauration testée')
+        : null,
       'canal-alerte': sources.alertmanager ? a('orange', 'Alertmanager joignable : envoyer une alerte de test et confirmer sa réception') : a('rouge', 'Alertmanager injoignable'),
       runbooks: a('vert', `${RUNBOOKS.length} runbooks, un par alerte d’Officina (page Alertes)`),
       'page-statut': a('vert', 'Page de statut publique intégrée : /statut'),

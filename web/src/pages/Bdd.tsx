@@ -18,7 +18,11 @@ export default function Bdd() {
               <Courbe hauteur={240} format={(x) => nombre(x)} series={[{ nom: 'Connexions', points: v.serieConnexions }]} />
             </Carte>
             <Carte titre="Taille des bases" sousTitre="Une base par service d’Officina">
-              {v.bases.length ? <Barres donnees={v.bases.map((b) => ({ nom: b.nom, valeur: b.tailleOctets }))} format={octets} /> : <Vide>postgres-exporter ne remonte pas les tailles.</Vide>}
+              {v.bases.length ? (
+                <Barres donnees={v.bases.map((b) => ({ nom: b.nom, valeur: b.tailleOctets }))} format={octets} />
+              ) : (
+                <Vide>postgres-exporter ne remonte pas les tailles.</Vide>
+              )}
             </Carte>
           </div>
         </div>

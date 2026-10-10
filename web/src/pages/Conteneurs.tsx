@@ -10,7 +10,12 @@ export default function Conteneurs() {
   return (
     <Charge etat={etat}>
       {(v) => {
-        if (!v.conteneurs.length) return <Carte><Vide icone={<Boxes size={28} />}>Aucun conteneur mesuré : cAdvisor est-il installé ?</Vide></Carte>;
+        if (!v.conteneurs.length)
+          return (
+            <Carte>
+              <Vide icone={<Boxes size={28} />}>Aucun conteneur mesuré : cAdvisor est-il installé ?</Vide>
+            </Carte>
+          );
         const enMarche = v.conteneurs.filter((c) => c.enMarche).length;
         const memoire = [...v.conteneurs].filter((c) => c.memoireOctets).sort((a, b) => (b.memoireOctets ?? 0) - (a.memoireOctets ?? 0));
         return (
@@ -21,7 +26,9 @@ export default function Conteneurs() {
                 <div className="kpi-valeur">
                   {enMarche} / {v.conteneurs.length}
                 </div>
-                <div className={`kpi-sous ${enMarche === v.conteneurs.length ? 'vert' : 'rouge'}`}>{enMarche === v.conteneurs.length ? 'Tous les conteneurs tournent' : 'Des conteneurs sont arrêtés'}</div>
+                <div className={`kpi-sous ${enMarche === v.conteneurs.length ? 'vert' : 'rouge'}`}>
+                  {enMarche === v.conteneurs.length ? 'Tous les conteneurs tournent' : 'Des conteneurs sont arrêtés'}
+                </div>
               </div>
               <div className="carte kpi">
                 <div className="kpi-libelle">Mémoire totale des conteneurs</div>
@@ -31,7 +38,9 @@ export default function Conteneurs() {
               <div className="carte kpi">
                 <div className="kpi-libelle">Redémarrages (1 h)</div>
                 <div className="kpi-valeur">{nombre(v.conteneurs.reduce((s, c) => s + (c.redemarrages1h ?? 0), 0))}</div>
-                <div className={`kpi-sous ${v.conteneurs.some((c) => (c.redemarrages1h ?? 0) > 0) ? 'orange' : 'vert'}`}>{v.conteneurs.some((c) => (c.redemarrages1h ?? 0) > 2) ? 'Redémarrage en boucle détecté' : 'Pas de redémarrage en boucle'}</div>
+                <div className={`kpi-sous ${v.conteneurs.some((c) => (c.redemarrages1h ?? 0) > 0) ? 'orange' : 'vert'}`}>
+                  {v.conteneurs.some((c) => (c.redemarrages1h ?? 0) > 2) ? 'Redémarrage en boucle détecté' : 'Pas de redémarrage en boucle'}
+                </div>
               </div>
             </div>
             <div className="grille g-principal">
@@ -53,7 +62,9 @@ export default function Conteneurs() {
                         <tr key={c.nom}>
                           <td className="nom-cellule mono">{c.nom}</td>
                           <td>
-                            <Pastille statut={c.statut}>{c.enMarche ? (c.statut === 'vert' ? 'En marche' : c.statut === 'rouge' ? 'Instable' : 'À surveiller') : 'Arrêté'}</Pastille>
+                            <Pastille statut={c.statut}>
+                              {c.enMarche ? (c.statut === 'vert' ? 'En marche' : c.statut === 'rouge' ? 'Instable' : 'À surveiller') : 'Arrêté'}
+                            </Pastille>
                           </td>
                           <td className="num">{pourcent(c.cpuPct, 1)}</td>
                           <td className="num">{octets(c.memoireOctets)}</td>
@@ -77,7 +88,12 @@ export default function Conteneurs() {
                 </div>
               </Carte>
               <Carte titre="Qui consomme la mémoire ?" sousTitre="Les plus gros en premier">
-                <Barres donnees={memoire.slice(0, 12).map((c) => ({ nom: c.nom, valeur: c.memoireOctets ?? 0, couleur: c.statut === 'vert' ? '#2f5bea' : c.statut === 'orange' ? '#e5860a' : '#dc2626' }))} format={octets} />
+                <Barres
+                  donnees={memoire
+                    .slice(0, 12)
+                    .map((c) => ({ nom: c.nom, valeur: c.memoireOctets ?? 0, couleur: c.statut === 'vert' ? '#2f5bea' : c.statut === 'orange' ? '#e5860a' : '#dc2626' }))}
+                  format={octets}
+                />
               </Carte>
             </div>
           </div>

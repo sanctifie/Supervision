@@ -5,17 +5,7 @@ import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
 import { Carte } from '../../components/ui';
 import { CHEMIN_TYPE, IconeType, PastillePriorite, depuisChampDate, useReferentiels } from '../../components/itsm';
-import {
-  AIDE_IMPACT,
-  AIDE_URGENCE,
-  CATEGORIES,
-  LIBELLE_NIVEAU,
-  LIBELLE_TYPE,
-  prioriteDeMatrice,
-  type Niveau,
-  type Ticket,
-  type TypeTicket,
-} from '../../../../shared/itsm';
+import { AIDE_IMPACT, AIDE_URGENCE, CATEGORIES, LIBELLE_NIVEAU, LIBELLE_TYPE, prioriteDeMatrice, type Niveau, type Ticket, type TypeTicket } from '../../../../shared/itsm';
 
 const TYPES: TypeTicket[] = ['incident', 'demande', 'probleme', 'changement'];
 
@@ -23,9 +13,12 @@ const TYPES: TypeTicket[] = ['incident', 'demande', 'probleme', 'changement'];
 export default function NouveauTicket() {
   const [params] = useSearchParams();
   const naviguer = useNavigate();
-  const { nom } = useSupervision();
+  const { nom, peut } = useSupervision();
+  const agent = peut('agir');
+  const typesPermis = agent ? TYPES : TYPES.filter((t) => t === 'incident' || t === 'demande');
   const ref = useReferentiels();
-  const typeInitial = TYPES.includes(params.get('type') as TypeTicket) ? (params.get('type') as TypeTicket) : 'incident';
+  const typeDemande = params.get('type') as TypeTicket;
+  const typeInitial = TYPES.includes(typeDemande) && (agent || typeDemande === 'incident' || typeDemande === 'demande') ? typeDemande : 'incident';
   const lien = params.get('lien') ?? '';
 
   const [type, setType] = useState<TypeTicket>(typeInitial);
@@ -69,8 +62,21 @@ export default function NouveauTicket() {
     setErreur(null);
     setEnCours(true);
     try {
-      const corps: Record<string, unknown> = { type, titre, description, impact, urgence, categorie, ci: ci || null, groupe: groupe || null, assigneA: assigneA || null, demandeur, lien: lien || undefined };
-      if (type === 'changement') Object.assign(corps, { typeChangement, risque, debutPrevu: depuisChampDate(debut), finPrevue: depuisChampDate(fin), justification, planMiseEnOeuvre, planRetourArriere });
+      const corps: Record<string, unknown> = {
+        type,
+        titre,
+        description,
+        impact,
+        urgence,
+        categorie,
+        ci: ci || null,
+        groupe: groupe || null,
+        assigneA: assigneA || null,
+        demandeur,
+        lien: lien || undefined,
+      };
+      if (type === 'changement')
+        Object.assign(corps, { typeChangement, risque, debutPrevu: depuisChampDate(debut), finPrevue: depuisChampDate(fin), justification, planMiseEnOeuvre, planRetourArriere });
       const t = await appeler<Ticket>('/tickets', { methode: 'POST', corps });
       naviguer(`/tickets/${t.numero}`, { replace: true });
     } catch (x) {
@@ -85,7 +91,7 @@ export default function NouveauTicket() {
         <ArrowLeft size={14} /> {LIBELLE_TYPE[type].des}
       </Link>
       <div className="onglets" style={{ alignSelf: 'flex-start' }}>
-        {TYPES.map((x) => (
+        {typesPermis.map((x) => (
           <button type="button" key={x} className={type === x ? 'actif' : ''} onClick={() => setType(x)}>
             <IconeType type={x} taille={13} /> {LIBELLE_TYPE[x].un}
           </button>
@@ -95,7 +101,22 @@ export default function NouveauTicket() {
       <Carte titre={LIBELLE_TYPE[type].nouveau} sousTitre={lien ? `Sera lié à ${lien}` : undefined}>
         <div className="champ-groupe" style={{ marginTop: 0 }}>
           <label className="etiquette">Titre *</label>
-          <input className="champ" required autoFocus value={titre} onChange={(e) => setTitre(e.target.value)} placeholder={type === 'incident' ? 'Ex. : la caisse du poste 2 ne valide plus les ventes' : type === 'changement' ? 'Ex. : mise à jour Officina 1.2' : type === 'probleme' ? 'Ex. : synchronisation lente chaque matin' : 'Ex. : créer un compte pour la nouvelle préparatrice'} />
+          <input
+            className="champ"
+            required
+            autoFocus
+            value={titre}
+            onChange={(e) => setTitre(e.target.value)}
+            placeholder={
+              type === 'incident'
+                ? 'Ex. : la caisse du poste 2 ne valide plus les ventes'
+                : type === 'changement'
+                  ? 'Ex. : mise à jour Officina 1.2'
+                  : type === 'probleme'
+                    ? 'Ex. : synchronisation lente chaque matin'
+                    : 'Ex. : créer un compte pour la nouvelle préparatrice'
+            }
+          />
         </div>
         <div className="champ-groupe">
           <label className="etiquette">Description</label>
@@ -152,28 +173,32 @@ export default function NouveauTicket() {
               ))}
             </select>
           </div>
-          <div className="champ-groupe">
-            <label className="etiquette">Demandeur</label>
-            <input className="champ" value={demandeur} onChange={(e) => setDemandeur(e.target.value)} />
-          </div>
-          <div className="champ-groupe">
-            <label className="etiquette">Groupe</label>
-            <select className="champ" value={groupe} onChange={(e) => setGroupe(e.target.value)}>
-              <option value="">—</option>
-              {ref.equipe.groupes.map((g) => (
-                <option key={g}>{g}</option>
-              ))}
-            </select>
-          </div>
-          <div className="champ-groupe">
-            <label className="etiquette">Assigné à</label>
-            <select className="champ" value={assigneA} onChange={(e) => setAssigneA(e.target.value)}>
-              <option value="">— personne —</option>
-              {[...new Set([...ref.equipe.membres, nom])].map((m) => (
-                <option key={m}>{m}</option>
-              ))}
-            </select>
-          </div>
+          {agent && (
+            <>
+              <div className="champ-groupe">
+                <label className="etiquette">Demandeur</label>
+                <input className="champ" value={demandeur} onChange={(e) => setDemandeur(e.target.value)} />
+              </div>
+              <div className="champ-groupe">
+                <label className="etiquette">Groupe</label>
+                <select className="champ" value={groupe} onChange={(e) => setGroupe(e.target.value)}>
+                  <option value="">—</option>
+                  {ref.equipe.groupes.map((g) => (
+                    <option key={g}>{g}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="champ-groupe">
+                <label className="etiquette">Assigné à</label>
+                <select className="champ" value={assigneA} onChange={(e) => setAssigneA(e.target.value)}>
+                  <option value="">— personne —</option>
+                  {[...new Set([...ref.equipe.membres, nom])].map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </div>
+            </>
+          )}
         </div>
       </Carte>
 

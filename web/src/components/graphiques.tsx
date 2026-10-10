@@ -44,7 +44,12 @@ export function Courbe({
 }) {
   const id = useId().replace(/:/g, '');
   const donnees = fusionner(series);
-  if (!donnees.length) return <div className="vide" style={{ height: hauteur, display: 'grid', placeItems: 'center' }}>Pas encore de mesures sur cette période</div>;
+  if (!donnees.length)
+    return (
+      <div className="vide" style={{ height: hauteur, display: 'grid', placeItems: 'center' }}>
+        Pas encore de mesures sur cette période
+      </div>
+    );
   return (
     <div style={{ width: '100%', height: hauteur }}>
       <ResponsiveContainer>
@@ -88,7 +93,13 @@ export function Courbe({
             }
           />
           {seuils.map((s) => (
-            <ReferenceLine key={s.libelle} y={s.valeur} stroke={s.couleur} strokeDasharray="4 4" label={{ value: s.libelle, position: 'insideTopRight', fontSize: 10, fill: s.couleur }} />
+            <ReferenceLine
+              key={s.libelle}
+              y={s.valeur}
+              stroke={s.couleur}
+              strokeDasharray="4 4"
+              label={{ value: s.libelle, position: 'insideTopRight', fontSize: 10, fill: s.couleur }}
+            />
           ))}
           {series.map((s, i) => (
             <Area

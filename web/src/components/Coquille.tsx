@@ -5,6 +5,8 @@ import { PAGES } from '../pages/liste';
 import { useDonnees } from '../lib/useDonnees';
 import { Point } from './ui';
 import type { VueEtat, Statut } from '../../../shared/types';
+import type { CompteSession } from '../pages/Connexion';
+import { LIBELLE_ROLE, type Permission } from '../../../shared/comptes';
 
 interface Contexte {
   etat: VueEtat | null;
@@ -12,6 +14,9 @@ interface Contexte {
   rechargerEtat: () => Promise<void>;
   nom: string;
   produit: string;
+  compte: CompteSession;
+  peut: (p: Permission) => boolean;
+  rafraichirCompte: () => Promise<void>;
 }
 
 const ContexteSupervision = createContext<Contexte | null>(null);
@@ -33,7 +38,20 @@ function initiales(nom: string) {
   );
 }
 
-export function Coquille({ nom, produit, seDeconnecter, children }: { nom: string; produit: string; seDeconnecter: () => void; children: ReactNode }) {
+export function Coquille({
+  compte,
+  produit,
+  seDeconnecter,
+  rafraichirCompte,
+  children,
+}: {
+  compte: CompteSession;
+  produit: string;
+  seDeconnecter: () => void;
+  rafraichirCompte: () => Promise<void>;
+  children: ReactNode;
+}) {
+  const nom = compte.nom;
   const { donnees: etat, erreur, recharger } = useDonnees<VueEtat>('/etat', 15_000);
   const { donnees: itsm } = useDonnees<{ compteurs: Record<string, number> }>('/itsm/tableau', 30_000);
   const [menuOuvert, setMenuOuvert] = useState(false);
@@ -52,7 +70,10 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
     return PAGES.filter((p) => !p.cachee && `${p.titre} ${p.description} ${p.motsCles ?? ''}`.toLowerCase().includes(q)).slice(0, 6);
   }, [recherche]);
 
-  const contexte = useMemo<Contexte>(() => ({ etat, erreurEtat: erreur, rechargerEtat: recharger, nom, produit }), [etat, erreur, recharger, nom, produit]);
+  const contexte = useMemo<Contexte>(
+    () => ({ etat, erreurEtat: erreur, rechargerEtat: recharger, nom, produit, compte, peut: (p: Permission) => compte.permissions.includes(p), rafraichirCompte }),
+    [etat, erreur, recharger, nom, produit, compte, rafraichirCompte],
+  );
   const groupes = [...new Set(PAGES.map((p) => p.groupe))];
   const bonjour = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
 
@@ -70,12 +91,18 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
           {groupes.map((g) => (
             <div key={g}>
               <div className="nav-titre">{g}</div>
-              {PAGES.filter((p) => p.groupe === g && !p.cachee).map((p) => {
+              {PAGES.filter((p) => p.groupe === g && !p.cachee && (!p.permission || compte.permissions.includes(p.permission))).map((p) => {
                 const s = statutDomaine(p.domaine);
                 const Icone = p.icone;
                 const compte = p.compteur ? itsm?.compteurs[p.compteur] : undefined;
                 return (
-                  <NavLink key={p.chemin} to={p.chemin} end={p.chemin === '/'} className={({ isActive }) => `nav-lien ${isActive ? 'actif' : ''}`} onClick={() => setMenuOuvert(false)}>
+                  <NavLink
+                    key={p.chemin}
+                    to={p.chemin}
+                    end={p.chemin === '/'}
+                    className={({ isActive }) => `nav-lien ${isActive ? 'actif' : ''}`}
+                    onClick={() => setMenuOuvert(false)}
+                  >
                     <Icone size={18} />
                     {p.titre}
                     {s && s !== 'vert' && s !== 'inconnu' && <Point statut={s} />}
@@ -90,7 +117,11 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
               <Sparkles size={14} style={{ verticalAlign: -2, marginRight: 6, color: '#2f5bea' }} />
               Aller plus loin
             </strong>
-            <p>{etat?.sources.grafanaUrl ? 'Les tableaux Grafana détaillés, les journaux bruts et l’historique long.' : 'Renseignez GRAFANA_URL pour relier les tableaux Grafana détaillés.'}</p>
+            <p>
+              {etat?.sources.grafanaUrl
+                ? 'Les tableaux Grafana détaillés, les journaux bruts et l’historique long.'
+                : 'Renseignez GRAFANA_URL pour relier les tableaux Grafana détaillés.'}
+            </p>
             {etat?.sources.grafanaUrl ? (
               <a className="bouton primaire petit" href={etat.sources.grafanaUrl} target="_blank" rel="noreferrer">
                 Ouvrir Grafana <ExternalLink size={13} />
@@ -170,9 +201,9 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
               <button className="icone-bouton" onClick={seDeconnecter} title="Se déconnecter" aria-label="Se déconnecter">
                 <LogOut size={17} />
               </button>
-              <div className="avatar" title={nom}>
+              <button className="avatar" title={`${nom} · ${LIBELLE_ROLE[compte.role]} — mon profil`} onClick={() => naviguer('/profil')}>
                 {initiales(nom)}
-              </div>
+              </button>
             </div>
           </header>
 
@@ -180,7 +211,8 @@ export function Coquille({ nom, produit, seDeconnecter, children }: { nom: strin
             <div className="bandeau-mode">
               <Sparkles size={16} />
               <span>
-                <strong>Données de démonstration.</strong> Prometheus n’est pas joignable : la supervision montre une officine fictive. Renseignez <code>PROMETHEUS_URL</code> (voir le README) pour voir vos vrais serveurs.
+                <strong>Données de démonstration.</strong> Prometheus n’est pas joignable : la supervision montre une officine fictive. Renseignez <code>PROMETHEUS_URL</code> (voir
+                le README) pour voir vos vrais serveurs.
               </span>
             </div>
           )}

@@ -54,7 +54,12 @@ export default function Calendrier() {
               <div key={j} className={`calendrier-jour ${j === aujourdHui ? 'aujourdhui' : ''} ${[5, 6].includes((new Date(j).getDay() + 6) % 7) ? 'weekend' : ''}`}>
                 <div className="calendrier-date">{new Date(j).toLocaleDateString('fr-FR', { weekday: 'short', day: 'numeric', month: 'short' })}</div>
                 {duJour.map((c) => (
-                  <Link key={c.numero} to={`/tickets/${c.numero}`} className={`calendrier-chg risque-${c.risque ?? 'moyen'} ${c.statut === 'clos' ? 'termine' : ''}`} title={`${c.numero} — ${c.titre} (${libelleStatut('changement', c.statut)})`}>
+                  <Link
+                    key={c.numero}
+                    to={`/tickets/${c.numero}`}
+                    className={`calendrier-chg risque-${c.risque ?? 'moyen'} ${c.statut === 'clos' ? 'termine' : ''}`}
+                    title={`${c.numero} — ${c.titre} (${libelleStatut('changement', c.statut)})`}
+                  >
                     <span className="mono">{heure(c.debutPrevu as number)}</span> {c.titre}
                     <small>
                       {c.numero} · {libelleStatut('changement', c.statut)}

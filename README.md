@@ -33,6 +33,28 @@ est cliquable et mène au détail.
 | **Feuille de route** | Les 5 phases et la checklist de mise en production, cochée automatiquement quand la supervision peut le vérifier | 10 |
 | **`/statut`** | Page de statut **publique** (sans connexion, sans détail technique) pour informer pendant un incident | 3.7 |
 
+## Comptes et rôles
+
+Chacun a son compte (identifiant + mot de passe) : ses actions sont signées de son nom.
+
+| Rôle | Peut |
+|------|------|
+| **Administrateur** | Tout, y compris créer, modifier et désactiver les comptes, et gérer les groupes |
+| **Agent du service desk** | Traiter les incidents, problèmes, changements et demandes ; poser des silences ; cocher la feuille de route |
+| **Demandeur** (personnel de l'officine, direction) | Consulter la supervision, déclarer des incidents et des demandes, commenter les siens. Ne voit pas les notes de travail internes |
+| + **Approbateur (CAB)** | Case à cocher sur un compte : approuve ou rejette les changements |
+
+- Un changement ne peut pas être approuvé par son demandeur (séparation des tâches).
+- Un nouveau compte reçoit un mot de passe provisoire, affiché une seule fois à
+  l'administrateur ; il doit être changé à la première connexion (10 caractères minimum).
+- Les mots de passe sont hachés (scrypt) ; les sessions durent `SUPERVISION_SESSION_HEURES`
+  et survivent aux redémarrages. Changer son mot de passe ferme ses autres sessions ;
+  désactiver un compte ou réinitialiser son mot de passe ferme toutes les siennes.
+- 10 essais de connexion par quart d'heure, par adresse et par identifiant.
+- Il reste toujours au moins un administrateur actif.
+- **Mot de passe administrateur perdu** : sur l'écran de connexion, « Secours
+  administrateur », avec le code d'installation : un mot de passe provisoire est donné.
+
 ## Service desk (ITSM)
 
 L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
@@ -104,10 +126,14 @@ Prérequis : Officina tourne avec sa supervision
 git clone https://github.com/sanctifie/Supervision.git /opt/supervision
 cd /opt/supervision
 cp .env.exemple .env
-nano .env                     # SUPERVISION_MOT_DE_PASSE au minimum
+nano .env                     # SUPERVISION_CODE_INSTALLATION au minimum
 docker network ls             # vérifier le nom du réseau d'Officina (officine-os_default)
 docker compose up -d --build
 ```
+
+À la première ouverture, l'interface demande de **créer le compte administrateur**
+(avec le code d'installation). L'administrateur crée ensuite les comptes de
+l'équipe dans **Service desk → Équipe**.
 
 L'interface écoute sur `127.0.0.1:8080`. Pour l'ouvrir depuis un poste :
 
@@ -129,7 +155,8 @@ supervision.mon-officine.ga {
 
 | Variable | Défaut | Rôle |
 |----------|--------|------|
-| `SUPERVISION_MOT_DE_PASSE` | *(vide)* | Mot de passe de l'interface. Vide : seul le nom est demandé (à éviter en production). |
+| `SUPERVISION_CODE_INSTALLATION` | *(vide)* | Crée le premier administrateur et sert de secours. Vide : l'installation n'est possible que depuis la machine elle-même. |
+| `SUPERVISION_SESSION_HEURES` | `12` | Durée d'une session |
 | `SUPERVISION_MODE` | `auto` | `auto` (Prometheus s'il répond, sinon démo), `reel`, `demo` |
 | `PROMETHEUS_URL` | `http://prometheus:9090` | |
 | `ALERTMANAGER_URL` | `http://alertmanager:9093` | Alertes, silences, alerte de test |
@@ -164,6 +191,7 @@ server/src/        API Express (TypeScript)
   analyse.ts       valeurs brutes → vues colorées selon les seuils
   supervision.ts   choix de la source, cache, état global, boucle de fond
   tickets.ts       moteur ITSM : cycle de vie, règles, SLA, liens, approbations
+  comptes.ts       comptes, mots de passe, sessions ; acces.ts : contrôle d'accès
   catalogues.ts    contenu du guide : checklist, phases, sécurité, automatisations
 web/src/           interface React (Vite, Recharts) ; pages/itsm/ pour le service desk
 shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en forme

@@ -23,8 +23,16 @@ function moteur() {
 }
 
 const alerte = (id: string, priorite: Alerte['priorite'], debut: number): Alerte => ({
-  id, nom: 'ServiceInjoignable', gravite: 'critique', resume: 'notify ne répond plus', action: '', debut,
-  labels: { service: 'notify' }, silencieuse: false, priorite, runbook: null,
+  id,
+  nom: 'ServiceInjoignable',
+  gravite: 'critique',
+  resume: 'notify ne répond plus',
+  action: '',
+  debut,
+  labels: { service: 'notify' },
+  silencieuse: false,
+  priorite,
+  runbook: null,
 });
 
 describe('matrice de priorité', () => {
@@ -147,7 +155,12 @@ describe('stockage', () => {
     const dossier = fs.mkdtempSync(path.join(os.tmpdir(), 'itsm-'));
     fs.writeFileSync(
       path.join(dossier, 'etat.json'),
-      JSON.stringify({ version: 1, incidents: [{ id: 'x', titre: 'Ancien', priorite: 'P1', statut: 'resolu', detecteLe: 1, acquitteLe: 2, resoluLe: 3, alertes: [], journal: [], postMortem: '', automatique: true }] }),
+      JSON.stringify({
+        version: 1,
+        incidents: [
+          { id: 'x', titre: 'Ancien', priorite: 'P1', statut: 'resolu', detecteLe: 1, acquitteLe: 2, resoluLe: 3, alertes: [], journal: [], postMortem: '', automatique: true },
+        ],
+      }),
     );
     const stockage = new Stockage(dossier);
     const tickets = new Tickets(stockage, { creerSilence: async () => '', supprimerSilence: async () => undefined });

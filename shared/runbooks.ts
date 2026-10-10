@@ -51,10 +51,7 @@ export const RUNBOOKS: Runbook[] = [
     alerte: 'ErreursServeur',
     titre: "Trop d'erreurs serveur (5xx)",
     priorite: 'P2',
-    verifier: [
-      'Supervision → Journaux, filtrer sur le service et le niveau « erreur ».',
-      'Un déploiement récent ? Comparer avec l’heure du début de l’alerte.',
-    ],
+    verifier: ['Supervision → Journaux, filtrer sur le service et le niveau « erreur ».', 'Un déploiement récent ? Comparer avec l’heure du début de l’alerte.'],
     agir: ['Corriger ou revenir à la version précédente.', 'Si une dépendance externe est en cause (paiement, SMS) : prévenir l’opérateur.'],
   },
   {

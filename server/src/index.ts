@@ -6,7 +6,7 @@ import { config } from './config';
 import { Stockage } from './stockage';
 import { Supervision } from './supervision';
 import { creerApi } from './api';
-import { accesActif, purgerSessions } from './acces';
+import { purgerEssais } from './acces';
 
 /**
  * Point d'entrée : l'API (/api) et l'interface (fichiers construits par Vite).
@@ -51,10 +51,20 @@ if (dossierWeb) {
 }
 
 const serveur = app.listen(config.port, config.hote, () => {
-  console.log(`[supervision] http://${config.hote}:${config.port} — mode ${config.mode}${accesActif() ? '' : ' — ATTENTION : aucun mot de passe (SUPERVISION_MOT_DE_PASSE)'}`);
+  console.log(`[supervision] http://${config.hote}:${config.port} — mode ${config.mode}`);
+  if (sup.comptes.aucun()) {
+    console.log(
+      config.codeInstallation
+        ? '[supervision] Première installation : ouvrez l’interface et créez le compte administrateur avec le code d’installation.'
+        : '[supervision] Première installation : ouvrez l’interface depuis cette machine (ou définissez SUPERVISION_CODE_INSTALLATION).',
+    );
+  }
   sup.demarrer();
 });
-setInterval(purgerSessions, 10 * 60_000).unref();
+setInterval(() => {
+  purgerEssais();
+  sup.comptes.purger();
+}, 10 * 60_000).unref();
 
 function arret() {
   sup.arreter();
