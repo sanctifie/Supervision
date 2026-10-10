@@ -12,7 +12,9 @@ import {
   STATUTS,
   TRANSITIONS,
   estOuvert,
+  echeancesSla,
   etatSla,
+  type ContexteSla,
   libelleStatut,
   niveauxDePriorite,
   verbeTransition,
@@ -26,6 +28,8 @@ import {
 } from '../../shared/itsm';
 import type { Alerte, Priorite } from '../../shared/types';
 import type { EvenementTicket } from './notifications';
+import { config } from './config';
+import { calendrierParDefaut } from '../../shared/calendrier';
 
 /**
  * Le moteur ITSM : création, cycle de vie, règles de passage, SLA, liens,
@@ -201,10 +205,24 @@ export class Tickets {
 
   /** Échéances SLA à partir de la création (recalculées si la priorité change). */
   private calculerSla(t: Ticket): void {
-    if (t.type !== 'incident' && t.type !== 'demande') return;
-    const regle = SLA[t.type][t.priorite];
-    t.echeanceReponse = t.creeLe + regle.reponse;
-    t.echeanceResolution = t.creeLe + regle.resolution;
+    const e = echeancesSla(t, this.contexteSla());
+    if (!e) return;
+    t.echeanceReponse = e.reponse;
+    t.echeanceResolution = e.resolution;
+  }
+
+  /** Calendrier de service et délais en vigueur (Paramètres). */
+  contexteSla(): ContexteSla {
+    const p = this.stockage.donnees.parametres;
+    return {
+      calendrier: p?.calendrier ?? calendrierParDefaut(config.fuseau, config.ouverture, config.fermeture),
+      regles: p?.sla ?? SLA,
+    };
+  }
+
+  /** L'état du SLA d'un ticket, selon les paramètres en vigueur. */
+  sla(t: Ticket, maintenant = Date.now()) {
+    return etatSla(t, maintenant, this.contexteSla());
   }
 
   private tracer(t: Ticket, auteur: string, texteTrace: string, type: ActiviteTicket['type'] = 'systeme'): void {
@@ -233,7 +251,7 @@ export class Tickets {
   }
 
   resume(t: Ticket, maintenant = Date.now()): TicketResume {
-    const s = etatSla(t, maintenant);
+    const s = this.sla(t, maintenant);
     return {
       id: t.id,
       numero: t.numero,
@@ -430,6 +448,13 @@ export class Tickets {
 
     this.stockage.modifier(() => {
       t.statut = cible;
+      // « En attente » met le SLA en pause ; à la reprise, les échéances sont repoussées d'autant.
+      if (cible === 'en-attente') t.pauseDepuis = maintenant;
+      else if (t.pauseDepuis) {
+        t.pauses = [...(t.pauses ?? []), { debut: t.pauseDepuis, fin: maintenant }];
+        t.pauseDepuis = null;
+        this.calculerSla(t);
+      }
       if (avant === STATUTS[t.type][0].cle && !t.prisEnChargeLe && cible !== 'annule') t.prisEnChargeLe = maintenant;
       if (!t.assigneA && ['en-cours', 'analyse'].includes(cible)) t.assigneA = auteur;
       if (cible === 'resolu') t.resoluLe = maintenant;
@@ -612,7 +637,7 @@ export class Tickets {
   verifierSla(maintenant = Date.now()): void {
     for (const t of this.liste) {
       if (!estOuvert(t) || (t.type !== 'incident' && t.type !== 'demande')) continue;
-      const s = etatSla(t, maintenant);
+      const s = this.sla(t, maintenant);
       if ((s.etat !== 'a-risque' && s.etat !== 'depasse') || !s.phase) continue;
       const cle = `${s.phase}:${s.etat}`;
       if (t.slaNotifie?.includes(cle)) continue;
@@ -645,8 +670,8 @@ export class Tickets {
         changements: parType('changement').length,
         aApprouver: this.liste.filter((t) => t.type === 'changement' && t.statut === 'evaluation').length,
         demandes: parType('demande').length,
-        slaDepasses: ouverts.filter((t) => etatSla(t, maintenant).etat === 'depasse').length,
-        slaARisque: ouverts.filter((t) => etatSla(t, maintenant).etat === 'a-risque').length,
+        slaDepasses: ouverts.filter((t) => this.sla(t, maintenant).etat === 'depasse').length,
+        slaARisque: ouverts.filter((t) => this.sla(t, maintenant).etat === 'a-risque').length,
         nonAssignes: ouverts.filter((t) => !t.assigneA && t.type !== 'changement').length,
         incidentsCeMois: this.liste.filter((t) => t.type === 'incident' && t.creeLe >= debutMois.getTime()).length,
         postMortemsEnRetard: this.liste.filter(
@@ -657,7 +682,7 @@ export class Tickets {
       indicateurs: {
         mttaMinutes: moyenne(recents.filter((t) => t.prisEnChargeLe).map((t) => (t.prisEnChargeLe as number) - t.creeLe)),
         mttrMinutes: moyenne(recents.filter((t) => t.resoluLe).map((t) => (t.resoluLe as number) - t.creeLe)),
-        respectSla: slaClos.length ? slaClos.filter((t) => etatSla(t, maintenant).etat === 'tenu').length / slaClos.length : null,
+        respectSla: slaClos.length ? slaClos.filter((t) => this.sla(t, maintenant).etat === 'tenu').length / slaClos.length : null,
       },
       mesTickets: ouverts.filter((t) => t.assigneA === moi).map(resume),
       nonAssignes: ouverts.filter((t) => !t.assigneA && t.type !== 'changement').map(resume),

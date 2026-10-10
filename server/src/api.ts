@@ -4,7 +4,7 @@ import { creerAcces, exiger, peut } from './acces';
 import { CHECKLIST, CONTROLES_SECURITE, AUTOMATISATIONS, PIPELINE } from './catalogues';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { ErreurMetier } from './erreurs';
-import { etatSla, type Ticket, type TypeTicket } from '../../shared/itsm';
+import { type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
 
 const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
@@ -197,7 +197,7 @@ export function creerApi(sup: Supervision): Router {
     return {
       // Les notes de travail restent internes à l'équipe.
       ticket: interne ? t : ({ ...t, activite: t.activite.filter((a) => a.type !== 'note') } as Ticket),
-      sla: etatSla(t),
+      sla: sup.tickets.sla(t),
       transitions: interne ? sup.tickets.transitions(t) : [],
       liens: t.liens
         .map((n) => sup.tickets.trouver(n))
@@ -344,6 +344,56 @@ export function creerApi(sup: Supervision): Router {
       e.equipe.groupes = groupes;
     });
     res.json({ groupes });
+  });
+
+  // Paramètres du service desk : calendrier de service et délais SLA.
+  api.get('/parametres', (_req, res) => {
+    res.json(sup.tickets.contexteSla());
+  });
+  api.put('/parametres', exiger('administrer'), (req, res) => {
+    const erreur = (m: string) => res.status(422).json({ erreur: m });
+    const c = req.body?.calendrier ?? {};
+    const heure = /^([01]\d|2[0-3]):[0-5]\d$/;
+    if (typeof c.fuseau !== 'string' || !Intl.supportedValuesOf('timeZone').includes(c.fuseau)) return void erreur('Fuseau horaire inconnu');
+    if (!heure.test(c.debut) || !heure.test(c.fin) || c.fin <= c.debut) return void erreur('Heures d’ouverture invalides (HH:MM, la fin après le début)');
+    if (!Array.isArray(c.jours) || c.jours.some((j: unknown) => !Number.isInteger(j) || (j as number) < 0 || (j as number) > 6)) return void erreur('Jours invalides');
+    if (!Array.isArray(c.feries) || c.feries.some((f: unknown) => typeof f !== 'string' || !/^(\d{4}-)?\d{2}-\d{2}$/.test(f)))
+      return void erreur('Jours fériés : MM-JJ ou AAAA-MM-JJ');
+    const priorites = ['P1', 'P2', 'P3', 'P4'];
+    if (!Array.isArray(c.prioritesContinues) || c.prioritesContinues.some((p: unknown) => !priorites.includes(p as string))) return void erreur('Priorités 24 h/24 invalides');
+    const sla = req.body?.sla ?? {};
+    for (const type of ['incident', 'demande'])
+      for (const p of priorites) {
+        const r = sla?.[type]?.[p];
+        if (!r || !(r.reponse > 0) || !(r.resolution >= r.reponse) || r.resolution > 90 * 86_400_000)
+          return void erreur(`Délais ${type} ${p} invalides (la résolution doit suivre la prise en charge)`);
+      }
+    sup.stockage.modifier((e) => {
+      e.parametres = {
+        calendrier: {
+          fuseau: c.fuseau,
+          debut: c.debut,
+          fin: c.fin,
+          jours: [...new Set<number>(c.jours)].sort(),
+          feries: [...new Set<string>(c.feries)].sort().slice(0, 200),
+          prioritesContinues: [...new Set<string>(c.prioritesContinues)] as never,
+        },
+        sla: Object.fromEntries(
+          ['incident', 'demande'].map((type) => [
+            type,
+            Object.fromEntries(priorites.map((p) => [p, { reponse: Number(sla[type][p].reponse), resolution: Number(sla[type][p].resolution) }])),
+          ]),
+        ) as never,
+      };
+    });
+    sup.stockage.ajouterEvenement({
+      t: Date.now(),
+      type: 'info',
+      titre: 'Paramètres SLA modifiés',
+      detail: `Par ${res.locals.nom} ; s’appliquent aux nouveaux tickets`,
+      statut: 'vert',
+    });
+    res.json(sup.tickets.contexteSla());
   });
 
   // Comptes (administrateurs).

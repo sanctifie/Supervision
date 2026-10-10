@@ -8,6 +8,8 @@ import { Comptes } from './comptes';
 import { Notifications } from './notifications';
 import { config } from './config';
 import type { Canaux } from './canaux';
+import { calendrierParDefaut } from '../../shared/calendrier';
+import { SLA } from '../../shared/itsm';
 
 function preparer() {
   const stockage = new Stockage(fs.mkdtempSync(path.join(os.tmpdir(), 'notif-')));
@@ -22,6 +24,7 @@ function preparer() {
   const tickets = new Tickets(stockage, { creerSilence: async () => '', supprimerSilence: async () => undefined, signaler: (e) => notifications.traiter(e) });
   const comptes = new Comptes(stockage, 3_600_000);
   notifications = new Notifications(stockage, comptes, canaux);
+  stockage.donnees.parametres = { calendrier: { ...calendrierParDefaut('Africa/Libreville', 8, 20), jours: [] }, sla: SLA };
   const alex = comptes.installer({ identifiant: 'alex', nom: 'Alex', motDePasse: 'motdepasse-long' });
   const bea = comptes.creer({ identifiant: 'bea', nom: 'Béa', role: 'agent', approbateur: true, motDePasse: 'motdepasse-long' });
   const ndong = comptes.creer({ identifiant: 'ndong', nom: 'Dr Ndong', role: 'demandeur', motDePasse: 'motdepasse-long' });

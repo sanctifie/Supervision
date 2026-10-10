@@ -4,6 +4,8 @@
  * (formulaires, barres d'étapes).
  */
 
+import { ajouter, calendrierPour, entre, type CalendrierService } from './calendrier';
+
 export type TypeTicket = 'incident' | 'probleme' | 'changement' | 'demande';
 export type PrioriteTicket = 'P1' | 'P2' | 'P3' | 'P4';
 /** 1 = élevé, 2 = moyen, 3 = faible. */
@@ -11,7 +13,7 @@ export type Niveau = 1 | 2 | 3;
 export type TypeChangement = 'standard' | 'normal' | 'urgent';
 export type Risque = 'faible' | 'moyen' | 'eleve';
 export type ResultatChangement = 'reussi' | 'echoue' | 'retour-arriere';
-export type EtatSla = 'ok' | 'a-risque' | 'depasse' | 'tenu' | 'non-applicable';
+export type EtatSla = 'ok' | 'a-risque' | 'depasse' | 'tenu' | 'pause' | 'non-applicable';
 
 export interface ActiviteTicket {
   t: number;
@@ -59,6 +61,10 @@ export interface Ticket {
   automatique: boolean;
   /** SLA déjà signalés (« reponse:a-risque »…), pour ne prévenir qu'une fois. */
   slaNotifie?: string[];
+  /** SLA en pause (ticket « En attente ») depuis… */
+  pauseDepuis?: number | null;
+  /** Pauses terminées, pour recalculer les échéances si la priorité change. */
+  pauses?: { debut: number; fin: number }[];
 
   // Incident
   codeResolution?: string;
@@ -234,22 +240,26 @@ export function niveauxDePriorite(p: PrioriteTicket): { impact: Niveau; urgence:
 const MIN = 60_000;
 const H = 60 * MIN;
 /**
- * Engagements de service (SLA), en temps calendaire (24 h/24) :
- * délai de prise en charge et délai de résolution. Repris du guide (7.1)
- * pour la prise en charge.
+ * Engagements de service (SLA) : délai de prise en charge et délai de
+ * résolution, comptés en heures ouvrées du calendrier de service (sauf
+ * priorités 24 h/24). P1 et P2 reprennent le guide (7.1).
  */
-export const SLA: Record<'incident' | 'demande', Record<PrioriteTicket, { reponse: number; resolution: number }>> = {
+export type ReglesSla = Record<'incident' | 'demande', Record<PrioriteTicket, { reponse: number; resolution: number }>>;
+
+/** Délais par défaut (modifiables dans Paramètres). */
+export const SLA: ReglesSla = {
+  // Heures ouvrées (une journée d'officine ≈ 12 h) ; P1 en 24 h/24.
   incident: {
     P1: { reponse: 15 * MIN, resolution: 4 * H },
     P2: { reponse: 1 * H, resolution: 8 * H },
-    P3: { reponse: 8 * H, resolution: 3 * 24 * H },
-    P4: { reponse: 24 * H, resolution: 5 * 24 * H },
+    P3: { reponse: 4 * H, resolution: 36 * H },
+    P4: { reponse: 12 * H, resolution: 60 * H },
   },
   demande: {
     P1: { reponse: 1 * H, resolution: 8 * H },
-    P2: { reponse: 4 * H, resolution: 24 * H },
-    P3: { reponse: 8 * H, resolution: 3 * 24 * H },
-    P4: { reponse: 24 * H, resolution: 5 * 24 * H },
+    P2: { reponse: 4 * H, resolution: 12 * H },
+    P3: { reponse: 8 * H, resolution: 36 * H },
+    P4: { reponse: 12 * H, resolution: 60 * H },
   },
 };
 
@@ -330,22 +340,50 @@ export function estOuvert(t: Pick<Ticket, 'type' | 'statut'>): boolean {
   return !STATUTS[t.type].find((s) => s.cle === t.statut)?.final;
 }
 
-/** L'état du SLA en cours (prise en charge puis résolution). */
-export function etatSla(t: Ticket, maintenant = Date.now()): { etat: EtatSla; echeance: number | null; phase: 'reponse' | 'resolution' | null } {
+/** Le contexte de calcul : calendrier de service et délais (Paramètres). */
+export interface ContexteSla {
+  calendrier: CalendrierService | null;
+  regles: ReglesSla;
+}
+
+/** L'état du SLA en cours (prise en charge puis résolution), en heures ouvrées. */
+export function etatSla(
+  t: Ticket,
+  maintenant = Date.now(),
+  ctx: ContexteSla = { calendrier: null, regles: SLA },
+): { etat: EtatSla; echeance: number | null; phase: 'reponse' | 'resolution' | null } {
   if ((t.type !== 'incident' && t.type !== 'demande') || !t.echeanceResolution) return { etat: 'non-applicable', echeance: null, phase: null };
-  const regle = SLA[t.type][t.priorite];
+  const regle = ctx.regles[t.type][t.priorite];
+  const cal = calendrierPour(t.priorite, ctx.calendrier);
   if (!estOuvert(t) || t.resoluLe) {
     const fin = t.resoluLe ?? t.closLe ?? maintenant;
     return { etat: fin <= t.echeanceResolution ? 'tenu' : 'depasse', echeance: t.echeanceResolution, phase: null };
   }
   const enReponse = !t.prisEnChargeLe && t.echeanceReponse;
   const echeance = enReponse ? (t.echeanceReponse as number) : t.echeanceResolution;
-  const duree = enReponse ? regle.reponse : regle.resolution;
-  const reste = echeance - maintenant;
+  const phase = enReponse ? 'reponse' : 'resolution';
+  if (t.pauseDepuis) return { etat: 'pause', echeance, phase };
   // Une prise en charge en retard reste « dépassée » même après coup.
-  if (t.prisEnChargeLe && t.echeanceReponse && t.prisEnChargeLe > t.echeanceReponse && reste > 0) {
+  if (t.prisEnChargeLe && t.echeanceReponse && t.prisEnChargeLe > t.echeanceReponse && echeance > maintenant) {
     return { etat: 'depasse', echeance, phase: 'resolution' };
   }
-  const etat: EtatSla = reste < 0 ? 'depasse' : reste < duree * 0.25 ? 'a-risque' : 'ok';
-  return { etat, echeance, phase: enReponse ? 'reponse' : 'resolution' };
+  if (echeance <= maintenant) return { etat: 'depasse', echeance, phase };
+  const duree = enReponse ? regle.reponse : regle.resolution;
+  const reste = entre(maintenant, echeance, cal);
+  return { etat: reste < duree * 0.25 ? 'a-risque' : 'ok', echeance, phase };
+}
+
+/** Échéances recalculées depuis la création, pauses comprises. */
+export function echeancesSla(t: Ticket, ctx: ContexteSla): { reponse: number; resolution: number } | null {
+  if (t.type !== 'incident' && t.type !== 'demande') return null;
+  const regle = ctx.regles[t.type][t.priorite];
+  const cal = calendrierPour(t.priorite, ctx.calendrier);
+  let reponse = ajouter(t.creeLe, regle.reponse, cal);
+  let resolution = ajouter(t.creeLe, regle.resolution, cal);
+  for (const p of t.pauses ?? []) {
+    const duree = entre(p.debut, p.fin, cal);
+    if (!t.prisEnChargeLe || p.debut < t.prisEnChargeLe) reponse = ajouter(reponse, duree, cal);
+    resolution = ajouter(resolution, duree, cal);
+  }
+  return { reponse, resolution };
 }

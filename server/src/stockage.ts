@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import type { Evenement, Incident } from '../../shared/types';
-import type { Ticket } from '../../shared/itsm';
+import type { ReglesSla, Ticket } from '../../shared/itsm';
+import type { CalendrierService } from '../../shared/calendrier';
 import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
@@ -24,6 +25,11 @@ export interface Equipe {
   groupes: string[];
 }
 
+export interface Parametres {
+  calendrier: CalendrierService;
+  sla: ReglesSla;
+}
+
 export interface Etat {
   version: 1;
   /** Ancien format (avant l'ITSM) : migré en tickets au démarrage. */
@@ -35,6 +41,8 @@ export interface Etat {
   comptes: CompteStocke[];
   sessions: SessionStockee[];
   notifications: Notification[];
+  /** Absent : valeurs par défaut (config + délais du guide). */
+  parametres?: Parametres;
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;

@@ -97,14 +97,16 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
 - **Fiche ticket** : barre d'étapes, actions possibles (avec la raison quand c'est bloqué),
   champs modifiables, notes de travail (internes) et commentaires, historique complet de
   chaque modification, tickets liés (incident → problème → changement, en un clic).
-- **SLA** (temps calendaire, 24 h/24) :
+- **SLA** en **heures ouvrées** (calendrier de service : lundi-samedi 8 h-20 h, jours fériés du
+  Gabon ; modifiable dans **Service desk → Paramètres**). Les P1 courent 24 h/24.
+  Un ticket « En attente » met son délai en pause ; à la reprise, les échéances sont repoussées.
 
-  | Priorité | Prise en charge | Résolution |
-  |----------|-----------------|------------|
-  | P1 | 15 min | 4 h |
-  | P2 | 1 h | 8 h |
-  | P3 | 8 h | 3 jours |
-  | P4 | 24 h | 5 jours |
+  | Priorité | Incident : prise en charge | Incident : résolution | Demande : prise en charge | Demande : résolution |
+  |----------|------|------|------|------|
+  | P1 (24 h/24) | 15 min | 4 h | 1 h | 8 h |
+  | P2 | 1 h | 8 h | 4 h | 12 h |
+  | P3 | 4 h | 36 h (≈ 3 jours) | 8 h | 36 h |
+  | P4 | 12 h | 60 h (≈ 5 jours) | 12 h | 60 h |
 
 - **Lien avec la supervision** :
   - une alerte P1 ou P2 ouvre un incident automatiquement (avec son CI) ; s'il n'a pas été

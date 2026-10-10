@@ -4,7 +4,8 @@ import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { ErreurMetier, Tickets } from './tickets';
 import { Stockage } from './stockage';
-import { etatSla, prioriteDeMatrice } from '../../shared/itsm';
+import { SLA, etatSla, prioriteDeMatrice } from '../../shared/itsm';
+import { calendrierParDefaut } from '../../shared/calendrier';
 import type { Alerte } from '../../shared/types';
 
 function moteur() {
@@ -19,6 +20,8 @@ function moteur() {
       silences.splice(silences.indexOf(id.slice(2)), 1);
     },
   });
+  // Délais en temps calendaire : les tests ne dépendent pas de l'heure à laquelle ils tournent.
+  stockage.donnees.parametres = { calendrier: { ...calendrierParDefaut('Africa/Libreville', 8, 20), jours: [] }, sla: SLA };
   return { tickets, silences, stockage };
 }
 
@@ -173,5 +176,46 @@ describe('stockage', () => {
     fs.writeFileSync(path.join(dossier, 'etat.json'), '{ cassé');
     new Stockage(dossier);
     expect(fs.readdirSync(dossier).some((f) => f.startsWith('etat.json.illisible-'))).toBe(true);
+  });
+});
+
+describe('SLA en heures ouvrées', () => {
+  const lbv = (iso: string) => Date.parse(`${iso}+01:00`);
+  const H = 3_600_000;
+  function avecCalendrier() {
+    const m = moteur();
+    m.stockage.donnees.parametres = { calendrier: calendrierParDefaut('Africa/Libreville', 8, 20), sla: SLA };
+    return m;
+  }
+
+  it('P3 ouvert le vendredi soir : la prise en charge court samedi matin', () => {
+    const { tickets } = avecCalendrier();
+    const t = tickets.creer('incident', { titre: 'Imprimante', impact: 2, urgence: 2 }, 'Alex', { creeLe: lbv('2026-10-09T19:00:00') });
+    // 4 h ouvrées : 1 h vendredi (19-20 h) + 3 h samedi (8-11 h).
+    expect(t.echeanceReponse).toBe(lbv('2026-10-10T11:00:00'));
+  });
+
+  it('P1 reste en 24 h/24', () => {
+    const { tickets } = avecCalendrier();
+    const t = tickets.creer('incident', { titre: 'Panne', impact: 1, urgence: 1 }, 'Alex', { creeLe: lbv('2026-10-10T23:00:00') });
+    expect(t.echeanceResolution! - t.creeLe).toBe(4 * H);
+  });
+
+  it('« En attente » met le SLA en pause et repousse l’échéance', async () => {
+    const { tickets } = moteur();
+    const t = tickets.creer('incident', { titre: 'Attente fournisseur', impact: 2, urgence: 2 }, 'Alex');
+    const avant = t.echeanceResolution!;
+    await tickets.changerStatut(t.numero, 'en-cours', 'Alex');
+    await tickets.changerStatut(t.numero, 'en-attente', 'Alex');
+    expect(etatSla(t).etat).toBe('pause');
+    t.pauseDepuis = Date.now() - 2 * H; // deux heures d'attente
+    await tickets.changerStatut(t.numero, 'en-cours', 'Alex');
+    expect(t.pauseDepuis).toBeNull();
+    expect(Math.round((t.echeanceResolution! - avant) / 60_000)).toBe(120);
+    // Les pauses sont gardées si la priorité change.
+    tickets.modifier(t.numero, { impact: 1 }, 'Alex');
+    expect(t.priorite).toBe('P2');
+    expect(Math.round((t.echeanceResolution! - t.creeLe) / 60_000)).toBe(8 * 60 + 120);
+    expect(SLA.incident.P3.resolution).toBe(36 * H);
   });
 });

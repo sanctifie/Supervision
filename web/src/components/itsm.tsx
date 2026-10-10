@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Check, ClipboardList, GitPullRequest, Siren, Timer, Wrench } from 'lucide-react';
+import { Check, ClipboardList, GitPullRequest, Pause, Siren, Timer, Wrench } from 'lucide-react';
 import { duree, dateHeure } from '../../../shared/format';
 import { STATUTS, libelleStatut, type EtatSla, type PrioriteTicket, type TicketResume, type TypeTicket } from '../../../shared/itsm';
 import { useDonnees } from '../lib/useDonnees';
@@ -38,6 +38,12 @@ export function texteEcheance(echeance: number | null, maintenant = Date.now()):
 
 export function BadgeSla({ etat, echeance }: { etat: EtatSla; echeance: number | null }) {
   if (etat === 'non-applicable') return <span className="discret">—</span>;
+  if (etat === 'pause')
+    return (
+      <span className="pastille violet" title={echeance ? `Échéance (avant la pause) : ${dateHeure(echeance)}` : undefined}>
+        <Pause size={11} /> SLA en pause
+      </span>
+    );
   const couleur: Statut = etat === 'depasse' ? 'rouge' : etat === 'a-risque' ? 'orange' : 'vert';
   return (
     <span className={`pastille ${couleur}`} title={echeance ? `Échéance : ${dateHeure(echeance)}` : undefined}>
