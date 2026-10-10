@@ -1,11 +1,12 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, Link2, Lock, MessageSquare, Plus, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Link2, Lock, MessageSquare, Plus, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X, BookOpen } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
 import { Carte, Charge, Modale, Pastille } from '../../components/ui';
 import { CartePiecesJointes } from './PiecesJointes';
+import type { ArticleResume } from '../../../../shared/connaissances';
 import {
   BadgeSla,
   BarreEtapes,
@@ -41,6 +42,8 @@ interface Detail {
   transitions: { statut: string; libelle: string; bloque: string | null }[];
   liens: TicketResume[];
   avertissements: string[];
+  articles: ArticleResume[];
+  suggestions: ArticleResume[];
 }
 
 const MODELE_POST_MORTEM = `## Résumé
@@ -355,6 +358,7 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
           )}
 
           <Liens d={d} action={action} naviguer={naviguer} recharger={recharger} agent={agent} />
+          <CarteConnaissances d={d} agent={agent} action={action} />
           <CartePiecesJointes<Detail> t={t} peutJoindre={agent || t.demandeur === nom} peutRetirer={(p) => agent || p.par === nom} apres={remplacer} />
         </div>
       </div>
@@ -792,5 +796,61 @@ function ChampLibre({ label, valeur, changer, lignes = 4 }: { label: string; val
       <label className="etiquette">{label}</label>
       <textarea className="champ" rows={lignes} value={valeur} onChange={(e) => changer(e.target.value)} />
     </div>
+  );
+}
+
+/** Articles liés au ticket, suggestions, et rédaction depuis le ticket. */
+function CarteConnaissances({ d, agent, action }: { d: Detail; agent: boolean; action: (chemin: string, corps: unknown, methode?: string) => Promise<boolean> }) {
+  const t = d.ticket;
+  const naviguer = useNavigate();
+  const [erreur, setErreur] = useState<string | null>(null);
+  const redigeable = agent && ((t.type === 'incident' && t.statut === 'resolu') || t.type === 'probleme' || t.statut === 'clos');
+  if (!d.articles.length && !d.suggestions.length && !redigeable) return null;
+  const lier = async (numero: string) => {
+    setErreur(null);
+    try {
+      await appeler(`/connaissances/${numero}/liens`, { methode: 'POST', corps: { ticket: t.numero } });
+      await action('', {}, 'PATCH');
+    } catch (e) {
+      setErreur((e as Error).message);
+    }
+  };
+  return (
+    <Carte titre="Connaissances">
+      {d.articles.map((a) => (
+        <div key={a.id} className="ligne-flex lien-ligne">
+          <BookOpen size={14} color="#2f5bea" />
+          <Link className="lien-titre" to={`/connaissances/${a.numero}`}>
+            {a.titre}
+          </Link>
+        </div>
+      ))}
+      {d.suggestions.length > 0 && (
+        <>
+          <div className="discret" style={{ fontSize: '0.76rem', margin: '8px 0 4px' }}>
+            Peut aider :
+          </div>
+          {d.suggestions.map((a) => (
+            <div key={a.id} className="ligne-flex lien-ligne">
+              <BookOpen size={14} color="#94a3b8" />
+              <Link className="lien-titre" to={`/connaissances/${a.numero}`}>
+                {a.titre}
+              </Link>
+              {agent && (
+                <button className="bouton petit" onClick={() => lier(a.numero)}>
+                  Lier
+                </button>
+              )}
+            </div>
+          ))}
+        </>
+      )}
+      {redigeable && (
+        <button className="bouton petit" style={{ marginTop: 10 }} onClick={() => naviguer(`/connaissances/nouveau?depuis=${t.numero}`)}>
+          <Plus size={13} /> Rédiger un article depuis ce ticket
+        </button>
+      )}
+      {erreur && <div className="erreur">{erreur}</div>}
+    </Carte>
   );
 }

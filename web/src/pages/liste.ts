@@ -8,6 +8,7 @@ import {
   Headset,
   Users,
   Settings,
+  BookOpen,
   Wrench,
   Cpu,
   Database,
@@ -93,6 +94,14 @@ export const PAGES: DescriptionPage[] = [
     icone: ClipboardList,
     compteur: 'demandes',
     motsCles: 'req demande service compte',
+  },
+  {
+    chemin: '/connaissances',
+    titre: 'Connaissances',
+    description: 'Les solutions déjà trouvées : chercher avant d’ouvrir un ticket.',
+    groupe: 'Service desk',
+    icone: BookOpen,
+    motsCles: 'kb base connaissances article solution procédure faq',
   },
   {
     chemin: '/equipe',

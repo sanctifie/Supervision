@@ -5,7 +5,7 @@ import { creerAcces, exiger, peut } from './acces';
 import { CHECKLIST, CONTROLES_SECURITE, AUTOMATISATIONS, PIPELINE } from './catalogues';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { ErreurMetier } from './erreurs';
-import { type Ticket, type TypeTicket } from '../../shared/itsm';
+import { estOuvert, type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
 
 const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
@@ -205,6 +205,10 @@ export function creerApi(sup: Supervision): Router {
         .filter((x): x is NonNullable<typeof x> => !!x)
         .map((x) => sup.tickets.resume(x)),
       avertissements: interne ? await sup.avertissementsChangement(t.numero) : [],
+      articles: sup.connaissances.pourTicket(t.numero, interne),
+      suggestions: estOuvert(t)
+        ? sup.connaissances.suggerer(`${t.titre} ${t.ci ?? ''}`, interne, 3).filter((a) => !sup.connaissances.pourTicket(t.numero, interne).some((x) => x.id === a.id))
+        : [],
     };
   };
 
@@ -365,6 +369,61 @@ export function creerApi(sup: Supervision): Router {
       sup.pieces.supprimer(String(req.params.numero), String(req.params.id), res.locals.nom, peut(res, 'agir'));
       return detail(String(req.params.numero), res);
     }),
+  );
+
+  // Base de connaissances.
+  api.get(
+    '/connaissances',
+    agir((req, res) => {
+      const q = req.query as Record<string, string | undefined>;
+      return sup.connaissances.lister({ q: q.q?.slice(0, 200), statut: q.statut || undefined, categorie: q.categorie || undefined }, peut(res, 'agir'));
+    }),
+  );
+  api.get(
+    '/connaissances/suggestions',
+    agir((req, res) => sup.connaissances.suggerer(String(req.query.q ?? '').slice(0, 300), peut(res, 'agir'))),
+  );
+  api.get(
+    '/connaissances/modele/:ticket',
+    exiger('agir'),
+    agir((req) => {
+      const t = sup.tickets.trouver(String(req.params.ticket));
+      if (!t) throw new ErreurMetier(`Ticket ${req.params.ticket} introuvable`);
+      return sup.connaissances.modeleDepuis(t);
+    }),
+  );
+  api.get(
+    '/connaissances/:numero',
+    agir((req, res) => sup.connaissances.consulter(String(req.params.numero), peut(res, 'agir'))),
+  );
+  api.post(
+    '/connaissances',
+    exiger('agir'),
+    agir((req, res) => sup.connaissances.creer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.patch(
+    '/connaissances/:numero',
+    exiger('agir'),
+    agir((req, res) => sup.connaissances.modifier(String(req.params.numero), req.body ?? {}, res.locals.nom)),
+  );
+  api.post(
+    '/connaissances/:numero/statut',
+    exiger('agir'),
+    agir((req, res) => sup.connaissances.changerStatut(String(req.params.numero), req.body?.statut, res.locals.nom)),
+  );
+  api.post(
+    '/connaissances/:numero/avis',
+    agir((req, res) => sup.connaissances.donnerAvis(String(req.params.numero), !!req.body?.utile, peut(res, 'agir'), (res.locals.compte as CompteStocke).id)),
+  );
+  api.post(
+    '/connaissances/:numero/liens',
+    exiger('agir'),
+    agir((req, res) => sup.connaissances.lierTicket(String(req.params.numero), String(req.body?.ticket ?? ''), res.locals.nom)),
+  );
+  api.delete(
+    '/connaissances/:numero/liens/:ticket',
+    exiger('agir'),
+    agir((req) => sup.connaissances.delierTicket(String(req.params.numero), String(req.params.ticket))),
   );
 
   // Équipe : groupes d'affectation (les membres sont les comptes).

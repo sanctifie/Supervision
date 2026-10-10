@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
-import { ArrowLeft } from 'lucide-react';
+import { ArrowLeft, BookOpen } from 'lucide-react';
+import type { ArticleResume } from '../../../../shared/connaissances';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
 import { Carte } from '../../components/ui';
@@ -56,6 +57,19 @@ export default function NouveauTicket() {
   }, [lien]);
 
   const priorite = prioriteDeMatrice(impact, urgence);
+
+  // Suggestions de la base de connaissances pendant la saisie du titre.
+  const [suggestions, setSuggestions] = useState<ArticleResume[]>([]);
+  useEffect(() => {
+    if (titre.trim().length < 6) {
+      setSuggestions([]);
+      return;
+    }
+    const minuterie = setTimeout(() => {
+      appeler<ArticleResume[]>(`/connaissances/suggestions?q=${encodeURIComponent(titre)}`).then(setSuggestions, () => undefined);
+    }, 400);
+    return () => clearTimeout(minuterie);
+  }, [titre]);
 
   async function creer(e: React.FormEvent) {
     e.preventDefault();
@@ -118,6 +132,16 @@ export default function NouveauTicket() {
             }
           />
         </div>
+        {suggestions.length > 0 && (type === 'incident' || type === 'demande') && (
+          <div className="encadre suggestions-kb">
+            <strong>Ces articles peuvent résoudre le problème tout de suite :</strong>
+            {suggestions.map((a) => (
+              <Link key={a.id} to={`/connaissances/${a.numero}`} target="_blank" rel="noreferrer">
+                <BookOpen size={13} /> {a.titre}
+              </Link>
+            ))}
+          </div>
+        )}
         <div className="champ-groupe">
           <label className="etiquette">Description</label>
           <textarea className="champ" rows={4} value={description} onChange={(e) => setDescription(e.target.value)} />

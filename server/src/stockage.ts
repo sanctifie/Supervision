@@ -6,6 +6,7 @@ import type { CalendrierService } from '../../shared/calendrier';
 import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
+import type { Article } from '../../shared/connaissances';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -41,6 +42,7 @@ export interface Etat {
   comptes: CompteStocke[];
   sessions: SessionStockee[];
   notifications: Notification[];
+  articles: Article[];
   /** Absent : valeurs par défaut (config + délais du guide). */
   parametres?: Parametres;
   evenements: Evenement[];
@@ -58,6 +60,7 @@ const VIDE: Etat = {
   comptes: [],
   sessions: [],
   notifications: [],
+  articles: [],
   evenements: [],
   confirmations: {},
   vus: { alertes: {}, derniereSauvegarde: null },
@@ -88,6 +91,7 @@ export class Stockage {
         comptes: brut.comptes ?? [],
         sessions: brut.sessions ?? [],
         notifications: brut.notifications ?? [],
+        articles: brut.articles ?? [],
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.

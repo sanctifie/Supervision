@@ -1412,6 +1412,80 @@ label.etiquette {
   color: var(--gris-clair);
 }
 
+/* --- Base de connaissances --------------------------------------------------- */
+.recherche-kb {
+  background: linear-gradient(160deg, #ffffff, #f2f6ff);
+  padding: 26px;
+}
+.recherche-kb h2 {
+  font-size: 1.4rem;
+}
+.recherche-kb .recherche svg {
+  left: 14px;
+}
+.markdown {
+  font-size: 0.92rem;
+  line-height: 1.65;
+  color: var(--texte);
+}
+.markdown h2,
+.markdown h3,
+.markdown h4 {
+  margin: 18px 0 6px;
+}
+.markdown h3 {
+  font-size: 1.02rem;
+}
+.markdown p {
+  margin: 8px 0;
+}
+.markdown ul,
+.markdown ol {
+  padding-left: 22px;
+  margin: 6px 0;
+}
+.markdown code {
+  background: #f1f4fb;
+  padding: 1px 6px;
+  border-radius: 6px;
+}
+.markdown pre,
+.version pre {
+  background: #0b1435;
+  color: #d5def5;
+  padding: 12px 14px;
+  border-radius: 10px;
+  overflow-x: auto;
+  font-size: 0.8rem;
+  white-space: pre-wrap;
+}
+.avis {
+  margin-top: 22px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--bord);
+  font-size: 0.85rem;
+}
+.version {
+  border-bottom: 1px dashed var(--bord);
+  padding: 8px 0;
+  font-size: 0.82rem;
+}
+.version summary {
+  cursor: pointer;
+  color: var(--gris);
+}
+.suggestions-kb {
+  margin-top: 10px;
+  display: grid;
+  gap: 6px;
+}
+.suggestions-kb a {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 600;
+}
+
 /* --- ITSM ------------------------------------------------------------------ */
 .champ-groupe {
   margin-top: 12px;
