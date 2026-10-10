@@ -1387,6 +1387,31 @@ label.etiquette {
   box-shadow: inset 3px 0 0 var(--bleu);
 }
 
+/* --- Dépôt de fichiers ------------------------------------------------------ */
+.depot {
+  margin-top: 10px;
+  display: grid;
+  justify-items: center;
+  gap: 4px;
+  padding: 16px;
+  border: 2px dashed #cdd8f3;
+  border-radius: 12px;
+  color: var(--gris);
+  font-size: 0.8rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.depot:hover,
+.depot.survol {
+  border-color: var(--bleu);
+  background: var(--bleu-tres-clair);
+  color: var(--bleu);
+}
+.depot small {
+  color: var(--gris-clair);
+}
+
 /* --- ITSM ------------------------------------------------------------------ */
 .champ-groupe {
   margin-top: 12px;

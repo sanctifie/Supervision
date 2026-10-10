@@ -23,6 +23,15 @@ export interface ActiviteTicket {
   texte: string;
 }
 
+export interface PieceJointe {
+  id: string;
+  nom: string;
+  taille: number;
+  type: string;
+  par: string;
+  le: number;
+}
+
 export interface Approbation {
   par: string;
   decision: 'approuve' | 'rejete';
@@ -59,6 +68,7 @@ export interface Ticket {
   /** Empreintes des alertes Alertmanager à l'origine (incidents automatiques). */
   alertes: string[];
   automatique: boolean;
+  piecesJointes?: PieceJointe[];
   /** SLA déjà signalés (« reponse:a-risque »…), pour ne prévenir qu'une fois. */
   slaNotifie?: string[];
   /** SLA en pause (ticket « En attente ») depuis… */

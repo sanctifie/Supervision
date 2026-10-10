@@ -68,7 +68,7 @@ export class Stockage {
   private minuterie: NodeJS.Timeout | null = null;
   private readonly fichier: string;
 
-  constructor(dossier: string) {
+  constructor(readonly dossier: string) {
     this.fichier = path.join(dossier, 'etat.json');
     fs.mkdirSync(dossier, { recursive: true });
     this.etat = this.lire();

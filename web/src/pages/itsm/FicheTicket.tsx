@@ -5,6 +5,7 @@ import { useDonnees } from '../../lib/useDonnees';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
 import { Carte, Charge, Modale, Pastille } from '../../components/ui';
+import { CartePiecesJointes } from './PiecesJointes';
 import {
   BadgeSla,
   BarreEtapes,
@@ -354,6 +355,7 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
           )}
 
           <Liens d={d} action={action} naviguer={naviguer} recharger={recharger} agent={agent} />
+          <CartePiecesJointes<Detail> t={t} peutJoindre={agent || t.demandeur === nom} peutRetirer={(p) => agent || p.par === nom} apres={remplacer} />
         </div>
       </div>
 

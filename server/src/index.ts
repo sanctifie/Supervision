@@ -19,7 +19,8 @@ const sup = new Supervision(stockage);
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
-app.use(express.json({ limit: '100kb' }));
+// JSON partout, sauf l'envoi d'une pièce jointe (corps brut, voir api.ts).
+app.use(express.json({ limit: '100kb', type: (req) => /^application\/json/.test(String(req.headers['content-type'])) && !/\/pieces\/?$/.test(req.url ?? '') }));
 
 app.use((_req, res, suivant) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -49,6 +50,13 @@ if (dossierWeb) {
     res.sendFile(path.join(dossierWeb, 'index.html'));
   });
 }
+
+// Erreurs de lecture du corps (trop gros, JSON invalide) : une réponse lisible.
+app.use((erreur: { status?: number; type?: string }, _req: express.Request, res: express.Response, suivant: express.NextFunction) => {
+  if (res.headersSent) return suivant(erreur);
+  const statut = erreur.status ?? 500;
+  res.status(statut).json({ erreur: statut === 413 ? 'Fichier ou requête trop gros (10 Mo au plus)' : statut === 400 ? 'Requête invalide' : 'Erreur du serveur' });
+});
 
 const serveur = app.listen(config.port, config.hote, () => {
   console.log(`[supervision] http://${config.hote}:${config.port} — mode ${config.mode}`);

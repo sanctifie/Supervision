@@ -17,6 +17,7 @@ import {
 import { Tickets } from './tickets';
 import { Comptes } from './comptes';
 import { Notifications } from './notifications';
+import { PiecesJointes } from './pieces';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -59,6 +60,7 @@ export class Supervision {
   readonly tickets: Tickets;
   readonly comptes: Comptes;
   readonly notifications: Notifications;
+  readonly pieces: PiecesJointes;
 
   constructor(
     readonly stockage: Stockage,
@@ -77,6 +79,7 @@ export class Supervision {
     });
     this.comptes = new Comptes(stockage, config.dureeSessionHeures * 3_600_000, (ancien, nouveau) => this.tickets.renommerPersonne(ancien, nouveau));
     this.notifications = new Notifications(stockage, this.comptes, canaux);
+    this.pieces = new PiecesJointes(stockage.dossier, stockage, this.tickets);
   }
 
   get mode() {

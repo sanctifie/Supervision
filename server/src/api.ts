@@ -1,4 +1,5 @@
-import { Router, type Request, type Response } from 'express';
+import express, { Router, type Request, type Response } from 'express';
+import { TAILLE_MAX } from './pieces';
 import type { Supervision } from './supervision';
 import { creerAcces, exiger, peut } from './acces';
 import { CHECKLIST, CONTROLES_SECURITE, AUTOMATISATIONS, PIPELINE } from './catalogues';
@@ -318,6 +319,50 @@ export function creerApi(sup: Supervision): Router {
     exiger('agir'),
     agir(async (req, res) => {
       sup.tickets.delier(String(req.params.numero), String(req.params.cible), res.locals.nom);
+      return detail(String(req.params.numero), res);
+    }),
+  );
+
+  // Pièces jointes : un agent partout, un demandeur sur ses propres tickets.
+  const peutJoindre = (numero: string, res: Response) => peut(res, 'agir') || sup.tickets.trouver(numero)?.demandeur === res.locals.nom;
+  api.post(
+    '/tickets/:numero/pieces',
+    express.raw({ type: () => true, limit: TAILLE_MAX }),
+    agir(async (req, res) => {
+      const numero = String(req.params.numero);
+      if (!peutJoindre(numero, res)) {
+        res.status(403).json({ erreur: 'Vous pouvez joindre des fichiers aux tickets que vous avez ouverts' });
+        return;
+      }
+      let nom = 'fichier';
+      try {
+        nom = decodeURIComponent(String(req.headers['x-nom-fichier'] ?? 'fichier'));
+      } catch {
+        /* nom illisible : nom par défaut */
+      }
+      sup.pieces.ajouter(numero, nom, String(req.headers['content-type'] ?? ''), Buffer.isBuffer(req.body) ? req.body : Buffer.alloc(0), res.locals.nom);
+      return detail(numero, res);
+    }, 201),
+  );
+  api.get('/tickets/:numero/pieces/:id', (req, res) => {
+    try {
+      const { fichier, piece, affichable } = sup.pieces.lire(String(req.params.numero), String(req.params.id));
+      // Jamais exécuté dans la page : bac à sable, type imposé, téléchargement par défaut.
+      // (Le PDF fait exception : Chrome refuse d'afficher un PDF en bac à sable ; son lecteur est isolé de la page.)
+      if (piece.type !== 'application/pdf' || !affichable) res.setHeader('Content-Security-Policy', 'sandbox');
+      res.setHeader('X-Content-Type-Options', 'nosniff');
+      res.setHeader('Cache-Control', 'private, max-age=300');
+      res.type(affichable ? piece.type : 'application/octet-stream');
+      res.setHeader('Content-Disposition', `${affichable && req.query.telecharger === undefined ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(piece.nom)}`);
+      res.sendFile(fichier);
+    } catch (e) {
+      res.status(404).json({ erreur: (e as Error).message });
+    }
+  });
+  api.delete(
+    '/tickets/:numero/pieces/:id',
+    agir(async (req, res) => {
+      sup.pieces.supprimer(String(req.params.numero), String(req.params.id), res.locals.nom, peut(res, 'agir'));
       return detail(String(req.params.numero), res);
     }),
   );

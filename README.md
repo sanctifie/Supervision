@@ -115,6 +115,10 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
   - avant un changement, l'application avertit si le budget d'erreur est entamé (gel
     recommandé au-delà de 100 %), si la fenêtre chevauche un autre changement sur le même
     élément, ou si elle tombe pendant les heures d'ouverture.
+- **Pièces jointes** : captures d'écran, PDF, journaux… (10 Mo, 20 par ticket) par
+  glisser-déposer, sélection ou collage direct d'une capture (Ctrl+V). Un demandeur peut
+  joindre des fichiers à ses tickets. Les fichiers sont servis sans jamais s'exécuter dans
+  la page (bac à sable, types non affichables téléchargés).
 - **Calendrier des changements** : deux semaines, couleur selon le risque.
 - **Équipe** : personnes assignables et groupes d'affectation (Exploitation, Développement,
   Support officine…). Toute personne qui agit est ajoutée automatiquement.
@@ -122,7 +126,8 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
 
 ### Où sont les tickets, et comment les sauvegarder
 
-Tout est dans `donnees/etat.json` (volume Docker `donnees`, monté sur `/donnees`).
+Tout est dans le volume Docker `donnees` (monté sur `/donnees`) : `etat.json` pour les
+tickets, comptes et paramètres, `pieces/` pour les pièces jointes.
 L'application en garde **une copie par jour** dans `donnees/copies/` (30 jours). Si le
 fichier devient illisible, il est mis de côté (`etat.json.illisible-…`), jamais écrasé.
 
@@ -220,6 +225,8 @@ server/src/        API Express (TypeScript)
   supervision.ts   choix de la source, cache, état global, boucle de fond
   tickets.ts       moteur ITSM : cycle de vie, règles, SLA, liens, approbations
   comptes.ts       comptes, mots de passe, sessions ; acces.ts : contrôle d'accès
+  notifications.ts qui prévenir ; canaux.ts : Telegram et e-mail
+  pieces.ts        pièces jointes
   catalogues.ts    contenu du guide : checklist, phases, sécurité, automatisations
 web/src/           interface React (Vite, Recharts) ; pages/itsm/ pour le service desk
 shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en forme
