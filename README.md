@@ -247,3 +247,14 @@ shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en form
 ```
 
 Tests : `npm test`. Vérification des types : `npm run typecheck`.
+
+## Sessions Claude Code dans le cloud
+
+`.claude/hooks/session-start.sh` prépare chaque session cloud : `npm install`, puis
+trois outils pour l'agent, à versions figées :
+
+- **Graphify** (carte du code : `/graphify .`) ;
+- **Ponytail** (extension : code minimal et testé) ;
+- **REA** (serveur MCP de rétro-ingénierie).
+
+Le script est idempotent et ne s'exécute que dans le cloud (`CLAUDE_CODE_REMOTE`).
