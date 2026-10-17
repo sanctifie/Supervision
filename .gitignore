@@ -3,3 +3,4 @@ dist/
 donnees/
 .env
 *.log
+graphify-out/
