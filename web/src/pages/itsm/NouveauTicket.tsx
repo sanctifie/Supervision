@@ -35,6 +35,7 @@ export default function NouveauTicket() {
   const [canal, setCanal] = useState('Téléphone');
   const [typeChangement, setTypeChangement] = useState('normal');
   const [risque, setRisque] = useState('moyen');
+  const [versionCible, setVersionCible] = useState('');
   const [debut, setDebut] = useState('');
   const [fin, setFin] = useState('');
   const [justification, setJustification] = useState('');
@@ -92,7 +93,16 @@ export default function NouveauTicket() {
         lien: lien || undefined,
       };
       if (type === 'changement')
-        Object.assign(corps, { typeChangement, risque, debutPrevu: depuisChampDate(debut), finPrevue: depuisChampDate(fin), justification, planMiseEnOeuvre, planRetourArriere });
+        Object.assign(corps, {
+          typeChangement,
+          risque,
+          versionCible,
+          debutPrevu: depuisChampDate(debut),
+          finPrevue: depuisChampDate(fin),
+          justification,
+          planMiseEnOeuvre,
+          planRetourArriere,
+        });
       const t = await appeler<Ticket>('/tickets', { methode: 'POST', corps });
       naviguer(`/tickets/${t.numero}`, { replace: true });
     } catch (x) {
@@ -265,6 +275,10 @@ export default function NouveauTicket() {
                 <option value="moyen">Moyen</option>
                 <option value="eleve">Élevé</option>
               </select>
+            </div>
+            <div className="champ-groupe">
+              <label className="etiquette">Version cible (déploiement)</label>
+              <input className="champ" placeholder="1.8.3" value={versionCible} onChange={(e) => setVersionCible(e.target.value)} />
             </div>
             <div className="champ-groupe">
               <label className="etiquette">Début prévu</label>

@@ -23,6 +23,8 @@ export interface Fournisseur {
   readonly mode: Mode;
   serveur(): Promise<BrutServeur>;
   conteneurs(): Promise<BrutConteneur[]>;
+  /** L'image qui tourne pour chaque service : { sales: 'officina/sales:1.8.3' }. */
+  images(): Promise<Record<string, string>>;
   services(): Promise<BrutServices>;
   application(): Promise<BrutApplication>;
   bdd(): Promise<BrutBdd>;

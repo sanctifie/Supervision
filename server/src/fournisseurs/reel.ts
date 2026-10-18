@@ -175,6 +175,18 @@ export class FournisseurReel implements Fournisseur {
       }));
   }
 
+  async images(): Promise<Record<string, string>> {
+    // Pendant un redéploiement l'ancien et le nouveau conteneur coexistent : on garde le plus récemment vu.
+    const r = await prometheus.requete(`time() - container_last_seen{${SERVICE_CONTENEUR}!="",image!=""}`).catch(() => []);
+    const recents: Record<string, { age: number; image: string }> = {};
+    for (const e of r) {
+      const ci = e.metric[SERVICE_CONTENEUR];
+      const age = Number(e.value?.[1]);
+      if (ci && e.metric.image && Number.isFinite(age) && (!recents[ci] || age < recents[ci].age)) recents[ci] = { age, image: e.metric.image };
+    }
+    return Object.fromEntries(Object.entries(recents).map(([ci, v]) => [ci, v.image]));
+  }
+
   async services(): Promise<BrutServices> {
     const [succes, duree, pubSucces, pubCode, pubDuree, certificat, dispo, serie] = await Promise.all([
       p.parEtiquette('probe_success{job="sondes-internes"}', 'service'),

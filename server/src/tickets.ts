@@ -83,6 +83,7 @@ const CHAMPS_PAR_TYPE: Record<TypeTicket, readonly string[]> = {
     'finPrevue',
     'resultat',
     'silencerAlertes',
+    'versionCible',
   ],
   demande: [...CHAMPS_COMMUNS, 'canal', 'motifAttente', 'notesResolution'],
 };
@@ -111,6 +112,7 @@ const LIBELLES_CHAMPS: Record<string, string> = {
   canal: 'Canal',
   motifAttente: 'Motif d’attente',
   parent: 'Incident parent',
+  versionCible: 'Version cible',
 };
 
 const texte = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -205,6 +207,7 @@ export class Tickets {
         finPrevue: dateOuNull(champs.finPrevue),
         approbations: [],
         resultat: null,
+        versionCible: texte(champs.versionCible, 80).trim(),
         silencerAlertes: champs.silencerAlertes !== false,
         silenceId: null,
       });
@@ -362,6 +365,7 @@ export class Tickets {
         if (cleChamp === 'impact' || cleChamp === 'urgence') valeur = niveau(brut);
         else if (cleChamp === 'debutPrevu' || cleChamp === 'finPrevue') valeur = dateOuNull(brut);
         else if (cleChamp === 'silencerAlertes') valeur = !!brut;
+        else if (cleChamp === 'versionCible') valeur = texte(brut, 80).trim();
         else if (cleChamp === 'typeChangement' && !['standard', 'normal', 'urgent'].includes(String(brut))) continue;
         else if (cleChamp === 'risque' && !['faible', 'moyen', 'eleve'].includes(String(brut))) continue;
         else if (cleChamp === 'resultat' && brut !== null && !['reussi', 'echoue', 'retour-arriere'].includes(String(brut))) continue;
@@ -410,6 +414,17 @@ export class Tickets {
   /** Incidents rattachés à `t`. */
   enfants(t: Ticket): Ticket[] {
     return t.type === 'incident' ? this.liste.filter((x) => x.parent === t.numero) : [];
+  }
+
+  /** Changements d'un CI (pour le suivi des déploiements). */
+  changementsDe(ci: string): Ticket[] {
+    return this.liste.filter((t) => t.type === 'changement' && t.ci === ci);
+  }
+
+  /** Une trace automatique sur le fil d'un ticket. */
+  noter(cle: string, texteTrace: string): void {
+    const t = this.trouver(cle);
+    if (t) this.stockage.modifier(() => this.tracer(t, 'supervision', texteTrace));
   }
 
   /** Ajouter ou retirer quelqu'un de la liste de suivi. */

@@ -111,6 +111,8 @@ export interface Ticket {
   /** Mettre en silence les alertes du CI pendant la fenêtre. */
   silencerAlertes?: boolean;
   silenceId?: string | null;
+  /** Déploiement : version d'image attendue en production à la fin du changement. */
+  versionCible?: string;
 }
 
 /** Version allégée pour les listes. */

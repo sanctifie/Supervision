@@ -9,6 +9,7 @@ import StatutPublic from './pages/StatutPublic';
 import TableauDeBord from './pages/TableauDeBord';
 import Serveur from './pages/Serveur';
 import Conteneurs from './pages/Conteneurs';
+import Deploiements from './pages/Deploiements';
 import Services from './pages/Services';
 import Bdd from './pages/Bdd';
 import Sauvegardes from './pages/Sauvegardes';
@@ -34,6 +35,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/': TableauDeBord,
   '/serveur': Serveur,
   '/conteneurs': Conteneurs,
+  '/deploiements': Deploiements,
   '/services': Services,
   '/bdd': Bdd,
   '/sauvegardes': Sauvegardes,

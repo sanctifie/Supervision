@@ -144,6 +144,11 @@ export class FournisseurDemo implements Fournisseur {
     };
   }
 
+  async images(): Promise<Record<string, string>> {
+    const tiers: Record<string, string> = { postgres: 'postgres:16.4', redis: 'redis:7.4', nats: 'nats:2.10', caddy: 'caddy:2.8' };
+    return { ...Object.fromEntries(SERVICES_OFFICINA.map((s) => [s, `officina/${s}:1.8.3`])), ...tiers };
+  }
+
   async conteneurs(): Promise<BrutConteneur[]> {
     const t = Date.now();
     const panne = notifyEnPanne(t);

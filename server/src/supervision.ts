@@ -25,6 +25,7 @@ import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
 import { RUNBOOKS } from '../../shared/runbooks';
+import { Deploiements } from './deploiements';
 import { nombre, pourcent } from '../../shared/format';
 import type {
   Alerte,
@@ -65,6 +66,7 @@ export class Supervision {
   readonly pieces: PiecesJointes;
   readonly connaissances: BaseConnaissances;
   readonly catalogue: Catalogue;
+  readonly deploiements: Deploiements;
 
   constructor(
     readonly stockage: Stockage,
@@ -86,6 +88,7 @@ export class Supervision {
     this.pieces = new PiecesJointes(stockage.dossier, stockage, this.tickets);
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
+    this.deploiements = new Deploiements(stockage, this.tickets);
   }
 
   get mode() {
@@ -110,6 +113,8 @@ export class Supervision {
         await this.choisirSource();
         const alertes = await this.alertesEnrichies().catch(() => null);
         if (alertes) this.tickets.synchroniser(alertes);
+        // La démonstration ne laisse pas de fausses versions dans l'historique.
+        if (this.mode === 'reel') this.deploiements.observer(await this.images());
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
       } catch (e) {
@@ -142,6 +147,7 @@ export class Supervision {
   // --- Vues -----------------------------------------------------------------
 
   serveur = (): Promise<VueServeur> => this.memo('serveur', 10_000, async () => analyserServeur(await this.fournisseur.serveur()));
+  images = (): Promise<Record<string, string>> => this.memo('images', 10_000, () => this.fournisseur.images());
   conteneurs = (): Promise<VueConteneurs> => this.memo('conteneurs', 10_000, async () => analyserConteneurs(await this.fournisseur.conteneurs()));
   services = (): Promise<VueServices> => this.memo('services', 10_000, async () => analyserServices(await this.fournisseur.services()));
   application = (): Promise<VueApplication> => this.memo('application', 10_000, async () => analyserApplication(await this.fournisseur.application()));

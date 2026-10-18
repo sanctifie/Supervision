@@ -21,6 +21,7 @@ est cliquable et mène au détail.
 | **Tableau de bord** | État global vert/orange/rouge, disponibilité et SLO (budget d'erreur), trafic vs J-7, activité récente, un voyant par service métier | 1, 8 |
 | **Serveur** | CPU (iowait, steal, charge), mémoire, swap, OOM, disques (espace, **inodes**, prédiction de remplissage), latence disque, descripteurs, uptime, redémarrage requis, dérive de l'horloge, réseau | 2.1, 2.2 |
 | **Conteneurs** | CPU et mémoire par conteneur vs limites, redémarrages, conteneurs arrêtés | 2.4 |
+| **Déploiements** | Version (image) qui tourne pour chaque service, version prévue par les changements, écart, historique des versions, **retour arrière** en un clic (ouvre un changement urgent) ; un déploiement fait sans changement est signalé | 4, 5 |
 | **Services et sondes** | `/health` des 15 services, sondes HTTPS du site, certificat (J-30 / J-14 / J-7), disponibilité heure par heure | 2.2, 2.3, 3.1 |
 | **Base de données** | PostgreSQL : en marche, connexions vs max, cache, verrous, deadlocks, taille des bases | 2.5 |
 | **Sauvegardes** | Âge de la dernière sauvegarde réussie (orange > 26 h, rouge > 48 h), taille | 4 |
@@ -136,6 +137,16 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
 - **Équipe** : personnes assignables et groupes d'affectation (Exploitation, Développement,
   Support officine…). Toute personne qui agit est ajoutée automatiquement.
 - Un ticket résolu se clôt seul après 3 jours.
+- **Repris d'Argo CD** (analyse de sa démo publique) : la page **Déploiements**. Chaque nouvelle
+  version vue en production est rattachée au changement qui la couvrait (en cours, ou planifié
+  dont la fenêtre ±1 h contient l'instant) ; sinon elle est signalée « hors changement ». Le champ
+  **Version cible** d'un changement dit ce qu'il doit amener : *À jour* (version = cible),
+  *À déployer* (changement ouvert qui annonce autre chose), *Écart* (autre version après un
+  changement réussi), *Non suivi* (aucune cible). « Revenir à cette version » crée un changement
+  **urgent** pré-rempli (plans compris), lié au déploiement fautif : le retour arrière reste tracé
+  et approuvé. L'application ne déploie rien et ne touche pas à Officina. Les versions viennent de
+  l'étiquette `image` de cAdvisor ; 30 versions gardées par service ; en démonstration, rien n'est
+  enregistré dans l'historique.
 - **Repris de ServiceNow** (analyse d'une instance de développeur) :
   - **incident parent** : rattacher les incidents en double à l'incident principal ; le résoudre
     résout ses enfants avec le même code et les mêmes notes (un seul niveau) ;

@@ -15,6 +15,7 @@ import {
   Database,
   Flag,
   LayoutDashboard,
+  PackageCheck,
   Radar,
   ScrollText,
   ShieldCheck,
@@ -149,6 +150,14 @@ export const PAGES: DescriptionPage[] = [
     icone: Boxes,
     domaine: 'conteneurs',
     motsCles: 'docker cadvisor',
+  },
+  {
+    chemin: '/deploiements',
+    titre: 'Déploiements',
+    description: 'Quelle version tourne, laquelle est prévue, l’écart, l’historique et le retour arrière.',
+    groupe: 'Infrastructure',
+    icone: PackageCheck,
+    motsCles: 'version image déploiement release rollback retour arrière argo dérive',
   },
   {
     chemin: '/services',

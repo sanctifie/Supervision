@@ -90,6 +90,14 @@ export function creerApi(sup: Supervision): Router {
     lire(() => sup.conteneurs()),
   );
   api.get(
+    '/deploiements',
+    lire(async () => {
+      const [images, conteneurs] = await Promise.all([sup.images().catch(() => ({})), sup.conteneurs().catch(() => null)]);
+      const enMarche = Object.fromEntries((conteneurs?.conteneurs ?? []).map((c) => [c.nom, c.enMarche]));
+      return sup.deploiements.vue(images, enMarche);
+    }),
+  );
+  api.get(
     '/services',
     lire(() => sup.services()),
   );
@@ -229,6 +237,11 @@ export function creerApi(sup: Supervision): Router {
         q: q.q?.slice(0, 200) || undefined,
       });
     }),
+  );
+  api.post(
+    '/deploiements/:ci/retour-arriere',
+    exiger('agir'),
+    agir((req, res) => sup.deploiements.retourArriere(String(req.params.ci), String(req.body?.version ?? ''), res.locals.nom), 201),
   );
   api.get(
     '/itsm/tableau',

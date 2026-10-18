@@ -527,6 +527,10 @@ function SectionsChangement({
             </select>
           </div>
           <div className="champ-groupe">
+            <label className="etiquette">Version cible (déploiement)</label>
+            <TexteCourt valeur={t.versionCible ?? ''} lecture={!modifiable} enregistrer={(versionCible) => patch({ versionCible })} />
+          </div>
+          <div className="champ-groupe">
             <label className="etiquette">Début prévu</label>
             <input
               className="champ"
