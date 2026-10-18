@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, Link2, Lock, MessageSquare, Plus, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X, BookOpen } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Eye, EyeOff, Link2, Lock, MessageSquare, Plus, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X, BookOpen } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
@@ -24,8 +24,11 @@ import { dateHeure, depuis } from '../../../../shared/format';
 import {
   AIDE_IMPACT,
   AIDE_URGENCE,
+  CANAUX,
   CATEGORIES,
   CODES_RESOLUTION,
+  CODES_RESOLUTION_PROBLEME,
+  MOTIFS_ATTENTE,
   LIBELLE_NIVEAU,
   LIBELLE_TYPE,
   estOuvert,
@@ -41,6 +44,7 @@ interface Detail {
   sla: { etat: EtatSla; echeance: number | null; phase: 'reponse' | 'resolution' | null };
   transitions: { statut: string; libelle: string; bloque: string | null }[];
   liens: TicketResume[];
+  enfants: TicketResume[];
   avertissements: string[];
   articles: ArticleResume[];
   suggestions: ArticleResume[];
@@ -175,6 +179,16 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
             </button>
           ))}
           <span className="espace" />
+          {(agent || t.demandeur === nom) && (
+            <button
+              className="bouton"
+              title={t.suivi?.length ? `Suivent : ${t.suivi.join(', ')}` : 'Être prévenu des changements et des messages'}
+              onClick={() => action('/suivi', { suivre: !t.suivi?.includes(nom) })}
+            >
+              {t.suivi?.includes(nom) ? <EyeOff size={14} /> : <Eye size={14} />} {t.suivi?.includes(nom) ? 'Ne plus suivre' : 'Suivre'}
+              {t.suivi?.length ? ` (${t.suivi.length})` : ''}
+            </button>
+          )}
           {ouvert && t.assigneA !== nom && (
             <button className="bouton" onClick={() => patch({ assigneA: nom })}>
               <UserCheck size={14} /> M’assigner
@@ -239,6 +253,15 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
                 aide="Comment rétablir le service en attendant la correction…"
                 enregistrer={(contournement) => patch({ contournement })}
               />
+              <div className="champ-groupe">
+                <label className="etiquette">Code de résolution</label>
+                <select className="champ" value={t.codeResolution ?? ''} disabled={!ouvert} onChange={(e) => patch({ codeResolution: e.target.value })}>
+                  <option value="">—</option>
+                  {CODES_RESOLUTION_PROBLEME.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </div>
             </Carte>
           )}
 
@@ -341,6 +364,27 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
             <Ligne label="Demandeur">
               <TexteCourt valeur={t.demandeur} lecture={!ouvert} enregistrer={(demandeur) => patch({ demandeur })} />
             </Ligne>
+            {(t.type === 'incident' || t.type === 'demande') && (
+              <Ligne label="Canal">
+                <select className="champ" value={t.canal ?? ''} disabled={!ouvert} onChange={(e) => patch({ canal: e.target.value })}>
+                  <option value="">—</option>
+                  {CANAUX.map((c) => (
+                    <option key={c}>{c}</option>
+                  ))}
+                </select>
+              </Ligne>
+            )}
+            {t.statut === 'en-attente' && (
+              <Ligne label="Attend">
+                <select className="champ" value={t.motifAttente ?? ''} disabled={!ouvert} onChange={(e) => patch({ motifAttente: e.target.value })}>
+                  {MOTIFS_ATTENTE.map((m) => (
+                    <option key={m}>{m}</option>
+                  ))}
+                </select>
+              </Ligne>
+            )}
+            {t.type === 'incident' && <IncidentParent t={t} ouvert={ouvert && !d.enfants.length} patch={patch} />}
+            {!!t.reouvertures && <Ligne label="Rouvert">{t.reouvertures} fois</Ligne>}
             <div className="fiche-dates">
               <span>Ouvert {dateHeure(t.creeLe)}</span>
               {t.prisEnChargeLe && <span>Pris en charge {dateHeure(t.prisEnChargeLe)}</span>}
@@ -367,6 +411,17 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
             </Carte>
           )}
 
+          {d.enfants.length > 0 && (
+            <Carte titre={`Incidents enfants (${d.enfants.length})`} sousTitre="Résolus en même temps que cet incident">
+              {d.enfants.map((l) => (
+                <div key={l.numero} className="ligne-flex lien-ligne">
+                  <LienTicket t={l} />
+                  <span className="lien-titre">{l.titre}</span>
+                  <PastilleStatut type={l.type} statut={l.statut} />
+                </div>
+              ))}
+            </Carte>
+          )}
           <Liens d={d} action={action} naviguer={naviguer} recharger={recharger} agent={agent} />
           <CarteConnaissances d={d} agent={agent} action={action} />
           <CartePiecesJointes<Detail> t={t} peutJoindre={agent || t.demandeur === nom} peutRetirer={(p) => agent || p.par === nom} apres={remplacer} />
@@ -391,6 +446,41 @@ function TitreEditable({ valeur, enregistrer, lecture }: { valeur: string; enreg
       onKeyDown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
       aria-label="Titre"
     />
+  );
+}
+
+/** Rattacher l'incident à un incident principal (un seul niveau). */
+function IncidentParent({ t, ouvert, patch }: { t: Ticket; ouvert: boolean; patch: (c: Record<string, unknown>) => Promise<boolean> }) {
+  const [v, setV] = useState('');
+  if (t.parent)
+    return (
+      <Ligne label="Parent">
+        <Link to={`/tickets/${t.parent}`} className="mono">
+          {t.parent}
+        </Link>{' '}
+        {ouvert && (
+          <button className="bouton petit" title="Détacher du parent" aria-label="Détacher du parent" onClick={() => patch({ parent: null })}>
+            <X size={12} />
+          </button>
+        )}
+      </Ligne>
+    );
+  if (!ouvert) return null;
+  return (
+    <Ligne label="Parent">
+      <form
+        className="ligne-flex"
+        onSubmit={async (e) => {
+          e.preventDefault();
+          if (v.trim() && (await patch({ parent: v.trim() }))) setV('');
+        }}
+      >
+        <input className="champ mono" style={{ flex: 1 }} placeholder="INC… principal" value={v} onChange={(e) => setV(e.target.value)} aria-label="Incident parent" />
+        <button className="bouton petit" type="submit">
+          Rattacher
+        </button>
+      </form>
+    </Ligne>
   );
 }
 
@@ -723,6 +813,8 @@ function ModaleTransition({
   apres: (d: Detail) => void;
 }) {
   const resolution = (t.type === 'incident' || t.type === 'demande') && cible.statut === 'resolu';
+  const attente = cible.statut === 'en-attente';
+  const [motif, setMotif] = useState(t.motifAttente || MOTIFS_ATTENTE[0]);
   const [code, setCode] = useState(t.codeResolution ?? '');
   const [notes, setNotes] = useState(t.notesResolution ?? '');
   const [contournement, setContournement] = useState(t.contournement ?? '');
@@ -739,7 +831,8 @@ function ModaleTransition({
       champs.notesResolution = notes;
     }
     if (t.type === 'probleme' && cible.statut === 'erreur-connue') champs.contournement = contournement;
-    if (t.type === 'probleme' && cible.statut === 'resolu') champs.causeRacine = cause;
+    if (t.type === 'probleme' && cible.statut === 'resolu') Object.assign(champs, { causeRacine: cause, codeResolution: code });
+    if (attente) champs.motifAttente = motif;
     if (t.type === 'changement' && cible.statut === 'clos') champs.resultat = resultat || null;
     try {
       if (Object.keys(champs).length) apres(await appeler<Detail>(`/tickets/${t.numero}`, { methode: 'PATCH', corps: champs }));
@@ -752,7 +845,7 @@ function ModaleTransition({
 
   return (
     <Modale titre={`${t.numero} : ${cible.libelle.toLowerCase()} (→ ${libelleStatut(t.type, cible.statut)})`} fermer={fermer}>
-      {cible.bloque && !resolution && !['erreur-connue', 'resolu', 'clos'].includes(cible.statut) && (
+      {cible.bloque && !resolution && !['erreur-connue', 'resolu', 'clos', 'en-attente'].includes(cible.statut) && (
         <div className="encadre orange" style={{ marginBottom: 12 }}>
           <Lock size={13} /> {cible.bloque}
         </div>
@@ -774,7 +867,30 @@ function ModaleTransition({
         </>
       )}
       {t.type === 'probleme' && cible.statut === 'erreur-connue' && <ChampLibre label="Contournement" valeur={contournement} changer={setContournement} />}
-      {t.type === 'probleme' && cible.statut === 'resolu' && <ChampLibre label="Cause racine" valeur={cause} changer={setCause} />}
+      {attente && (
+        <div className="champ-groupe">
+          <label className="etiquette">Ce que le ticket attend</label>
+          <select className="champ" value={motif} onChange={(e) => setMotif(e.target.value)}>
+            {MOTIFS_ATTENTE.map((m) => (
+              <option key={m}>{m}</option>
+            ))}
+          </select>
+        </div>
+      )}
+      {t.type === 'probleme' && cible.statut === 'resolu' && (
+        <>
+          <div className="champ-groupe">
+            <label className="etiquette">Code de résolution</label>
+            <select className="champ" value={code} onChange={(e) => setCode(e.target.value)}>
+              <option value="">— choisir —</option>
+              {CODES_RESOLUTION_PROBLEME.map((c) => (
+                <option key={c}>{c}</option>
+              ))}
+            </select>
+          </div>
+          <ChampLibre label="Cause racine" valeur={cause} changer={setCause} />
+        </>
+      )}
       {t.type === 'changement' && cible.statut === 'clos' && (
         <div className="champ-groupe">
           <label className="etiquette">Résultat</label>

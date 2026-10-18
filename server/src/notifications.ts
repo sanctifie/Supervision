@@ -213,5 +213,20 @@ export class Notifications {
         break;
       }
     }
+    this.prevenirSuivi(e, lien);
+  }
+
+  /** La liste de suivi apprend les changements d'état et les messages (notes internes : agents seulement). */
+  private prevenirSuivi(e: EvenementTicket, lien: string): void {
+    if (e.type !== 'statut' && e.type !== 'activite') return;
+    const t = e.ticket;
+    const auteur = e.auteur;
+    const deja = [auteur, t.assigneA, t.demandeur];
+    const qui = (t.suivi ?? [])
+      .filter((n) => !deja.includes(n))
+      .flatMap((n) => this.personne(n))
+      .filter((c) => e.type !== 'activite' || e.nature !== 'note' || permissionsDe(c).includes('agir'));
+    const texte = e.type === 'statut' ? `${libelleStatut(t.type, t.statut)} — par ${auteur}.` : `${auteur} : ${e.texte.slice(0, 300)}`;
+    this.envoyer(qui, { titre: `Suivi ${t.numero} : ${t.titre}`, texte, lien });
   }
 }

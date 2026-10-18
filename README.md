@@ -136,6 +136,17 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
 - **Équipe** : personnes assignables et groupes d'affectation (Exploitation, Développement,
   Support officine…). Toute personne qui agit est ajoutée automatiquement.
 - Un ticket résolu se clôt seul après 3 jours.
+- **Repris de ServiceNow** (analyse d'une instance de développeur) :
+  - **incident parent** : rattacher les incidents en double à l'incident principal ; le résoudre
+    résout ses enfants avec le même code et les mêmes notes (un seul niveau) ;
+  - **liste de suivi** : « Suivre » un ticket pour être prévenu de ses changements d'état et de ses
+    messages (les notes internes restent réservées aux agents) ;
+  - **motif d'attente** obligatoire pour passer « En attente » (demandeur, changement, problème,
+    fournisseur) ;
+  - **canal** d'arrivée (téléphone, e-mail, comptoir, libre-service, alerte) ;
+  - **compteur de réouvertures** ;
+  - codes de résolution complétés pour les incidents, et **code de résolution des problèmes**
+    (correctif appliqué, risque accepté, doublon, annulé), obligatoire pour les résoudre.
 
 ### Où sont les tickets, et comment les sauvegarder
 

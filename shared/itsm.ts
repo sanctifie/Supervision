@@ -78,8 +78,17 @@ export interface Ticket {
   pauseDepuis?: number | null;
   /** Pauses terminées, pour recalculer les échéances si la priorité change. */
   pauses?: { debut: number; fin: number }[];
+  /** Personnes prévenues de chaque nouveauté (liste de suivi). */
+  suivi?: string[];
+  /** Fois où le ticket a été rouvert après résolution. */
+  reouvertures?: number;
+  /** Incident / demande : par où il est arrivé, et pourquoi il attend. */
+  canal?: string;
+  motifAttente?: string;
 
-  // Incident
+  // Incident (et problème pour le code de résolution)
+  /** Incident principal : résoudre le parent résout ses enfants. */
+  parent?: string | null;
   codeResolution?: string;
   notesResolution?: string;
   postMortem?: string;
@@ -284,7 +293,17 @@ export const CODES_RESOLUTION = [
   'Doublon',
   'Pas de défaut / fonctionnement normal',
   'Ne se reproduit pas',
+  'Résolu par un problème',
+  'Résolu par le demandeur',
+  'Erreur d’utilisation',
 ];
+
+export const CODES_RESOLUTION_PROBLEME = ['Correctif appliqué', 'Risque accepté', 'Doublon', 'Annulé'];
+
+export const CANAUX = ['Téléphone', 'E-mail', 'Au comptoir', 'Libre-service', 'Supervision (alerte)'];
+
+/** Un ticket « En attente » dit ce qu'il attend. */
+export const MOTIFS_ATTENTE = ['Réponse du demandeur', 'Un changement', 'Un problème', 'Un fournisseur'];
 
 export const CATEGORIES: Record<TypeTicket, string[]> = {
   incident: ['Application', 'Caisse / comptoir', 'Paiements', 'Synchronisation', 'Base de données', 'Serveur', 'Réseau', 'Sécurité', 'Impression', 'Autre'],

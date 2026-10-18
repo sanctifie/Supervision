@@ -5,7 +5,10 @@ import { ErreurMetier } from './erreurs';
 export { ErreurMetier };
 import { statutDeLaPriorite } from './analyse';
 import {
+  CANAUX,
   CODES_RESOLUTION,
+  CODES_RESOLUTION_PROBLEME,
+  MOTIFS_ATTENTE,
   ELEMENTS_CONFIGURATION,
   PREFIXES,
   SLA,
@@ -66,8 +69,8 @@ export interface FiltreTickets {
 /** Champs modifiables par type (le reste passe par les actions dédiées). */
 const CHAMPS_COMMUNS = ['titre', 'description', 'impact', 'urgence', 'categorie', 'ci', 'groupe', 'assigneA', 'demandeur'] as const;
 const CHAMPS_PAR_TYPE: Record<TypeTicket, readonly string[]> = {
-  incident: [...CHAMPS_COMMUNS, 'codeResolution', 'notesResolution', 'postMortem'],
-  probleme: [...CHAMPS_COMMUNS, 'causeRacine', 'contournement'],
+  incident: [...CHAMPS_COMMUNS, 'canal', 'motifAttente', 'parent', 'codeResolution', 'notesResolution', 'postMortem'],
+  probleme: [...CHAMPS_COMMUNS, 'causeRacine', 'contournement', 'codeResolution'],
   changement: [
     ...CHAMPS_COMMUNS,
     'typeChangement',
@@ -81,7 +84,14 @@ const CHAMPS_PAR_TYPE: Record<TypeTicket, readonly string[]> = {
     'resultat',
     'silencerAlertes',
   ],
-  demande: [...CHAMPS_COMMUNS, 'notesResolution'],
+  demande: [...CHAMPS_COMMUNS, 'canal', 'motifAttente', 'notesResolution'],
+};
+
+/** Valeurs permises des champs à liste fermée. */
+const LISTES: Record<string, (t: Ticket) => string[]> = {
+  codeResolution: (t) => (t.type === 'probleme' ? CODES_RESOLUTION_PROBLEME : CODES_RESOLUTION),
+  canal: () => CANAUX,
+  motifAttente: () => MOTIFS_ATTENTE,
 };
 
 const LIBELLES_CHAMPS: Record<string, string> = {
@@ -98,6 +108,9 @@ const LIBELLES_CHAMPS: Record<string, string> = {
   debutPrevu: 'Début prévu',
   finPrevue: 'Fin prévue',
   resultat: 'Résultat',
+  canal: 'Canal',
+  motifAttente: 'Motif d’attente',
+  parent: 'Incident parent',
 };
 
 const texte = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
@@ -196,9 +209,10 @@ export class Tickets {
         silenceId: null,
       });
     }
-    if (type === 'probleme') Object.assign(t, { causeRacine: texte(champs.causeRacine, 20000), contournement: texte(champs.contournement, 20000) });
-    if (type === 'incident') Object.assign(t, { codeResolution: '', notesResolution: '', postMortem: '' });
+    if (type === 'probleme') Object.assign(t, { causeRacine: texte(champs.causeRacine, 20000), contournement: texte(champs.contournement, 20000), codeResolution: '' });
+    if (type === 'incident') Object.assign(t, { codeResolution: '', notesResolution: '', postMortem: '', parent: null });
     if (type === 'demande') Object.assign(t, { notesResolution: '' });
+    if (type === 'incident' || type === 'demande') Object.assign(t, { canal: CANAUX.includes(champs.canal as string) ? champs.canal : '', motifAttente: '' });
     this.calculerSla(t);
     return t;
   }
@@ -300,6 +314,7 @@ export class Tickets {
     this.stockage.modifier((e) => {
       t = this.nouveauTicket(type, champs, auteur, options.creeLe);
       t.automatique = !!options.automatique;
+      if (t.automatique) t.canal = 'Supervision (alerte)';
       t.alertes = options.alertes ?? [];
       t.activite.push({
         t: Date.now(),
@@ -337,6 +352,7 @@ export class Tickets {
       throw new ErreurMetier(`${t.numero} est ${libelleStatut(t.type, t.statut).toLowerCase()} : rouvrez-le pour le modifier`);
     }
     const permis = CHAMPS_PAR_TYPE[t.type];
+    if (permis.includes('parent') && 'parent' in champs) champs = { ...champs, parent: this.verifierParent(t, champs.parent) };
     const assigneAvant = t.assigneA;
     this.stockage.modifier(() => {
       for (const [cleChamp, brut] of Object.entries(champs)) {
@@ -349,8 +365,10 @@ export class Tickets {
         else if (cleChamp === 'typeChangement' && !['standard', 'normal', 'urgent'].includes(String(brut))) continue;
         else if (cleChamp === 'risque' && !['faible', 'moyen', 'eleve'].includes(String(brut))) continue;
         else if (cleChamp === 'resultat' && brut !== null && !['reussi', 'echoue', 'retour-arriere'].includes(String(brut))) continue;
-        else if (cleChamp === 'codeResolution' && brut && !CODES_RESOLUTION.includes(String(brut))) continue;
-        else if (['ci', 'groupe', 'assigneA', 'resultat'].includes(cleChamp)) valeur = brut ? texte(brut, 80) : null;
+        else if (LISTES[cleChamp]) {
+          if (brut && !LISTES[cleChamp](t).includes(String(brut))) continue;
+          valeur = brut ? String(brut) : '';
+        } else if (['ci', 'groupe', 'assigneA', 'resultat', 'parent'].includes(cleChamp)) valeur = brut ? texte(brut, 80) : null;
         else if (cleChamp === 'titre') {
           valeur = texte(brut, 200).trim();
           if (!valeur) continue;
@@ -377,6 +395,33 @@ export class Tickets {
     return t;
   }
 
+  /** Un incident parent existe, est ouvert, et n'a pas lui-même de parent (un seul niveau). */
+  private verifierParent(t: Ticket, brut: unknown): string | null {
+    if (!brut) return null;
+    const p = this.trouver(String(brut).trim().toUpperCase());
+    if (!p || p.type !== 'incident') throw new ErreurMetier(`Incident parent ${String(brut)} introuvable`);
+    if (p.numero === t.numero) throw new ErreurMetier('Un incident ne peut pas être son propre parent');
+    if (p.parent) throw new ErreurMetier(`${p.numero} est déjà l’enfant de ${p.parent}`);
+    if (this.enfants(t).length) throw new ErreurMetier(`${t.numero} a déjà des incidents enfants`);
+    if (!estOuvert(p)) throw new ErreurMetier(`${p.numero} est déjà ${libelleStatut(p.type, p.statut).toLowerCase()}`);
+    return p.numero;
+  }
+
+  /** Incidents rattachés à `t`. */
+  enfants(t: Ticket): Ticket[] {
+    return t.type === 'incident' ? this.liste.filter((x) => x.parent === t.numero) : [];
+  }
+
+  /** Ajouter ou retirer quelqu'un de la liste de suivi. */
+  suivre(cle: string, nom: string, oui: boolean): Ticket {
+    const t = this.exiger(cle);
+    this.stockage.modifier(() => {
+      const autres = (t.suivi ?? []).filter((n) => n !== nom);
+      t.suivi = oui ? [...autres, nom] : autres;
+    });
+    return t;
+  }
+
   /** Les statuts atteignables maintenant, avec la raison quand c'est bloqué. */
   transitions(t: Ticket): { statut: string; libelle: string; bloque: string | null }[] {
     return (TRANSITIONS[t.type][t.statut] ?? [])
@@ -393,8 +438,10 @@ export class Tickets {
     if (t.type === 'incident' || t.type === 'demande') {
       if (cible === 'resolu' && t.type === 'incident' && !t.codeResolution) return 'Choisir un code de résolution';
       if (cible === 'resolu' && !t.notesResolution?.trim()) return 'Écrire les notes de résolution';
+      if (cible === 'en-attente' && !t.motifAttente) return 'Choisir le motif d’attente';
     }
     if (t.type === 'probleme') {
+      if (cible === 'resolu' && !t.codeResolution) return 'Choisir un code de résolution';
       if (cible === 'erreur-connue' && !t.contournement?.trim()) return 'Décrire le contournement';
       if (cible === 'resolu' && !t.causeRacine?.trim()) return 'Décrire la cause racine';
     }
@@ -462,10 +509,14 @@ export class Tickets {
       if (avant === 'resolu' && !['clos'].includes(cible)) {
         t.resoluLe = null;
         t.closLe = null;
+        t.reouvertures = (t.reouvertures ?? 0) + 1;
       }
-      this.tracer(t, auteur, `État : ${libelleStatut(t.type, avant)} → ${libelleStatut(t.type, cible)}`);
+      const motif = cible === 'en-attente' && t.motifAttente ? ` (attend : ${t.motifAttente.toLowerCase()})` : '';
+      if (avant === 'en-attente') t.motifAttente = '';
+      this.tracer(t, auteur, `État : ${libelleStatut(t.type, avant)} → ${libelleStatut(t.type, cible)}${motif}`);
       if (commentaire?.trim()) this.tracer(t, auteur, commentaire.trim().slice(0, 20000), 'note');
     });
+    if (t.type === 'incident' && cible === 'resolu') this.resoudreEnfants(t, auteur, maintenant);
 
     if (t.type === 'changement' && cible === 'en-cours') {
       this.stockage.ajouterEvenement({ t: maintenant, type: 'deploiement', titre: `${t.numero} en cours`, detail: t.titre, statut: 'vert' });
@@ -483,6 +534,29 @@ export class Tickets {
     this.signaler({ type: 'statut', ticket: t, avant, auteur });
     if (assigneAvant !== t.assigneA && t.assigneA && t.assigneA !== auteur) this.signaler({ type: 'assigne', ticket: t, auteur });
     return t;
+  }
+
+  /** Les enfants ouverts sont résolus avec le parent (même code, mêmes notes). */
+  private resoudreEnfants(parent: Ticket, auteur: string, maintenant: number): void {
+    const ouverts = this.enfants(parent).filter((x) => estOuvert(x) && x.statut !== 'resolu');
+    if (!ouverts.length) return;
+    const avants = ouverts.map((x) => x.statut);
+    this.stockage.modifier(() => {
+      for (const x of ouverts) {
+        if (x.pauseDepuis) {
+          x.pauses = [...(x.pauses ?? []), { debut: x.pauseDepuis, fin: maintenant }];
+          x.pauseDepuis = null;
+        }
+        x.prisEnChargeLe ??= maintenant;
+        x.statut = 'resolu';
+        x.resoluLe = maintenant;
+        x.motifAttente = '';
+        x.codeResolution = parent.codeResolution;
+        x.notesResolution = parent.notesResolution;
+        this.tracer(x, auteur, `Résolu avec l’incident parent ${parent.numero}.`);
+      }
+    });
+    ouverts.forEach((x, i) => this.signaler({ type: 'statut', ticket: x, avant: avants[i], auteur }));
   }
 
   ajouterActivite(cle: string, type: 'note' | 'commentaire', contenu: string, auteur: string): Ticket {

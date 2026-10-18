@@ -110,6 +110,10 @@ describe('problèmes', () => {
     await expect(tickets.changerStatut(p.numero, 'erreur-connue', 'Alex')).rejects.toThrow(/contournement/);
     tickets.modifier(p.numero, { contournement: 'Relancer syncd' }, 'Alex');
     await tickets.changerStatut(p.numero, 'erreur-connue', 'Alex');
+    await expect(tickets.changerStatut(p.numero, 'resolu', 'Alex')).rejects.toThrow(/code de résolution/);
+    tickets.modifier(p.numero, { codeResolution: 'Pas un code' }, 'Alex');
+    expect(p.codeResolution).toBe('');
+    tickets.modifier(p.numero, { codeResolution: 'Risque accepté' }, 'Alex');
     await expect(tickets.changerStatut(p.numero, 'resolu', 'Alex')).rejects.toThrow(/cause racine/);
   });
 });
@@ -206,16 +210,61 @@ describe('SLA en heures ouvrées', () => {
     const t = tickets.creer('incident', { titre: 'Attente fournisseur', impact: 2, urgence: 2 }, 'Alex');
     const avant = t.echeanceResolution!;
     await tickets.changerStatut(t.numero, 'en-cours', 'Alex');
+    await expect(tickets.changerStatut(t.numero, 'en-attente', 'Alex')).rejects.toThrow(/motif/);
+    tickets.modifier(t.numero, { motifAttente: 'Un fournisseur' }, 'Alex');
     await tickets.changerStatut(t.numero, 'en-attente', 'Alex');
     expect(etatSla(t).etat).toBe('pause');
     t.pauseDepuis = Date.now() - 2 * H; // deux heures d'attente
     await tickets.changerStatut(t.numero, 'en-cours', 'Alex');
     expect(t.pauseDepuis).toBeNull();
+    expect(t.motifAttente).toBe('');
     expect(Math.round((t.echeanceResolution! - avant) / 60_000)).toBe(120);
     // Les pauses sont gardées si la priorité change.
     tickets.modifier(t.numero, { impact: 1 }, 'Alex');
     expect(t.priorite).toBe('P2');
     expect(Math.round((t.echeanceResolution! - t.creeLe) / 60_000)).toBe(8 * 60 + 120);
     expect(SLA.incident.P3.resolution).toBe(36 * H);
+  });
+});
+
+describe('repris de ServiceNow', () => {
+  it('incident parent : rattachement contrôlé, enfants résolus avec le parent', async () => {
+    const { tickets } = moteur();
+    const parent = tickets.creer('incident', { titre: 'Caisse en panne partout', impact: 1, urgence: 1 }, 'Alex');
+    const enfant = tickets.creer('incident', { titre: 'Caisse 2 bloquée' }, 'Sam');
+    const autre = tickets.creer('incident', { titre: 'Caisse 3 bloquée' }, 'Sam');
+    expect(() => tickets.modifier(enfant.numero, { parent: enfant.numero }, 'Alex')).toThrow(/propre parent/);
+    expect(() => tickets.modifier(enfant.numero, { parent: 'INC9999999' }, 'Alex')).toThrow(/introuvable/);
+    tickets.modifier(enfant.numero, { parent: parent.numero.toLowerCase() }, 'Alex');
+    expect(enfant.parent).toBe(parent.numero);
+    expect(() => tickets.modifier(autre.numero, { parent: enfant.numero }, 'Alex')).toThrow(/déjà l’enfant/);
+    expect(() => tickets.modifier(parent.numero, { parent: autre.numero }, 'Alex')).toThrow(/déjà des incidents enfants/);
+    expect(tickets.enfants(parent).map((x) => x.numero)).toEqual([enfant.numero]);
+
+    tickets.modifier(parent.numero, { codeResolution: 'Résolu par un changement', notesResolution: 'Redémarrage de sales' }, 'Alex');
+    await tickets.changerStatut(parent.numero, 'resolu', 'Alex');
+    expect(enfant).toMatchObject({ statut: 'resolu', codeResolution: 'Résolu par un changement', notesResolution: 'Redémarrage de sales' });
+    expect(autre.statut).toBe('nouveau');
+  });
+
+  it('canal, réouvertures et liste de suivi', async () => {
+    const { tickets } = moteur();
+    const t = tickets.creer('demande', { titre: 'Nouvel accès', canal: 'E-mail' }, 'Alex');
+    expect(t.canal).toBe('E-mail');
+    expect(tickets.creer('demande', { titre: 'X', canal: 'Pigeon' }, 'Alex').canal).toBe('');
+    tickets.synchroniser([alerte('a1', 'P1', Date.now())]);
+    expect(tickets.lister({ type: 'incident' })[0]).toBeDefined();
+    expect(tickets.trouver('INC0001001')?.canal).toBe('Supervision (alerte)');
+
+    tickets.modifier(t.numero, { notesResolution: 'Fait' }, 'Alex');
+    await tickets.changerStatut(t.numero, 'resolu', 'Alex');
+    await tickets.changerStatut(t.numero, 'en-cours', 'Alex');
+    expect(t.reouvertures).toBe(1);
+
+    tickets.suivre(t.numero, 'Sam', true);
+    tickets.suivre(t.numero, 'Sam', true);
+    expect(t.suivi).toEqual(['Sam']);
+    tickets.suivre(t.numero, 'Sam', false);
+    expect(t.suivi).toEqual([]);
   });
 });

@@ -204,6 +204,7 @@ export function creerApi(sup: Supervision): Router {
         .map((n) => sup.tickets.trouver(n))
         .filter((x): x is NonNullable<typeof x> => !!x)
         .map((x) => sup.tickets.resume(x)),
+      enfants: sup.tickets.enfants(t).map((x) => sup.tickets.resume(x)),
       avertissements: interne ? await sup.avertissementsChangement(t.numero) : [],
       articles: sup.connaissances.pourTicket(t.numero, interne),
       suggestions: estOuvert(t)
@@ -264,7 +265,7 @@ export function creerApi(sup: Supervision): Router {
         return;
       }
       const propres = Object.fromEntries(Object.entries(champs).filter(([k]) => CHAMPS_DEMANDEUR.includes(k)));
-      return sup.tickets.creer(type, { ...propres, demandeur: res.locals.nom }, res.locals.nom);
+      return sup.tickets.creer(type, { ...propres, demandeur: res.locals.nom, canal: 'Libre-service' }, res.locals.nom);
     }, 201),
   );
   api.patch(
@@ -323,6 +324,19 @@ export function creerApi(sup: Supervision): Router {
     exiger('agir'),
     agir(async (req, res) => {
       sup.tickets.delier(String(req.params.numero), String(req.params.cible), res.locals.nom);
+      return detail(String(req.params.numero), res);
+    }),
+  );
+
+  api.post(
+    '/tickets/:numero/suivi',
+    agir(async (req, res) => {
+      const t = sup.tickets.trouver(String(req.params.numero));
+      if (!peut(res, 'agir') && t?.demandeur !== res.locals.nom) {
+        res.status(403).json({ erreur: 'Vous pouvez suivre les tickets que vous avez ouverts' });
+        return;
+      }
+      sup.tickets.suivre(String(req.params.numero), res.locals.nom, req.body?.suivre !== false);
       return detail(String(req.params.numero), res);
     }),
   );

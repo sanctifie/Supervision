@@ -76,6 +76,20 @@ describe('notifications', () => {
     expect(cloche(alex.id)[0]).toMatch(/approuvé par Béa/);
   });
 
+  it('liste de suivi : états et commentaires, notes internes aux agents seulement', async () => {
+    const { tickets, alex, ndong, cloche } = preparer();
+    const t = tickets.creer('incident', { titre: 'Imprimante', assigneA: 'Béa' }, 'Béa');
+    tickets.suivre(t.numero, 'Alex', true);
+    tickets.suivre(t.numero, 'Dr Ndong', true);
+    tickets.ajouterActivite(t.numero, 'note', 'interne', 'Béa');
+    expect(cloche(alex.id)[0]).toMatch(/Suivi INC/);
+    expect(cloche(ndong.id)).toHaveLength(0);
+    await tickets.changerStatut(t.numero, 'en-cours', 'Béa');
+    expect(cloche(ndong.id)[0]).toMatch(/Suivi INC/);
+    tickets.ajouterActivite(t.numero, 'commentaire', 'mon message', 'Alex');
+    expect(cloche(alex.id).filter((x) => x.startsWith('Suivi'))).toHaveLength(2);
+  });
+
   it('SLA : une seule alerte par état et par phase', () => {
     const { tickets, bea, cloche } = preparer();
     const t = tickets.creer('incident', { titre: 'Lent', impact: 2, urgence: 2, assigneA: 'Béa' }, 'Alex');

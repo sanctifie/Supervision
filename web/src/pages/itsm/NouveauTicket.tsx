@@ -6,7 +6,7 @@ import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
 import { Carte } from '../../components/ui';
 import { CHEMIN_TYPE, IconeType, PastillePriorite, depuisChampDate, useReferentiels } from '../../components/itsm';
-import { AIDE_IMPACT, AIDE_URGENCE, CATEGORIES, LIBELLE_NIVEAU, LIBELLE_TYPE, prioriteDeMatrice, type Niveau, type Ticket, type TypeTicket } from '../../../../shared/itsm';
+import { AIDE_IMPACT, AIDE_URGENCE, CANAUX, CATEGORIES, LIBELLE_NIVEAU, LIBELLE_TYPE, prioriteDeMatrice, type Niveau, type Ticket, type TypeTicket } from '../../../../shared/itsm';
 
 const TYPES: TypeTicket[] = ['incident', 'demande', 'probleme', 'changement'];
 
@@ -32,6 +32,7 @@ export default function NouveauTicket() {
   const [groupe, setGroupe] = useState('');
   const [assigneA, setAssigneA] = useState('');
   const [demandeur, setDemandeur] = useState(nom);
+  const [canal, setCanal] = useState('Téléphone');
   const [typeChangement, setTypeChangement] = useState('normal');
   const [risque, setRisque] = useState('moyen');
   const [debut, setDebut] = useState('');
@@ -87,6 +88,7 @@ export default function NouveauTicket() {
         groupe: groupe || null,
         assigneA: assigneA || null,
         demandeur,
+        canal: type === 'incident' || type === 'demande' ? canal : undefined,
         lien: lien || undefined,
       };
       if (type === 'changement')
@@ -212,6 +214,16 @@ export default function NouveauTicket() {
                 <label className="etiquette">Demandeur</label>
                 <input className="champ" value={demandeur} onChange={(e) => setDemandeur(e.target.value)} />
               </div>
+              {(type === 'incident' || type === 'demande') && (
+                <div className="champ-groupe">
+                  <label className="etiquette">Canal</label>
+                  <select className="champ" value={canal} onChange={(e) => setCanal(e.target.value)}>
+                    {CANAUX.filter((c) => c !== 'Supervision (alerte)').map((c) => (
+                      <option key={c}>{c}</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="champ-groupe">
                 <label className="etiquette">Groupe</label>
                 <select className="champ" value={groupe} onChange={(e) => setGroupe(e.target.value)}>
