@@ -1,5 +1,6 @@
 import { estOuvert, type Ticket } from '../../shared/itsm';
-import { versionDeImage, type Deploiement, type EtatSynchro, type VueDeploiement } from '../../shared/deploiements';
+import { versionDeImage, type Deploiement, type EtatSynchro, type ImageEnMarche, type SanteDeploiement, type VueDeploiement } from '../../shared/deploiements';
+import type { Statut } from '../../shared/types';
 import { ErreurMetier } from './erreurs';
 import type { Stockage } from './stockage';
 import type { Tickets } from './tickets';
@@ -83,18 +84,37 @@ export class Deploiements {
 
   /**
    * Une ligne par service. `courant` = images lues à l'instant (prioritaires sur l'historique) ;
-   * `enMarche` = état des conteneurs.
+   * `etats` = état des conteneurs.
    */
-  vue(courant: Record<string, string>, enMarche: Record<string, boolean>): VueDeploiement[] {
+  vue(courant: Record<string, ImageEnMarche>, etats: Record<string, { enMarche: boolean; statut: Statut }>): VueDeploiement[] {
     const cis = new Set([...Object.keys(courant), ...this.historique.map((d) => d.ci)]);
+    const titre = (numero: string | null) => (numero ? (this.tickets.trouver(numero)?.titre ?? null) : null);
     return [...cis].sort().map((ci) => {
-      const historique = this.de(ci).reverse();
-      const image = courant[ci] ?? historique[0]?.image ?? null;
+      const historique = this.de(ci)
+        .reverse()
+        .map((d) => ({ ...d, changementTitre: titre(d.changement) }));
+      const image = courant[ci]?.image ?? historique[0]?.image ?? null;
       const version = image ? versionDeImage(image) : null;
       const p = this.prevue(ci);
       let synchro: EtatSynchro = 'non-suivi';
       if (p) synchro = p.version === version ? 'synchronise' : estOuvert(p.changement) ? 'a-deployer' : 'ecart';
-      return { ci, image, version, enMarche: enMarche[ci] ?? null, prevue: p?.version ?? null, changementPrevu: p?.changement.numero ?? null, synchro, historique };
+      const etat = etats[ci];
+      // Un changement en cours = déploiement en cours (« Progressing »), sauf si le conteneur est déjà en mauvais état.
+      const enCours = this.tickets.changementsDe(ci).some((t) => t.statut === 'en-cours');
+      const sante: SanteDeploiement = !etat ? 'inconnu' : !etat.enMarche ? 'absent' : etat.statut === 'rouge' ? 'degrade' : enCours ? 'en-cours' : 'sain';
+      return {
+        ci,
+        projet: courant[ci]?.projet ?? null,
+        image,
+        version,
+        enMarche: etat?.enMarche ?? null,
+        sante,
+        prevue: p?.version ?? null,
+        changementPrevu: p?.changement.numero ?? null,
+        titrePrevu: p?.changement.titre ?? null,
+        synchro,
+        historique,
+      };
     });
   }
 

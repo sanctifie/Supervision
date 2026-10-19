@@ -1,3 +1,4 @@
+import type { ImageEnMarche } from '../../../shared/deploiements';
 import type {
   BrutAlerte,
   BrutApplication,
@@ -24,7 +25,7 @@ export interface Fournisseur {
   serveur(): Promise<BrutServeur>;
   conteneurs(): Promise<BrutConteneur[]>;
   /** L'image qui tourne pour chaque service : { sales: 'officina/sales:1.8.3' }. */
-  images(): Promise<Record<string, string>>;
+  images(): Promise<Record<string, ImageEnMarche>>;
   services(): Promise<BrutServices>;
   application(): Promise<BrutApplication>;
   bdd(): Promise<BrutBdd>;

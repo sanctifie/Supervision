@@ -94,8 +94,8 @@ export function creerApi(sup: Supervision): Router {
     '/deploiements',
     lire(async () => {
       const [images, conteneurs] = await Promise.all([sup.images().catch(() => ({})), sup.conteneurs().catch(() => null)]);
-      const enMarche = Object.fromEntries((conteneurs?.conteneurs ?? []).map((c) => [c.nom, c.enMarche]));
-      return sup.deploiements.vue(images, enMarche);
+      const etats = Object.fromEntries((conteneurs?.conteneurs ?? []).map((c) => [c.nom, { enMarche: c.enMarche, statut: c.statut }]));
+      return sup.deploiements.vue(images, etats);
     }),
   );
   api.get(

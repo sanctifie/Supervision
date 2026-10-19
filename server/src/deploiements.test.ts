@@ -31,6 +31,35 @@ describe('versionDeImage', () => {
   });
 });
 
+describe('santé et contexte', () => {
+  it('santé à la manière d’Argo CD : inconnu, sain, dégradé, absent, en cours', async () => {
+    const { tickets, deploiements } = moteur();
+    const sante = (etat?: { enMarche: boolean; statut: 'vert' | 'orange' | 'rouge' }) =>
+      deploiements.vue({ sales: { image: 'officina/sales:1.8.2', projet: 'officina' } }, etat ? { sales: etat } : {})[0].sante;
+    expect(sante()).toBe('inconnu');
+    expect(sante({ enMarche: true, statut: 'vert' })).toBe('sain');
+    expect(sante({ enMarche: true, statut: 'orange' })).toBe('sain');
+    expect(sante({ enMarche: true, statut: 'rouge' })).toBe('degrade');
+    expect(sante({ enMarche: false, statut: 'rouge' })).toBe('absent');
+    await changementEnCours(tickets, 'sales', '1.8.3');
+    expect(sante({ enMarche: true, statut: 'vert' })).toBe('en-cours');
+    expect(sante({ enMarche: true, statut: 'rouge' })).toBe('degrade');
+  });
+
+  it('projet, titres des changements et historique du plus récent au plus ancien', async () => {
+    const { tickets, deploiements } = moteur();
+    deploiements.observer({ sales: 'officina/sales:1.8.2' });
+    const c = await changementEnCours(tickets, 'sales', '1.8.3');
+    deploiements.observer({ sales: 'officina/sales:1.8.3' });
+    const [ligne] = deploiements.vue({ sales: { image: 'officina/sales:1.8.3', projet: 'officina' } }, {});
+    expect(ligne).toMatchObject({ projet: 'officina', version: '1.8.3', prevue: '1.8.3', titrePrevu: 'MAJ sales' });
+    expect(ligne.historique.map((h) => [h.version, h.changement, h.changementTitre])).toEqual([
+      ['1.8.3', c.numero, 'MAJ sales'],
+      ['1.8.2', null, null],
+    ]);
+  });
+});
+
 describe('déploiements', () => {
   it('première observation sans bruit, puis déploiement rattaché au changement en cours', async () => {
     const { tickets, deploiements, stockage } = moteur();
@@ -57,7 +86,10 @@ describe('déploiements', () => {
 
   it('état de synchronisation : non suivi, à déployer, à jour, écart', async () => {
     const { tickets, deploiements } = moteur();
-    const ligne = (images: Record<string, string>) => deploiements.vue(images, { sales: true }).find((v) => v.ci === 'sales')!;
+    const ligne = (images: Record<string, string>) =>
+      deploiements
+        .vue(Object.fromEntries(Object.entries(images).map(([ci, image]) => [ci, { image, projet: 'officina' }])), { sales: { enMarche: true, statut: 'vert' } })
+        .find((v) => v.ci === 'sales')!;
     deploiements.observer({ sales: 'officina/sales:1.8.2' });
     expect(ligne({ sales: 'officina/sales:1.8.2' })).toMatchObject({ synchro: 'non-suivi', version: '1.8.2', enMarche: true });
 

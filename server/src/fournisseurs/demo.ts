@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { Fournisseur } from './fournisseur';
+import type { ImageEnMarche } from '../../../shared/deploiements';
 import type {
   BrutAlerte,
   BrutApplication,
@@ -144,9 +145,10 @@ export class FournisseurDemo implements Fournisseur {
     };
   }
 
-  async images(): Promise<Record<string, string>> {
+  async images(): Promise<Record<string, ImageEnMarche>> {
     const tiers: Record<string, string> = { postgres: 'postgres:16.4', redis: 'redis:7.4', nats: 'nats:2.10', caddy: 'caddy:2.8' };
-    return { ...Object.fromEntries(SERVICES_OFFICINA.map((s) => [s, `officina/${s}:1.8.3`])), ...tiers };
+    const images: Record<string, string> = { ...Object.fromEntries(SERVICES_OFFICINA.map((s) => [s, `officina/${s}:1.8.3`])), ...tiers };
+    return Object.fromEntries(Object.entries(images).map(([ci, image]) => [ci, { image, projet: 'officina' }]));
   }
 
   async conteneurs(): Promise<BrutConteneur[]> {

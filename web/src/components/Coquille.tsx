@@ -78,6 +78,8 @@ export function Coquille({
   const groupes = [...new Set(PAGES.map((p) => p.groupe))];
   const bonjour = new Date().getHours() < 18 ? 'Bonjour' : 'Bonsoir';
 
+  if (page.pleinEcran) return <ContexteSupervision.Provider value={contexte}>{children}</ContexteSupervision.Provider>;
+
   return (
     <ContexteSupervision.Provider value={contexte}>
       <div className="coquille">

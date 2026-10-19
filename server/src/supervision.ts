@@ -26,6 +26,7 @@ import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { Deploiements } from './deploiements';
+import type { ImageEnMarche } from '../../shared/deploiements';
 import { RecherchesJournaux } from './recherches';
 import { ReglesJournaux } from './regles';
 import { nombre, pourcent } from '../../shared/format';
@@ -120,7 +121,7 @@ export class Supervision {
         const alertes = await this.alertesEnrichies().catch(() => null);
         if (alertes) this.tickets.synchroniser(alertes);
         // La démonstration ne laisse pas de fausses versions dans l'historique.
-        if (this.mode === 'reel') this.deploiements.observer(await this.images());
+        if (this.mode === 'reel') this.deploiements.observer(Object.fromEntries(Object.entries(await this.images()).map(([ci, v]) => [ci, v.image])));
         await this.regles.evaluer();
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
@@ -154,7 +155,7 @@ export class Supervision {
   // --- Vues -----------------------------------------------------------------
 
   serveur = (): Promise<VueServeur> => this.memo('serveur', 10_000, async () => analyserServeur(await this.fournisseur.serveur()));
-  images = (): Promise<Record<string, string>> => this.memo('images', 10_000, () => this.fournisseur.images());
+  images = (): Promise<Record<string, ImageEnMarche>> => this.memo('images', 10_000, () => this.fournisseur.images());
   conteneurs = (): Promise<VueConteneurs> => this.memo('conteneurs', 10_000, async () => analyserConteneurs(await this.fournisseur.conteneurs()));
   services = (): Promise<VueServices> => this.memo('services', 10_000, async () => analyserServices(await this.fournisseur.services()));
   application = (): Promise<VueApplication> => this.memo('application', 10_000, async () => analyserApplication(await this.fournisseur.application()));

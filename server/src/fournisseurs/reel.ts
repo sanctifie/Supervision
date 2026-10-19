@@ -1,4 +1,5 @@
 import type { Fournisseur } from './fournisseur';
+import type { ImageEnMarche } from '../../../shared/deploiements';
 import { alertmanager, loki, prometheus } from './clients';
 import type {
   BrutAlerte,
@@ -175,16 +176,18 @@ export class FournisseurReel implements Fournisseur {
       }));
   }
 
-  async images(): Promise<Record<string, string>> {
+  async images(): Promise<Record<string, ImageEnMarche>> {
     // Pendant un redéploiement l'ancien et le nouveau conteneur coexistent : on garde le plus récemment vu.
     const r = await prometheus.requete(`time() - container_last_seen{${SERVICE_CONTENEUR}!="",image!=""}`).catch(() => []);
-    const recents: Record<string, { age: number; image: string }> = {};
+    const recents: Record<string, { age: number } & ImageEnMarche> = {};
     for (const e of r) {
       const ci = e.metric[SERVICE_CONTENEUR];
       const age = Number(e.value?.[1]);
-      if (ci && e.metric.image && Number.isFinite(age) && (!recents[ci] || age < recents[ci].age)) recents[ci] = { age, image: e.metric.image };
+      if (ci && e.metric.image && Number.isFinite(age) && (!recents[ci] || age < recents[ci].age)) {
+        recents[ci] = { age, image: e.metric.image, projet: e.metric.container_label_com_docker_compose_project || null };
+      }
     }
-    return Object.fromEntries(Object.entries(recents).map(([ci, v]) => [ci, v.image]));
+    return Object.fromEntries(Object.entries(recents).map(([ci, { image, projet }]) => [ci, { image, projet }]));
   }
 
   async services(): Promise<BrutServices> {

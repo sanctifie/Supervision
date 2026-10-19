@@ -18,16 +18,31 @@ export interface Deploiement {
 /** À jour · en attente de déploiement (changement prévu) · écart non prévu · aucune version prévue. */
 export type EtatSynchro = 'synchronise' | 'a-deployer' | 'ecart' | 'non-suivi';
 
+/** Santé du service, comme dans Argo CD : déploiement en cours, sain, dégradé, absent (arrêté), inconnu. */
+export type SanteDeploiement = 'en-cours' | 'sain' | 'degrade' | 'absent' | 'inconnu';
+
+/** Ce que Prometheus voit tourner pour un service. */
+export interface ImageEnMarche {
+  image: string;
+  /** Projet Docker Compose du conteneur (l'application à laquelle il appartient). */
+  projet: string | null;
+}
+
+export type DeploiementVue = Deploiement & { changementTitre: string | null };
+
 export interface VueDeploiement {
   ci: string;
+  projet: string | null;
   image: string | null;
   version: string | null;
   enMarche: boolean | null;
+  sante: SanteDeploiement;
   prevue: string | null;
   changementPrevu: string | null;
+  titrePrevu: string | null;
   synchro: EtatSynchro;
   /** Du plus récent au plus ancien. */
-  historique: Deploiement[];
+  historique: DeploiementVue[];
 }
 
 export const LIBELLE_SYNCHRO: Record<EtatSynchro, string> = {

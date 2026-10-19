@@ -151,6 +151,16 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
   **incident** s'ouvre (avec les dernières lignes et un lien vers les journaux) ; jamais deux
   incidents ouverts pour la même règle, une note quand elle redevient calme, et un nouvel
   incident seulement après une fenêtre complète. Pause, suppression, 20 règles au plus.
+- **Page Déploiements à l'identité d'Argo CD** : même mise en page et mêmes couleurs que l'original
+  (barre latérale sombre avec filtres à compteurs, barre de santé segmentée, tuiles à bord coloré,
+  vues tuiles / liste / résumé, favoris, tri, pagination ; fiche d'une application avec bandeau
+  santé · synchronisation · dernier déploiement, arbre de ressources application → image →
+  conteneur, panneaux Détails, Diff, Statut de synchro, **Historique et retour arrière**). Santé :
+  *En cours* (changement en cours sur le service), *Sain*, *Dégradé* (conteneur en mauvais état),
+  *Absent* (conteneur plus vu), *Inconnu*. « Planifier » (le « Sync » d'Argo CD) ouvre un
+  changement de déploiement pré-rempli ; rien n'est déployé par l'application. Le **projet** est le
+  projet Docker Compose du conteneur. Pas repris : suppression d'application, ensembles
+  d'applications, réglages dépôts/clusters (propres à Kubernetes).
 - **Repris d'Argo CD** (analyse de sa démo publique) : la page **Déploiements**. Chaque nouvelle
   version vue en production est rattachée au changement qui la couvrait (en cours, ou planifié
   dont la fenêtre ±1 h contient l'instant) ; sinon elle est signalée « hors changement ». Le champ

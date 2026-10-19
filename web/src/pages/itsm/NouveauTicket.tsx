@@ -23,19 +23,19 @@ export default function NouveauTicket() {
   const lien = params.get('lien') ?? '';
 
   const [type, setType] = useState<TypeTicket>(typeInitial);
-  const [titre, setTitre] = useState('');
+  const [titre, setTitre] = useState(params.get('titre') ?? '');
   const [description, setDescription] = useState('');
   const [impact, setImpact] = useState<Niveau>(2);
   const [urgence, setUrgence] = useState<Niveau>(2);
   const [categorie, setCategorie] = useState(CATEGORIES[typeInitial][0]);
-  const [ci, setCi] = useState('');
+  const [ci, setCi] = useState(params.get('ci') ?? '');
   const [groupe, setGroupe] = useState('');
   const [assigneA, setAssigneA] = useState('');
   const [demandeur, setDemandeur] = useState(nom);
   const [canal, setCanal] = useState('Téléphone');
   const [typeChangement, setTypeChangement] = useState('normal');
   const [risque, setRisque] = useState('moyen');
-  const [versionCible, setVersionCible] = useState('');
+  const [versionCible, setVersionCible] = useState(params.get('versionCible') ?? '');
   const [debut, setDebut] = useState('');
   const [fin, setFin] = useState('');
   const [justification, setJustification] = useState('');

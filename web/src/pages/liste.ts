@@ -37,6 +37,8 @@ export interface DescriptionPage {
   domaine?: string;
   /** Compteur ITSM affiché dans le menu (clé de /itsm/tableau → compteurs). */
   compteur?: 'incidents' | 'problemes' | 'changements' | 'demandes';
+  /** La page remplace toute la coquille (barre latérale et en-tête) : module à l'identité propre. */
+  pleinEcran?: boolean;
   /** Page sans entrée de menu (fiche ticket, création). */
   cachee?: boolean;
   /** Permission nécessaire pour voir l'entrée du menu. */
@@ -157,6 +159,7 @@ export const PAGES: DescriptionPage[] = [
     description: 'Quelle version tourne, laquelle est prévue, l’écart, l’historique et le retour arrière.',
     groupe: 'Infrastructure',
     icone: PackageCheck,
+    pleinEcran: true,
     motsCles: 'version image déploiement release rollback retour arrière argo dérive',
   },
   {
