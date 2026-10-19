@@ -353,6 +353,28 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
+  api.get(
+    '/journaux/regles',
+    lire(async () => sup.regles.lister()),
+  );
+  api.post(
+    '/journaux/regles',
+    exiger('agir'),
+    agir((req, res) => sup.regles.creer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.patch(
+    '/journaux/regles/:id',
+    exiger('agir'),
+    agir((req) => sup.regles.modifier(String(req.params.id), req.body ?? {})),
+  );
+  api.delete(
+    '/journaux/regles/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.regles.supprimer(String(req.params.id));
+      return { ok: true };
+    }),
+  );
   api.post(
     '/journaux/recherches',
     exiger('agir'),

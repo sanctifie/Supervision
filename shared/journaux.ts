@@ -2,6 +2,7 @@
  * Analyse des journaux (inspirée de Kibana Discover et de l'explorateur de logs) :
  * histogramme par niveau, catégories de messages, export CSV, recherches enregistrées.
  */
+import type { PrioriteTicket } from './itsm';
 import type { LigneJournal } from './types';
 
 type Niveau = LigneJournal['niveau'];
@@ -50,6 +51,31 @@ export interface RechercheJournaux {
   minutes: number;
   par: string;
   le: number;
+}
+
+/** Une recherche de journaux surveillée : trop de lignes dans la fenêtre → un incident s'ouvre. */
+export interface RegleJournal {
+  id: string;
+  nom: string;
+  service: string;
+  niveau: string;
+  texte: string;
+  /** Fenêtre glissante, en minutes. */
+  minutes: number;
+  /** Nombre de lignes à partir duquel la règle se déclenche. */
+  seuil: number;
+  priorite: PrioriteTicket;
+  actif: boolean;
+  par: string;
+  le: number;
+  etat: 'ok' | 'declenchee';
+  dernierDeclenchement: number | null;
+  /** Lignes vues à la dernière évaluation (plafonné au seuil). */
+  dernierComptage: number | null;
+  /** Dernier incident ouvert par la règle. */
+  ticket: string | null;
+  /** Dernière erreur de lecture (journaux injoignables…). */
+  erreur: string | null;
 }
 
 /** Remplace ce qui change d'une ligne à l'autre pour que les lignes semblables se regroupent. */

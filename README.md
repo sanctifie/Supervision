@@ -145,6 +145,12 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
   (ils sont dans l'adresse), l'**export CSV** (formules neutralisées) et le détail d'une ligne JSON
   indentée en un clic. L'analyse lit au plus 2 000 lignes récentes ; au-delà, l'histogramme part
   de la plus ancienne ligne lue et l'écran l'indique.
+- **Règles sur les journaux** (reprises des règles de seuil de logs de Kibana) : depuis la page
+  Journaux, « Alerter sur cette recherche » transforme les filtres en règle (au moins *N* lignes en
+  5 min à 24 h, priorité P1 à P4). Évaluées toutes les 30 s ; quand le seuil est atteint, un
+  **incident** s'ouvre (avec les dernières lignes et un lien vers les journaux) ; jamais deux
+  incidents ouverts pour la même règle, une note quand elle redevient calme, et un nouvel
+  incident seulement après une fenêtre complète. Pause, suppression, 20 règles au plus.
 - **Repris d'Argo CD** (analyse de sa démo publique) : la page **Déploiements**. Chaque nouvelle
   version vue en production est rattachée au changement qui la couvrait (en cours, ou planifié
   dont la fenêtre ±1 h contient l'instant) ; sinon elle est signalée « hors changement ». Le champ

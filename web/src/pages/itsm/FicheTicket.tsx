@@ -161,7 +161,7 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
           <div style={{ flex: 1, minWidth: 240 }}>
             <div className="discret mono">
               {t.numero} · {LIBELLE_TYPE[t.type].un}
-              {t.automatique ? ' · ouvert par une alerte' : ''} · par {t.demandeur} {depuis(t.creeLe)}
+              {t.automatique ? (t.regle ? ' · ouvert par une règle de journaux' : ' · ouvert par une alerte') : ''} · par {t.demandeur} {depuis(t.creeLe)}
             </div>
             <TitreEditable valeur={t.titre} lecture={!ouvert} enregistrer={(titre) => patch({ titre })} />
           </div>

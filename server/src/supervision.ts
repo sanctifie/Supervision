@@ -27,6 +27,7 @@ import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { Deploiements } from './deploiements';
 import { RecherchesJournaux } from './recherches';
+import { ReglesJournaux } from './regles';
 import { nombre, pourcent } from '../../shared/format';
 import type {
   Alerte,
@@ -69,6 +70,7 @@ export class Supervision {
   readonly catalogue: Catalogue;
   readonly deploiements: Deploiements;
   readonly recherches: RecherchesJournaux;
+  readonly regles: ReglesJournaux;
 
   constructor(
     readonly stockage: Stockage,
@@ -92,6 +94,7 @@ export class Supervision {
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.deploiements = new Deploiements(stockage, this.tickets);
     this.recherches = new RecherchesJournaux(stockage);
+    this.regles = new ReglesJournaux(stockage, this.tickets, (f) => this.journaux(f));
   }
 
   get mode() {
@@ -118,6 +121,7 @@ export class Supervision {
         if (alertes) this.tickets.synchroniser(alertes);
         // La démonstration ne laisse pas de fausses versions dans l'historique.
         if (this.mode === 'reel') this.deploiements.observer(await this.images());
+        await this.regles.evaluer();
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
       } catch (e) {

@@ -7,7 +7,7 @@ import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
 import type { Deploiement } from '../../shared/deploiements';
-import type { RechercheJournaux } from '../../shared/journaux';
+import type { RechercheJournaux, RegleJournal } from '../../shared/journaux';
 import type { Article } from '../../shared/connaissances';
 import type { ArticleCatalogue } from '../../shared/catalogue';
 
@@ -51,6 +51,8 @@ export interface Etat {
   deploiements: Deploiement[];
   /** Recherches de journaux partagées par l'équipe. */
   recherches: RechercheJournaux[];
+  /** Règles qui ouvrent un incident quand une recherche de journaux dépasse un seuil. */
+  reglesJournaux: RegleJournal[];
   /** Le catalogue de départ a été posé (on ne le remet pas si l'administrateur le vide). */
   catalogueInitialise?: boolean;
   /** Absent : valeurs par défaut (config + délais du guide). */
@@ -74,6 +76,7 @@ const VIDE: Etat = {
   catalogue: [],
   deploiements: [],
   recherches: [],
+  reglesJournaux: [],
   evenements: [],
   confirmations: {},
   vus: { alertes: {}, derniereSauvegarde: null },
@@ -108,6 +111,7 @@ export class Stockage {
         catalogue: brut.catalogue ?? [],
         deploiements: brut.deploiements ?? [],
         recherches: brut.recherches ?? [],
+        reglesJournaux: brut.reglesJournaux ?? [],
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.

@@ -82,6 +82,8 @@ export interface Ticket {
   suivi?: string[];
   /** Fois où le ticket a été rouvert après résolution. */
   reouvertures?: number;
+  /** Règle de journaux qui a ouvert ce ticket. */
+  regle?: string;
   /** Incident / demande : par où il est arrivé, et pourquoi il attend. */
   canal?: string;
   motifAttente?: string;

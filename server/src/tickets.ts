@@ -310,7 +310,12 @@ export class Tickets {
       .map((t) => this.resume(t));
   }
 
-  creer(type: TypeTicket, champs: Partial<Ticket>, auteur: string, options: { automatique?: boolean; alertes?: string[]; creeLe?: number; lien?: string } = {}): Ticket {
+  creer(
+    type: TypeTicket,
+    champs: Partial<Ticket>,
+    auteur: string,
+    options: { automatique?: boolean; alertes?: string[]; creeLe?: number; lien?: string; regle?: string } = {},
+  ): Ticket {
     if (!PREFIXES[type]) throw new ErreurMetier('Type de ticket inconnu');
     if (!texte(champs.titre, 200).trim()) throw new ErreurMetier('Le titre est obligatoire');
     let t!: Ticket;
@@ -319,11 +324,16 @@ export class Tickets {
       t.automatique = !!options.automatique;
       if (t.automatique) t.canal = 'Supervision (alerte)';
       t.alertes = options.alertes ?? [];
+      if (options.regle) t.regle = options.regle;
       t.activite.push({
         t: Date.now(),
         auteur,
         type: 'systeme',
-        texte: options.automatique ? 'Ouvert automatiquement par une alerte.' : `${type === 'changement' ? 'Changement créé' : 'Ticket ouvert'}.`,
+        texte: options.regle
+          ? 'Ouvert automatiquement par une règle de journaux.'
+          : options.automatique
+            ? 'Ouvert automatiquement par une alerte.'
+            : `${type === 'changement' ? 'Changement créé' : 'Ticket ouvert'}.`,
       });
       e.tickets.unshift(t);
     });

@@ -5,6 +5,7 @@ import { useDonnees } from '../lib/useDonnees';
 import { appeler } from '../lib/api';
 import { useSupervision } from '../components/Coquille';
 import { Carte, Erreur, Pastille, Squelette, Vide } from '../components/ui';
+import { BoutonRegle, CarteRegles, useRegles } from './ReglesJournaux';
 import { versCsv, type AnalyseJournaux, type CategorieJournal, type RechercheJournaux } from '../../../shared/journaux';
 import { dateHeure } from '../../../shared/format';
 import type { LigneJournal } from '../../../shared/types';
@@ -61,6 +62,7 @@ export default function Journaux() {
   if (texteApplique) filtres.set('texte', texteApplique);
   const analyse = useDonnees<AnalyseJournaux>(`/journaux/analyse?${filtres}`, direct ? 30_000 : 0);
   const recherches = useDonnees<RechercheJournaux[]>('/journaux/recherches', 0);
+  const regles = useRegles();
 
   useEffect(() => setParams(filtres, { replace: true }), [filtres.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -208,6 +210,7 @@ export default function Journaux() {
                 </button>
               ))}
           <span className="espace" />
+          <BoutonRegle filtre={{ service, niveau, texte: texteApplique, minutes }} apres={() => void regles.recharger()} />
           <button type="button" className="bouton petit" onClick={copierLien}>
             <Link2 size={12} /> {lienCopie ? 'Lien copié' : 'Copier le lien'}
           </button>
@@ -230,6 +233,8 @@ export default function Journaux() {
         }}
         choisirService={setService}
       />
+
+      {regles.donnees && <CarteRegles regles={regles.donnees} recharger={regles.recharger} />}
 
       <Carte titre="Journaux" sousTitre={etat.donnees ? `${etat.donnees.length} lignes · ${compte('error')} erreur(s) · ${compte('warn')} avertissement(s)` : 'Lecture…'}>
         {etat.erreur ? (

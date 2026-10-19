@@ -388,7 +388,8 @@ export class FournisseurDemo implements Fournisseur {
       ['caddy', 'info', 'handled request uri=/comptoir/ status=200 duration={d}ms'],
       ['postgres', 'info', 'checkpoint complete: wrote {n}{m} buffers'],
     ];
-    for (let x = t; x > t - minutes * MINUTE && lignes.length < (f.limite ?? 200) * 3; x -= 17_000) {
+    // Toute la période est générée puis filtrée, comme Loki (le filtre passe avant la limite).
+    for (let x = t; x > t - minutes * MINUTE; x -= 17_000) {
       const i = Math.abs(Math.floor(bruit(100, x, 1000) * 1000)) % modeles.length;
       const [service, niveau, gabarit] = modeles[i];
       const panne = notifyEnPanne(x);
