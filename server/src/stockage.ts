@@ -7,6 +7,7 @@ import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
 import type { Deploiement } from '../../shared/deploiements';
+import type { RechercheJournaux } from '../../shared/journaux';
 import type { Article } from '../../shared/connaissances';
 import type { ArticleCatalogue } from '../../shared/catalogue';
 
@@ -48,6 +49,8 @@ export interface Etat {
   catalogue: ArticleCatalogue[];
   /** Versions vues en production, de la plus ancienne à la plus récente. */
   deploiements: Deploiement[];
+  /** Recherches de journaux partagées par l'équipe. */
+  recherches: RechercheJournaux[];
   /** Le catalogue de départ a été posé (on ne le remet pas si l'administrateur le vide). */
   catalogueInitialise?: boolean;
   /** Absent : valeurs par défaut (config + délais du guide). */
@@ -70,6 +73,7 @@ const VIDE: Etat = {
   articles: [],
   catalogue: [],
   deploiements: [],
+  recherches: [],
   evenements: [],
   confirmations: {},
   vus: { alertes: {}, derniereSauvegarde: null },
@@ -103,6 +107,7 @@ export class Stockage {
         articles: brut.articles ?? [],
         catalogue: brut.catalogue ?? [],
         deploiements: brut.deploiements ?? [],
+        recherches: brut.recherches ?? [],
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.

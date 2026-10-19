@@ -5,6 +5,7 @@ import { creerAcces, exiger, peut } from './acces';
 import { CHECKLIST, CONTROLES_SECURITE, AUTOMATISATIONS, PIPELINE } from './catalogues';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { ErreurMetier } from './erreurs';
+import { analyser as analyserJournaux } from '../../shared/journaux';
 import { estOuvert, type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
 
@@ -136,18 +137,29 @@ export function creerApi(sup: Supervision): Router {
     res.json(sup.stockage.donnees.evenements.slice(0, 100));
   });
 
+  const filtreJournaux = (q: Record<string, string | undefined>, limiteMax: number, limiteDefaut: number) => ({
+    service: q.service || undefined,
+    niveau: q.niveau || undefined,
+    texte: q.texte?.slice(0, 200) || undefined,
+    minutes: Math.min(24 * 60, Math.max(5, Number(q.minutes) || 60)),
+    limite: Math.min(limiteMax, Math.max(10, Number(q.limite) || limiteDefaut)),
+  });
   api.get(
     '/journaux',
-    lire((req) => {
-      const q = req.query as Record<string, string | undefined>;
-      return sup.journaux({
-        service: q.service || undefined,
-        niveau: q.niveau || undefined,
-        texte: q.texte?.slice(0, 200) || undefined,
-        minutes: Math.min(24 * 60, Math.max(5, Number(q.minutes) || 60)),
-        limite: Math.min(1000, Math.max(10, Number(q.limite) || 200)),
-      });
+    lire((req) => sup.journaux(filtreJournaux(req.query as Record<string, string | undefined>, 1000, 200))),
+  );
+  // Histogramme par niveau, catégories de messages et répartition par service, sur les mêmes filtres.
+  api.get(
+    '/journaux/analyse',
+    lire(async (req) => {
+      const f = filtreJournaux(req.query as Record<string, string | undefined>, 5000, 2000);
+      const fin = Date.now();
+      return analyserJournaux(await sup.journaux(f), fin - f.minutes * 60_000, fin, f.limite);
     }),
+  );
+  api.get(
+    '/journaux/recherches',
+    lire(async () => sup.recherches.lister()),
   );
 
   // Alertes et silences (Alertmanager).
@@ -341,6 +353,19 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
+  api.post(
+    '/journaux/recherches',
+    exiger('agir'),
+    agir((req, res) => sup.recherches.enregistrer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.delete(
+    '/journaux/recherches/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.recherches.supprimer(String(req.params.id));
+      return { ok: true };
+    }),
+  );
   api.post(
     '/tickets/:numero/suivi',
     agir(async (req, res) => {

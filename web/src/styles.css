@@ -1031,6 +1031,48 @@ label.etiquette {
   white-space: pre-wrap;
 }
 
+/* Histogramme des journaux : une colonne par tranche de temps, empilée par niveau. */
+.histo {
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  height: 120px;
+}
+.histo-col {
+  flex: 1;
+  height: 100%;
+  display: flex;
+  align-items: flex-end;
+}
+.histo-pile {
+  width: 100%;
+  min-height: 2px;
+  display: flex;
+  flex-direction: column;
+  border-radius: 3px 3px 0 0;
+  overflow: hidden;
+}
+.histo-error {
+  background: var(--rouge);
+}
+.histo-warn {
+  background: var(--orange);
+}
+.histo-info {
+  background: var(--bleu);
+  opacity: 0.55;
+}
+.histo-debug {
+  background: var(--gris-clair);
+}
+.histo-axe {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 6px;
+  font-size: 0.72rem;
+  color: var(--gris);
+}
+
 /* --- Divers --------------------------------------------------------------- */
 .vide {
   text-align: center;

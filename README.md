@@ -27,7 +27,7 @@ est cliquable et mène au détail.
 | **Sauvegardes** | Âge de la dernière sauvegarde réussie (orange > 26 h, rouge > 48 h), taille | 4 |
 | **API** | Métriques RED par service (débit, 5xx, refus, p50/p95/p99), chute de trafic vs J-7, runtime Node.js (event loop lag, heap, GC) | 3.1, 3.2 |
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
-| **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
+| **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct ; histogramme par niveau, **catégories de messages**, recherches enregistrées, lien partageable, export CSV | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
@@ -137,6 +137,14 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
 - **Équipe** : personnes assignables et groupes d'affectation (Exploitation, Développement,
   Support officine…). Toute personne qui agit est ajoutée automatiquement.
 - Un ticket résolu se clôt seul après 3 jours.
+- **Repris d'ELK** (analyse d'un Kibana 8.19 local avec jeux de données d'exemple) : la page
+  **Journaux** gagne l'histogramme du volume par niveau, les **catégories de messages** (lignes
+  semblables regroupées, chiffres et identifiants effacés ; « nouveau » = jamais vu avant le
+  dernier quart de la période ; un clic filtre sur ce message), la répartition par service, les
+  **recherches enregistrées** partagées par l'équipe (agents), un **lien** qui reprend les filtres
+  (ils sont dans l'adresse), l'**export CSV** (formules neutralisées) et le détail d'une ligne JSON
+  indentée en un clic. L'analyse lit au plus 2 000 lignes récentes ; au-delà, l'histogramme part
+  de la plus ancienne ligne lue et l'écran l'indique.
 - **Repris d'Argo CD** (analyse de sa démo publique) : la page **Déploiements**. Chaque nouvelle
   version vue en production est rattachée au changement qui la couvrait (en cours, ou planifié
   dont la fenêtre ±1 h contient l'instant) ; sinon elle est signalée « hors changement ». Le champ

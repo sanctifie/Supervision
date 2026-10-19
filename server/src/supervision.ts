@@ -26,6 +26,7 @@ import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { Deploiements } from './deploiements';
+import { RecherchesJournaux } from './recherches';
 import { nombre, pourcent } from '../../shared/format';
 import type {
   Alerte,
@@ -67,6 +68,7 @@ export class Supervision {
   readonly connaissances: BaseConnaissances;
   readonly catalogue: Catalogue;
   readonly deploiements: Deploiements;
+  readonly recherches: RecherchesJournaux;
 
   constructor(
     readonly stockage: Stockage,
@@ -89,6 +91,7 @@ export class Supervision {
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.deploiements = new Deploiements(stockage, this.tickets);
+    this.recherches = new RecherchesJournaux(stockage);
   }
 
   get mode() {
