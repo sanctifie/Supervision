@@ -109,7 +109,9 @@ export class Supervision {
       try {
         await this.choisirSource();
         const alertes = await this.alertesEnrichies().catch(() => null);
+        // Alertmanager muet : les SLA doivent quand même prévenir.
         if (alertes) this.tickets.synchroniser(alertes);
+        else this.tickets.verifierSla();
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
       } catch (e) {
