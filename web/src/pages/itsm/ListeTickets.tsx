@@ -3,7 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { CalendarDays, List, Plus, Search } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { Carte, Erreur, Squelette, Vide } from '../../components/ui';
-import { BadgeSla, IconeType, LienTicket, PastillePriorite, PastilleStatut } from '../../components/itsm';
+import { BadgeSla, IconeType, LienTicket, PastillePriorite, PastilleStatut, useReferentiels } from '../../components/itsm';
 import { depuis, dateHeure } from '../../../../shared/format';
 import { LIBELLE_TYPE, type TicketResume, type TypeTicket } from '../../../../shared/itsm';
 import Calendrier from './Calendrier';
@@ -23,6 +23,8 @@ const LIBELLE_RISQUE = { faible: 'Faible', moyen: 'Moyen', eleve: 'Élevé' };
 export default function ListeTickets({ type }: { type: TypeTicket }) {
   const [vue, setVue] = useState('ouverts');
   const [priorite, setPriorite] = useState('');
+  const [application, setApplication] = useState('');
+  const ref = useReferentiels();
   const [recherche, setRecherche] = useState('');
   const [q, setQ] = useState('');
   const [affichage, setAffichage] = useState<'liste' | 'calendrier'>('liste');
@@ -30,6 +32,7 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
 
   const parametres = new URLSearchParams({ type, ...(VUES.find((v) => v.cle === vue)?.parametres ?? {}) });
   if (priorite) parametres.set('priorite', priorite);
+  if (application) parametres.set('application', application);
   if (q) parametres.set('q', q);
   const etat = useDonnees<TicketResume[]>(`/tickets?${parametres}`, 20_000);
   const changement = type === 'changement';
@@ -69,6 +72,16 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
                 </button>
               ))}
             </div>
+            {ref.applications.length > 0 && (
+              <select className="champ" value={application} onChange={(e) => setApplication(e.target.value)} aria-label="Application">
+                <option value="">Toutes les applications</option>
+                {ref.applications.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nom}
+                  </option>
+                ))}
+              </select>
+            )}
             <select className="champ" value={priorite} onChange={(e) => setPriorite(e.target.value)} aria-label="Priorité">
               <option value="">Toutes priorités</option>
               {['P1', 'P2', 'P3', 'P4'].map((p) => (

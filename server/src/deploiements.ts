@@ -2,6 +2,7 @@ import { estOuvert, type Ticket } from '../../shared/itsm';
 import { versionDeImage, type Deploiement, type EtatSynchro, type ImageEnMarche, type SanteDeploiement, type VueDeploiement } from '../../shared/deploiements';
 import type { Statut } from '../../shared/types';
 import { ErreurMetier } from './erreurs';
+import type { Applications } from './applications';
 import type { Stockage } from './stockage';
 import type { Tickets } from './tickets';
 
@@ -21,6 +22,7 @@ export class Deploiements {
   constructor(
     private readonly stockage: Stockage,
     private readonly tickets: Tickets,
+    private readonly applications?: Applications,
   ) {}
 
   private get historique(): Deploiement[] {
@@ -72,6 +74,11 @@ export class Deploiements {
     }
   }
 
+  private application(ci: string, projet: string | null | undefined) {
+    const a = this.applications?.deCi(ci) ?? this.applications?.deProjet(projet);
+    return a ? { id: a.id, nom: a.nom } : null;
+  }
+
   /** La version que le dernier changement utile attend pour ce CI. */
   private prevue(ci: string): { version: string; changement: Ticket } | null {
     const quand = (t: Ticket) => t.closLe ?? t.finPrevue ?? t.debutPrevu ?? t.creeLe;
@@ -105,6 +112,7 @@ export class Deploiements {
       return {
         ci,
         projet: courant[ci]?.projet ?? null,
+        application: this.application(ci, courant[ci]?.projet),
         image,
         version,
         enMarche: etat?.enMarche ?? null,

@@ -1,5 +1,6 @@
 import {
   Activity,
+  AppWindow,
   Archive,
   Bell,
   Boxes,
@@ -54,6 +55,14 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Vue d’ensemble',
     icone: LayoutDashboard,
     motsCles: 'accueil direction vert orange rouge slo',
+  },
+  {
+    chemin: '/applications',
+    titre: 'Applications',
+    description: 'Les applications supervisées : leurs éléments (services, serveurs, bases).',
+    groupe: 'Vue d’ensemble',
+    icone: AppWindow,
+    motsCles: 'application serveur service ci cmdb éléments projet compose',
   },
   {
     chemin: '/itsm',

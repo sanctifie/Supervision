@@ -337,6 +337,18 @@ function Fiche({ d, remplacer, recharger }: { d: Detail; remplacer: (d: Detail) 
                 ))}
               </select>
             </Ligne>
+            {ref.applications.length > 0 && (
+              <Ligne label="Application">
+                <select className="champ" value={t.application ?? ''} disabled={!ouvert} onChange={(e) => patch({ application: e.target.value || null })}>
+                  <option value="">—</option>
+                  {ref.applications.map((a) => (
+                    <option key={a.id} value={a.id}>
+                      {a.nom}
+                    </option>
+                  ))}
+                </select>
+              </Ligne>
+            )}
             <Ligne label="Élément (CI)">
               <select className="champ" value={t.ci ?? ''} disabled={!ouvert} onChange={(e) => patch({ ci: e.target.value || null })}>
                 <option value="">—</option>

@@ -9,7 +9,6 @@ import {
   CODES_RESOLUTION,
   CODES_RESOLUTION_PROBLEME,
   MOTIFS_ATTENTE,
-  ELEMENTS_CONFIGURATION,
   PREFIXES,
   SLA,
   STATUTS,
@@ -32,6 +31,7 @@ import {
 import type { Alerte, Priorite } from '../../shared/types';
 import type { EvenementTicket } from './notifications';
 import { config } from './config';
+import type { Applications } from './applications';
 import { calendrierParDefaut } from '../../shared/calendrier';
 
 /**
@@ -63,11 +63,12 @@ export interface FiltreTickets {
   nonAssignes?: boolean;
   groupe?: string;
   ci?: string;
+  application?: string;
   q?: string;
 }
 
 /** Champs modifiables par type (le reste passe par les actions dédiées). */
-const CHAMPS_COMMUNS = ['titre', 'description', 'impact', 'urgence', 'categorie', 'ci', 'groupe', 'assigneA', 'demandeur'] as const;
+const CHAMPS_COMMUNS = ['titre', 'description', 'impact', 'urgence', 'categorie', 'ci', 'application', 'groupe', 'assigneA', 'demandeur'] as const;
 const CHAMPS_PAR_TYPE: Record<TypeTicket, readonly string[]> = {
   incident: [...CHAMPS_COMMUNS, 'canal', 'motifAttente', 'parent', 'codeResolution', 'notesResolution', 'postMortem'],
   probleme: [...CHAMPS_COMMUNS, 'causeRacine', 'contournement', 'codeResolution'],
@@ -101,6 +102,7 @@ const LIBELLES_CHAMPS: Record<string, string> = {
   urgence: 'Urgence',
   categorie: 'Catégorie',
   ci: 'Élément de configuration',
+  application: 'Application',
   groupe: 'Groupe',
   assigneA: 'Assigné à',
   demandeur: 'Demandeur',
@@ -127,6 +129,7 @@ export class Tickets {
   constructor(
     private readonly stockage: Stockage,
     private readonly effets: EffetsTickets,
+    private readonly applications?: Applications,
   ) {
     this.migrer();
   }
@@ -157,6 +160,12 @@ export class Tickets {
     });
   }
 
+  /** Une application connue ; à défaut, celle de l'élément (CI). */
+  private resoudreApplication(brut: unknown, ci: string | null): string | null {
+    if (typeof brut === 'string' && this.applications?.trouver(brut)) return brut;
+    return this.applications?.deCi(ci)?.id ?? null;
+  }
+
   private numero(type: TypeTicket): string {
     const prefixe = PREFIXES[type];
     const n = (this.stockage.donnees.compteurs[prefixe] ?? 1000) + 1;
@@ -180,6 +189,7 @@ export class Tickets {
       priorite,
       categorie: texte(champs.categorie, 80) || 'Autre',
       ci: champs.ci ? texte(champs.ci, 80) : null,
+      application: this.resoudreApplication(champs.application, champs.ci ? texte(champs.ci, 80) : null),
       groupe: champs.groupe ? texte(champs.groupe, 80) : null,
       assigneA: champs.assigneA ? texte(champs.assigneA, 40) : null,
       demandeur: texte(champs.demandeur, 80) || auteur,
@@ -277,6 +287,7 @@ export class Tickets {
       statut: t.statut,
       priorite: t.priorite,
       ci: t.ci,
+      application: t.application ?? null,
       groupe: t.groupe,
       assigneA: t.assigneA,
       demandeur: t.demandeur,
@@ -305,6 +316,7 @@ export class Tickets {
       .filter((t) => !f.nonAssignes || !t.assigneA)
       .filter((t) => !f.groupe || t.groupe === f.groupe)
       .filter((t) => !f.ci || t.ci === f.ci)
+      .filter((t) => !f.application || t.application === f.application)
       .filter((t) => !q || `${t.numero} ${t.titre} ${t.description} ${t.ci ?? ''} ${t.assigneA ?? ''}`.toLowerCase().includes(q))
       .sort((a, b) => (estOuvert(a) === estOuvert(b) ? ordre[a.priorite] - ordre[b.priorite] || b.majLe - a.majLe : estOuvert(a) ? -1 : 1))
       .map((t) => this.resume(t));
@@ -382,6 +394,9 @@ export class Tickets {
         else if (LISTES[cleChamp]) {
           if (brut && !LISTES[cleChamp](t).includes(String(brut))) continue;
           valeur = brut ? String(brut) : '';
+        } else if (cleChamp === 'application') {
+          if (brut && !this.applications?.trouver(String(brut))) continue;
+          valeur = brut ? String(brut) : null;
         } else if (['ci', 'groupe', 'assigneA', 'resultat', 'parent'].includes(cleChamp)) valeur = brut ? texte(brut, 80) : null;
         else if (cleChamp === 'titre') {
           valeur = texte(brut, 200).trim();
@@ -396,6 +411,8 @@ export class Tickets {
         }
         if (cleChamp === 'assigneA' && valeur && !t.prisEnChargeLe) t.prisEnChargeLe = Date.now();
       }
+      // Un élément déclaré rattache le ticket à son application tant qu'on n'en a pas choisi une autre.
+      if (!t.application && t.ci) t.application = this.applications?.deCi(t.ci)?.id ?? null;
       const priorite = prioriteDeMatrice(t.impact, t.urgence);
       if (priorite !== t.priorite) {
         this.tracer(t, auteur, `Priorité : ${t.priorite} → ${priorite}`);
@@ -799,8 +816,8 @@ export class Tickets {
       .map((t) => ({ titre: 'Perturbation du service', statut: t.resoluLe ? 'resolu' : 'en-cours', detecteLe: t.creeLe, resoluLe: t.resoluLe }));
   }
 
-  /** CI valides pour les formulaires : la CMDB légère + ceux déjà utilisés. */
+  /** CI proposés dans les formulaires : ceux des applications déclarées + ceux déjà utilisés. */
   elementsConfiguration(): string[] {
-    return [...new Set([...ELEMENTS_CONFIGURATION, ...this.liste.map((t) => t.ci).filter((c): c is string => !!c)])];
+    return [...new Set([...(this.applications?.services() ?? []), ...this.liste.map((t) => t.ci).filter((c): c is string => !!c)])];
   }
 }

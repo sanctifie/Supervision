@@ -15,6 +15,7 @@ import {
   LIBELLE_SYNCHRO3,
   SANTES,
   bordSante,
+  appDe,
   depotDe,
   lienPlanifier,
   synchro3,
@@ -78,10 +79,8 @@ export default function Deploiements() {
   const synchro = liste('synchro');
   const projets = liste('projet');
   const filtrees = lignes
-    .filter(
-      (l) => (!sante.length || sante.includes(l.sante)) && (!synchro.length || synchro.includes(synchro3(l.synchro))) && (!projets.length || projets.includes(l.projet ?? '—')),
-    )
-    .filter((l) => !q || `${l.ci} ${l.projet ?? ''} ${l.image ?? ''}`.toLowerCase().includes(q))
+    .filter((l) => (!sante.length || sante.includes(l.sante)) && (!synchro.length || synchro.includes(synchro3(l.synchro))) && (!projets.length || projets.includes(appDe(l))))
+    .filter((l) => !q || `${l.ci} ${appDe(l)} ${l.image ?? ''}`.toLowerCase().includes(q))
     .filter((l) => p.get('favoris') !== '1' || favoris.includes(l.ci))
     .sort((a, b) =>
       tri === 'deploiement'
@@ -94,7 +93,7 @@ export default function Deploiements() {
   const page = Math.min(pages, Math.max(1, Number(p.get('page')) || 1));
   const visibles = filtrees.slice((page - 1) * taille, page * taille);
   const compte = (f: (l: VueDeploiement) => boolean) => lignes.filter(f).length;
-  const nomsProjets = [...new Set(lignes.map((l) => l.projet ?? '—'))].sort();
+  const nomsProjets = [...new Set(lignes.map((l) => appDe(l)))].sort();
 
   const filtres = (
     <>
@@ -117,11 +116,11 @@ export default function Deploiements() {
           <IconeSynchro s={s} /> {LIBELLE_SYNCHRO3[s]} <span className="n">{compte((l) => synchro3(l.synchro) === s)}</span>
         </label>
       ))}
-      {nomsProjets.length > 0 && <div className="argo-groupe-titre">Projets</div>}
+      {nomsProjets.length > 0 && <div className="argo-groupe-titre">Applications</div>}
       {nomsProjets.map((n) => (
         <label key={n} className="argo-case">
           <input type="checkbox" checked={projets.includes(n)} onChange={() => basculer('projet', n)} />
-          {n} <span className="n">{compte((l) => (l.projet ?? '—') === n)}</span>
+          {n} <span className="n">{compte((l) => appDe(l) === n)}</span>
         </label>
       ))}
     </>
@@ -278,13 +277,13 @@ function Tuile({ l, favori, etoile, ouvrir, actualiser }: { l: VueDeploiement; f
     <div className="argo-tuile" style={bordSante(l.sante)} onClick={() => ouvrir()}>
       <h3>
         <Box size={18} color="#6d7f8b" />
-        {l.projet ? `${l.projet}/` : ''}
+        {l.application || l.projet ? `${appDe(l)}/` : ''}
         {l.ci}
         <Etoile actif={favori} basculer={etoile} />
       </h3>
       <div className="argo-champs">
-        <span>Projet :</span>
-        <span>{l.projet ?? '—'}</span>
+        <span>Application :</span>
+        <span>{appDe(l)}</span>
         <span>Statut :</span>
         <span>
           <Statut l={l} />
@@ -321,8 +320,8 @@ function Ligne({ l, favori, etoile, ouvrir }: { l: VueDeploiement; favori: boole
       <Etoile actif={favori} basculer={etoile} />
       <div>
         <div>
-          <span className="e">Projet :</span>
-          {l.projet ?? '—'}
+          <span className="e">Appli :</span>
+          {appDe(l)}
         </div>
         <div>
           <span className="e">Nom :</span>
@@ -383,7 +382,7 @@ function Donut({ donnees }: { donnees: { nom: string; n: number; couleur: string
 /** La vue « résumé » : la même chose en camemberts. */
 function Resume({ lignes }: { lignes: VueDeploiement[] }) {
   const couleurSynchro: Record<Synchro3, string> = { synchronise: 'var(--a-vert)', desynchronise: 'var(--a-jaune)', inconnu: 'var(--a-gris)' };
-  const projets = [...new Set(lignes.map((l) => l.projet ?? '—'))].sort();
+  const projets = [...new Set(lignes.map((l) => appDe(l)))].sort();
   return (
     <div className="argo-resume-vue">
       <div>
@@ -395,10 +394,10 @@ function Resume({ lignes }: { lignes: VueDeploiement[] }) {
         <Donut donnees={SYNCHROS.map((s) => ({ nom: LIBELLE_SYNCHRO3[s], n: lignes.filter((l) => synchro3(l.synchro) === s).length, couleur: couleurSynchro[s] }))} />
       </div>
       <div>
-        <h4>Projets</h4>
+        <h4>Applications</h4>
         {projets.map((n) => (
           <div key={n}>
-            {n} : <b>{lignes.filter((l) => (l.projet ?? '—') === n).length}</b>
+            {n} : <b>{lignes.filter((l) => appDe(l) === n).length}</b>
           </div>
         ))}
       </div>

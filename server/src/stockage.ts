@@ -6,6 +6,7 @@ import type { CalendrierService } from '../../shared/calendrier';
 import { GROUPES_DEFAUT } from '../../shared/itsm';
 import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
+import type { Application } from '../../shared/applications';
 import type { Deploiement } from '../../shared/deploiements';
 import type { RechercheJournaux, RegleJournal } from '../../shared/journaux';
 import type { Article } from '../../shared/connaissances';
@@ -47,6 +48,10 @@ export interface Etat {
   notifications: Notification[];
   articles: Article[];
   catalogue: ArticleCatalogue[];
+  /** Les applications supervisées. */
+  applications: Application[];
+  /** L'application de départ a été posée (on ne la remet pas si tout est supprimé). */
+  applicationsInitialisees?: boolean;
   /** Versions vues en production, de la plus ancienne à la plus récente. */
   deploiements: Deploiement[];
   /** Recherches de journaux partagées par l'équipe. */
@@ -74,6 +79,7 @@ const VIDE: Etat = {
   notifications: [],
   articles: [],
   catalogue: [],
+  applications: [],
   deploiements: [],
   recherches: [],
   reglesJournaux: [],
@@ -109,6 +115,7 @@ export class Stockage {
         notifications: brut.notifications ?? [],
         articles: brut.articles ?? [],
         catalogue: brut.catalogue ?? [],
+        applications: brut.applications ?? [],
         deploiements: brut.deploiements ?? [],
         recherches: brut.recherches ?? [],
         reglesJournaux: brut.reglesJournaux ?? [],

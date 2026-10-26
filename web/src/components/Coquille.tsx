@@ -61,7 +61,7 @@ export function Coquille({
   const lieu = useLocation();
   const naviguer = useNavigate();
 
-  const page = PAGES.find((p) => (p.chemin === '/' ? lieu.pathname === '/' : lieu.pathname.startsWith(p.chemin))) ?? PAGES[0];
+  const page = PAGES.find((p) => (p.chemin === '/' ? lieu.pathname === '/' : lieu.pathname === p.chemin || lieu.pathname.startsWith(`${p.chemin}/`))) ?? PAGES[0];
   const statutDomaine = (cle?: string): Statut | null => (cle && etat ? (etat.domaines.find((d) => d.cle === cle)?.statut ?? null) : null);
   const alertesActives = etat?.kpis.find((k) => k.cle === 'alertes')?.valeur ?? '0';
 

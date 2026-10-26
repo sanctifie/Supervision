@@ -8,32 +8,11 @@ import { Carte, Erreur, Pastille, Squelette, Vide } from '../components/ui';
 import { BoutonRegle, CarteRegles, useRegles } from './ReglesJournaux';
 import { versCsv, type AnalyseJournaux, type CategorieJournal, type RechercheJournaux } from '../../../shared/journaux';
 import { dateHeure } from '../../../shared/format';
+import type { VueApplication } from '../../../shared/applications';
 import type { LigneJournal } from '../../../shared/types';
 
 const PERIODES = [15, 60, 360, 1440];
 const COULEUR_NIVEAU = { error: 'rouge', warn: 'orange', info: 'vert', debug: 'inconnu' } as const;
-
-const SERVICES = [
-  'gateway',
-  'identity',
-  'catalog',
-  'inventory',
-  'syncd',
-  'sales',
-  'regulatory',
-  'purchasing',
-  'insurance',
-  'billing',
-  'ledger',
-  'payments',
-  'notify',
-  'hr',
-  'documents',
-  'postgres',
-  'caddy',
-  'redis',
-  'nats',
-];
 
 export default function Journaux() {
   // Les filtres vivent dans l'adresse : une recherche se partage en copiant le lien.
@@ -63,6 +42,7 @@ export default function Journaux() {
   const analyse = useDonnees<AnalyseJournaux>(`/journaux/analyse?${filtres}`, direct ? 30_000 : 0);
   const recherches = useDonnees<RechercheJournaux[]>('/journaux/recherches', 0);
   const regles = useRegles();
+  const apps = useDonnees<VueApplication[]>('/applications', 60_000);
 
   useEffect(() => setParams(filtres, { replace: true }), [filtres.toString()]); // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -119,9 +99,14 @@ export default function Journaux() {
         >
           <select className="champ" value={service} onChange={(e) => setService(e.target.value)} aria-label="Service">
             <option value="">Tous les services</option>
-            {SERVICES.map((s) => (
-              <option key={s}>{s}</option>
+            {apps.donnees?.map((a) => (
+              <optgroup key={a.id} label={a.nom}>
+                {a.services.map((s) => (
+                  <option key={s}>{s}</option>
+                ))}
+              </optgroup>
             ))}
+            {service && !apps.donnees?.some((a) => a.services.includes(service)) && <option>{service}</option>}
           </select>
           <div className="onglets" role="tablist">
             {[

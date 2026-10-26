@@ -3,6 +3,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { Stockage } from './stockage';
+import { Applications } from './applications';
 import { Tickets } from './tickets';
 import { ReglesJournaux } from './regles';
 import type { FiltreJournaux, LigneJournal } from '../../shared/types';
@@ -12,7 +13,7 @@ const ligne = (message: string, service = 'notify'): LigneJournal => ({ t: Date.
 
 function moteur() {
   const stockage = new Stockage(fs.mkdtempSync(path.join(os.tmpdir(), 'regles-')));
-  const tickets = new Tickets(stockage, { creerSilence: async () => '', supprimerSilence: async () => undefined });
+  const tickets = new Tickets(stockage, { creerSilence: async () => '', supprimerSilence: async () => undefined }, new Applications(stockage));
   const etat = { lignes: [] as LigneJournal[], erreur: null as string | null, filtres: [] as FiltreJournaux[] };
   const regles = new ReglesJournaux(stockage, tickets, async (f) => {
     etat.filtres.push(f);
@@ -50,7 +51,7 @@ describe('règles de journaux', () => {
     await regles.evaluer(t0 + 30_000);
     expect(r).toMatchObject({ etat: 'declenchee', dernierDeclenchement: t0 + 30_000 });
     const t = tickets.trouver(r.ticket!)!;
-    expect(t).toMatchObject({ type: 'incident', priorite: 'P2', automatique: true, regle: r.id, ci: 'notify', canal: 'Supervision (alerte)' });
+    expect(t).toMatchObject({ type: 'incident', priorite: 'P2', automatique: true, regle: r.id, ci: 'notify', application: 'officina', canal: 'Supervision (alerte)' });
     expect(t.description).toMatch(/ECONNREFUSED/);
     expect(t.description).toMatch(/\/journaux\?minutes=15&service=notify/);
 

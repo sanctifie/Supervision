@@ -80,12 +80,13 @@ export function LienTicket({ t }: { t: Pick<TicketResume, 'numero' | 'type'> }) 
 
 export interface Referentiels {
   elementsConfiguration: string[];
+  applications: { id: string; nom: string; services: string[] }[];
   equipe: { membres: string[]; groupes: string[] };
 }
 
 export function useReferentiels(): Referentiels {
   const { donnees } = useDonnees<Referentiels>('/itsm/referentiels', 60_000);
-  return donnees ?? { elementsConfiguration: [], equipe: { membres: [], groupes: [] } };
+  return donnees ?? { elementsConfiguration: [], applications: [], equipe: { membres: [], groupes: [] } };
 }
 
 /** Pour les champs <input type="datetime-local"> (heure locale du navigateur). */

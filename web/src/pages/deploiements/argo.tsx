@@ -93,6 +93,9 @@ export function Panneau({ fermer, children }: { fermer: () => void; children: Re
   );
 }
 
+/** L'application du service : celle qui est déclarée, sinon le projet Docker Compose. */
+export const appDe = (l: Pick<VueDeploiement, 'application' | 'projet'>) => l.application?.nom ?? l.projet ?? '—';
+
 /** Le dépôt d'une image, sans sa version : « officina/sales:1.8.3 » → « officina/sales ». */
 export const depotDe = (image: string | null) => (image ? image.replace(/(@[^/]*|:[^/:]*)$/, '') : '—');
 

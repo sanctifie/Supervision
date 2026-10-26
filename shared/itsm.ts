@@ -82,6 +82,8 @@ export interface Ticket {
   suivi?: string[];
   /** Fois où le ticket a été rouvert après résolution. */
   reouvertures?: number;
+  /** Application à laquelle le ticket se rattache (id) ; déduite de l'élément (CI) si absente. */
+  application?: string | null;
   /** Règle de journaux qui a ouvert ce ticket. */
   regle?: string;
   /** Incident / demande : par où il est arrivé, et pourquoi il attend. */
@@ -127,6 +129,7 @@ export type TicketResume = Pick<
   | 'statut'
   | 'priorite'
   | 'ci'
+  | 'application'
   | 'groupe'
   | 'assigneA'
   | 'demandeur'
@@ -315,32 +318,6 @@ export const CATEGORIES: Record<TypeTicket, string[]> = {
   changement: ['Déploiement applicatif', 'Mise à jour système', 'Base de données (migration)', 'Configuration', 'Infrastructure', 'Sécurité', 'Autre'],
   demande: ['Accès / compte', 'Nouveau poste', 'Imprimante / matériel', 'Paramétrage', 'Formation', 'Données / export', 'Autre'],
 };
-
-/** Éléments de configuration (CMDB légère) : les composants d'Officina. */
-export const ELEMENTS_CONFIGURATION = [
-  'gateway',
-  'identity',
-  'catalog',
-  'inventory',
-  'syncd',
-  'sales',
-  'regulatory',
-  'purchasing',
-  'insurance',
-  'billing',
-  'ledger',
-  'payments',
-  'notify',
-  'hr',
-  'documents',
-  'postgres',
-  'redis',
-  'nats',
-  'caddy',
-  'serveur',
-  'comptoir (postes)',
-  'supervision',
-];
 
 export const GROUPES_DEFAUT = ['Exploitation', 'Développement', 'Support officine'];
 

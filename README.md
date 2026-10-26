@@ -18,6 +18,7 @@ est cliquable et mène au détail.
 
 | Vue | Contenu | Chapitre du guide |
 |-----|---------|-------------------|
+| **Applications** | Les applications supervisées et leurs éléments (services, serveurs, bases) : on les **déclare soi-même** ; Officina est la première. Tickets, journaux et déploiements s'y rattachent | — |
 | **Tableau de bord** | État global vert/orange/rouge, disponibilité et SLO (budget d'erreur), trafic vs J-7, activité récente, un voyant par service métier | 1, 8 |
 | **Serveur** | CPU (iowait, steal, charge), mémoire, swap, OOM, disques (espace, **inodes**, prédiction de remplissage), latence disque, descripteurs, uptime, redémarrage requis, dérive de l'horloge, réseau | 2.1, 2.2 |
 | **Conteneurs** | CPU et mémoire par conteneur vs limites, redémarrages, conteneurs arrêtés | 2.4 |
@@ -151,6 +152,17 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
   **incident** s'ouvre (avec les dernières lignes et un lien vers les journaux) ; jamais deux
   incidents ouverts pour la même règle, une note quand elle redevient calme, et un nouvel
   incident seulement après une fenêtre complète. Pause, suppression, 20 règles au plus.
+- **Applications** (pour superviser autre chose qu'une pharmacie) : une application = un nom, un
+  projet Docker Compose facultatif et une liste d'**éléments** (services, serveurs, bases…) ; un
+  élément n'appartient qu'à une application. Seuls les administrateurs les gèrent (menu
+  *Applications*). Au premier démarrage, **Officina** est créée avec ses éléments habituels (les
+  anciens tickets y sont rattachés). Effets : un ticket se rattache à l'application de son
+  élément (modifiable à la main) et se filtre par application ; les listes d'éléments des
+  formulaires viennent des applications déclarées ; le filtre des journaux regroupe les services
+  par application ; les déploiements affichent l'application. Supprimer une application garde
+  ses tickets (détachés). *Pas encore par application* : calendrier de service et délais SLA,
+  catalogue de demandes, guides d'action, page Métier, page de statut publique, source de
+  supervision (Prometheus/Loki/Alertmanager) et démonstration — encore ceux d'Officina.
 - **Page Déploiements à l'identité d'Argo CD** : même mise en page et mêmes couleurs que l'original
   (barre latérale sombre avec filtres à compteurs, barre de santé segmentée, tuiles à bord coloré,
   vues tuiles / liste / résumé, favoris, tri, pagination ; fiche d'une application avec bandeau

@@ -322,7 +322,8 @@ function Details({ l }: { l: VueDeploiement }) {
   const premier = l.historique.at(-1);
   const lignes: [string, ReactNode][] = [
     ['Nom', l.ci],
-    ['Projet', l.projet ?? '—'],
+    ['Application', l.application?.nom ?? '—'],
+    ['Projet Docker Compose', l.projet ?? '—'],
     ['Image', l.image ?? '—'],
     ['Version en production', l.version ?? '—'],
     ['Version visée', l.prevue ?? '—'],

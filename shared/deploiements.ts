@@ -33,6 +33,8 @@ export type DeploiementVue = Deploiement & { changementTitre: string | null };
 export interface VueDeploiement {
   ci: string;
   projet: string | null;
+  /** Application déclarée qui possède ce service (ou ce projet Compose). */
+  application: { id: string; nom: string } | null;
   image: string | null;
   version: string | null;
   enMarche: boolean | null;

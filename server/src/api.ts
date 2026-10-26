@@ -246,6 +246,7 @@ export function creerApi(sup: Supervision): Router {
         nonAssignes: q.nonAssignes === '1',
         groupe: q.groupe || undefined,
         ci: q.ci || undefined,
+        application: q.application || undefined,
         q: q.q?.slice(0, 200) || undefined,
       });
     }),
@@ -254,6 +255,28 @@ export function creerApi(sup: Supervision): Router {
     '/deploiements/:ci/retour-arriere',
     exiger('agir'),
     agir((req, res) => sup.deploiements.retourArriere(String(req.params.ci), String(req.body?.version ?? ''), res.locals.nom), 201),
+  );
+  api.get(
+    '/applications',
+    lire(async () => sup.applications.lister().map((a) => ({ ...a, ouverts: sup.tickets.lister({ application: a.id }).length }))),
+  );
+  api.post(
+    '/applications',
+    exiger('administrer'),
+    agir((req, res) => sup.applications.creer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.patch(
+    '/applications/:id',
+    exiger('administrer'),
+    agir((req) => sup.applications.modifier(String(req.params.id), req.body ?? {})),
+  );
+  api.delete(
+    '/applications/:id',
+    exiger('administrer'),
+    agir((req) => {
+      sup.applications.supprimer(String(req.params.id));
+      return { ok: true };
+    }),
   );
   api.get(
     '/itsm/tableau',
@@ -270,6 +293,7 @@ export function creerApi(sup: Supervision): Router {
   api.get('/itsm/referentiels', (_req, res) => {
     res.json({
       elementsConfiguration: sup.tickets.elementsConfiguration(),
+      applications: sup.applications.lister().map(({ id, nom, services }) => ({ id, nom, services })),
       equipe: { membres: sup.comptes.assignables(), groupes: sup.stockage.donnees.equipe.groupes },
     });
   });

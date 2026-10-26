@@ -25,6 +25,7 @@ import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
 import { RUNBOOKS } from '../../shared/runbooks';
+import { Applications } from './applications';
 import { Deploiements } from './deploiements';
 import type { ImageEnMarche } from '../../shared/deploiements';
 import { RecherchesJournaux } from './recherches';
@@ -63,6 +64,7 @@ export class Supervision {
   private fournisseur: Fournisseur;
   private cache = new Map<string, { expire: number; valeur: Promise<unknown> }>();
   private boucle: NodeJS.Timeout | null = null;
+  readonly applications: Applications;
   readonly tickets: Tickets;
   readonly comptes: Comptes;
   readonly notifications: Notifications;
@@ -78,22 +80,27 @@ export class Supervision {
     canaux: Canaux = canauxReels(),
   ) {
     this.fournisseur = config.mode === 'reel' ? this.reel : this.demo;
-    this.tickets = new Tickets(stockage, {
-      creerSilence: async (ci, debut, fin, commentaire, auteur) => {
-        const id = await this.fournisseur.creerSilence({ correspondances: [{ nom: 'service', valeur: ci }], debut, fin, commentaire, auteur });
-        this.invalider('silences');
-        this.invalider('alertes');
-        return id;
+    this.applications = new Applications(stockage);
+    this.tickets = new Tickets(
+      stockage,
+      {
+        creerSilence: async (ci, debut, fin, commentaire, auteur) => {
+          const id = await this.fournisseur.creerSilence({ correspondances: [{ nom: 'service', valeur: ci }], debut, fin, commentaire, auteur });
+          this.invalider('silences');
+          this.invalider('alertes');
+          return id;
+        },
+        supprimerSilence: (id) => this.supprimerSilence(id),
+        signaler: (e) => this.notifications.traiter(e),
       },
-      supprimerSilence: (id) => this.supprimerSilence(id),
-      signaler: (e) => this.notifications.traiter(e),
-    });
+      this.applications,
+    );
     this.comptes = new Comptes(stockage, config.dureeSessionHeures * 3_600_000, (ancien, nouveau) => this.tickets.renommerPersonne(ancien, nouveau));
     this.notifications = new Notifications(stockage, this.comptes, canaux);
     this.pieces = new PiecesJointes(stockage.dossier, stockage, this.tickets);
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
-    this.deploiements = new Deploiements(stockage, this.tickets);
+    this.deploiements = new Deploiements(stockage, this.tickets, this.applications);
     this.recherches = new RecherchesJournaux(stockage);
     this.regles = new ReglesJournaux(stockage, this.tickets, (f) => this.journaux(f));
   }

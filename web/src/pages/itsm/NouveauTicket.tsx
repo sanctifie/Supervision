@@ -29,6 +29,7 @@ export default function NouveauTicket() {
   const [urgence, setUrgence] = useState<Niveau>(2);
   const [categorie, setCategorie] = useState(CATEGORIES[typeInitial][0]);
   const [ci, setCi] = useState(params.get('ci') ?? '');
+  const [application, setApplication] = useState(params.get('application') ?? '');
   const [groupe, setGroupe] = useState('');
   const [assigneA, setAssigneA] = useState('');
   const [demandeur, setDemandeur] = useState(nom);
@@ -86,6 +87,7 @@ export default function NouveauTicket() {
         urgence,
         categorie,
         ci: ci || null,
+        application: application || undefined,
         groupe: groupe || null,
         assigneA: assigneA || null,
         demandeur,
@@ -209,9 +211,30 @@ export default function NouveauTicket() {
               ))}
             </select>
           </div>
+          {ref.applications.length > 0 && (
+            <div className="champ-groupe">
+              <label className="etiquette">Application</label>
+              <select className="champ" value={application} onChange={(e) => setApplication(e.target.value)}>
+                <option value="">—</option>
+                {ref.applications.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.nom}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
           <div className="champ-groupe">
             <label className="etiquette">Élément de configuration</label>
-            <select className="champ" value={ci} onChange={(e) => setCi(e.target.value)}>
+            <select
+              className="champ"
+              value={ci}
+              onChange={(e) => {
+                setCi(e.target.value);
+                const a = ref.applications.find((x) => x.services.includes(e.target.value));
+                if (a) setApplication(a.id);
+              }}
+            >
               <option value="">—</option>
               {ref.elementsConfiguration.map((c) => (
                 <option key={c}>{c}</option>
