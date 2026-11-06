@@ -173,12 +173,20 @@ export default function Orchestration() {
                           <tbody>
                             {visibles.map((e) => (
                               <tr key={`${e.outil}:${e.id}`}>
-                                <td style={{ maxWidth: 0, width: '44%' }}>
+                                <td style={{ maxWidth: 0, width: '40%' }}>
                                   <div className="ligne-flex" style={{ gap: 8, flexWrap: 'nowrap' }}>
                                     <Pastille statut="bleu">{NOM_OUTIL[e.outil]}</Pastille>
-                                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${e.nom} · ${e.contexte}`}>
-                                      <strong>{e.nom}</strong>
-                                      <span className="discret"> · {e.contexte}</span>
+                                    <span style={{ minWidth: 0 }}>
+                                      <strong style={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={e.nom}>
+                                        {e.nom}
+                                      </strong>
+                                      <span
+                                        className="discret"
+                                        style={{ display: 'block', fontSize: '0.76rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                                        title={e.contexte}
+                                      >
+                                        {e.contexte}
+                                      </span>
                                     </span>
                                   </div>
                                 </td>
