@@ -96,6 +96,30 @@ function Contenu({ e }: { e: VueEtat }) {
         })}
       </div>
 
+      <div>
+        <div className="ligne-flex mb">
+          <h3 style={{ fontSize: '1.05rem' }}>Tout ce qui est surveillé</h3>
+          <span className="discret">Cliquez sur un voyant pour descendre jusqu’au détail.</span>
+        </div>
+        <div className="grille g5">
+          {e.domaines.map((d) => {
+            const Icone = ICONES_DOMAINE[d.cle] ?? Activity;
+            return (
+              <Link to={d.lien} className="carte domaine" key={d.cle} title={`${d.libelle} : ${LIBELLE_STATUT[d.statut]}`}>
+                <span className={`tuile grande ${d.statut === 'vert' ? '' : d.statut}`}>
+                  <Icone size={20} />
+                </span>
+                <div style={{ minWidth: 0 }}>
+                  <h4>
+                    {d.libelle} <Point statut={d.statut} />
+                  </h4>
+                  <p style={{ margin: 0, color: COULEUR[d.statut] === '#94a3b8' ? undefined : COULEUR[d.statut] }}>{d.resume}</p>
+                </div>
+              </Link>
+            );
+          })}
+        </div>
+      </div>
       <div className="grille g-principal">
         <Carte
           titre="Trafic de l’API"
@@ -114,7 +138,7 @@ function Contenu({ e }: { e: VueEtat }) {
           }
         >
           <Courbe
-            hauteur={290}
+            hauteur={240}
             format={(v) => nombre(v, 1)}
             series={[
               { nom: 'Aujourd’hui', points: e.trafic.debit },
@@ -144,7 +168,7 @@ function Contenu({ e }: { e: VueEtat }) {
         >
           {e.activite.length ? (
             <ul className="activite">
-              {e.activite.slice(0, 7).map((a, i) => (
+              {e.activite.slice(0, 6).map((a, i) => (
                 <li key={`${a.t}-${i}`}>
                   <IconeEvenement e={a} />
                   <div style={{ minWidth: 0 }}>
@@ -224,34 +248,6 @@ function Contenu({ e }: { e: VueEtat }) {
             </div>
           </div>
         </Carte>
-      </div>
-
-      <div>
-        <div className="ligne-flex mb">
-          <h3 style={{ fontSize: '1.05rem' }}>Tout ce qui est surveillé</h3>
-          <span className="discret">Cliquez sur un voyant pour descendre jusqu’au détail.</span>
-        </div>
-        <div className="grille g4">
-          {e.domaines.map((d) => {
-            const Icone = ICONES_DOMAINE[d.cle] ?? Activity;
-            return (
-              <Link to={d.lien} className="carte domaine" key={d.cle}>
-                <span className={`tuile grande ${d.statut === 'vert' ? '' : d.statut}`}>
-                  <Icone size={22} />
-                </span>
-                <div style={{ minWidth: 0 }}>
-                  <h4>
-                    {d.libelle} <Point statut={d.statut} />
-                  </h4>
-                  <p>{d.resume}</p>
-                  <span className="lien-fleche" style={{ color: COULEUR[d.statut] === '#94a3b8' ? undefined : COULEUR[d.statut] }}>
-                    {LIBELLE_STATUT[d.statut]} <ArrowRight size={13} />
-                  </span>
-                </div>
-              </Link>
-            );
-          })}
-        </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react';
+import { useState, type ReactNode } from 'react';
 import { AlertTriangle, CheckCircle2, CircleHelp, Inbox, OctagonAlert } from 'lucide-react';
 import { LIBELLE_STATUT } from '../../../shared/seuils';
 import { duree, millisecondes, nombre, octets, pourcent } from '../../../shared/format';
@@ -193,5 +193,41 @@ export function Modale({ titre, children, fermer, large }: { titre: string; chil
         {children}
       </div>
     </div>
+  );
+}
+
+/** Mesures en une ligne compacte (libellé, valeur, point de couleur). */
+export function BandeStats({ mesures }: { mesures: Mesure[] }) {
+  return (
+    <div className="stats">
+      {mesures.map((m) => (
+        <div className="stat" key={m.cle} title={m.detail}>
+          <span className="stat-libelle">{m.libelle}</span>
+          <span className="stat-valeur">
+            <Point statut={m.statut} />
+            {m.cle === 'pg-up' ? (m.valeur === null ? '—' : m.valeur ? 'En marche' : 'Arrêté') : valeurMesure(m)}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** Une liste longue repliée : les `n` premiers, puis « Voir les N autres ». */
+export function VoirPlus<T>({ elements, n, rendu }: { elements: T[]; n: number; rendu: (visibles: T[]) => ReactNode }) {
+  const [tout, setTout] = useState(false);
+  const visibles = tout ? elements : elements.slice(0, n);
+  const reste = elements.length - n;
+  return (
+    <>
+      {rendu(visibles)}
+      {reste > 0 && (
+        <div className="voir-plus">
+          <button className="bouton petit" onClick={() => setTout(!tout)}>
+            {tout ? 'Réduire' : `Voir les ${reste} autres`}
+          </button>
+        </div>
+      )}
+    </>
   );
 }

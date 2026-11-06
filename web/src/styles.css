@@ -27,12 +27,19 @@
   --inconnu-fond: #f1f5f9;
   --violet: #7c5cff;
   --violet-fond: #f1edff;
-  --ombre: 0 1px 2px rgba(15, 23, 42, 0.04), 0 8px 28px rgba(37, 72, 190, 0.06);
-  --ombre-forte: 0 2px 4px rgba(15, 23, 42, 0.04), 0 18px 48px rgba(37, 72, 190, 0.14);
-  --rayon: 16px;
+  --ombre: 0 1px 2px rgba(15, 23, 42, 0.03);
+  --ombre-forte: 0 2px 4px rgba(15, 23, 42, 0.04), 0 14px 36px rgba(37, 72, 190, 0.12);
+  --rayon: 14px;
   --rayon-petit: 10px;
-  --barre: 248px;
-  font-family: 'Inter Variable', Inter, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --barre: 232px;
+  font-family:
+    'Inter Variable',
+    Inter,
+    system-ui,
+    -apple-system,
+    'Segoe UI',
+    Roboto,
+    sans-serif;
   color: var(--texte);
   background: var(--fond);
   -webkit-font-smoothing: antialiased;
@@ -48,12 +55,7 @@ body {
   min-height: 100%;
 }
 body {
-  background:
-    radial-gradient(1200px 500px at 85% -10%, rgba(74, 123, 255, 0.1), transparent 60%),
-    linear-gradient(rgba(47, 91, 234, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
-    linear-gradient(90deg, rgba(47, 91, 234, 0.035) 1px, transparent 1px) 0 0 / 48px 48px,
-    var(--fond);
-  background-attachment: fixed;
+  background: var(--fond);
 }
 a {
   color: var(--bleu);
@@ -95,10 +97,9 @@ code,
   height: 100vh;
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 22px 14px 16px;
-  background: rgba(255, 255, 255, 0.86);
-  backdrop-filter: blur(12px);
+  gap: 2px;
+  padding: 18px 12px 14px;
+  background: #fff;
   border-right: 1px solid var(--bord);
   overflow-y: auto;
 }
@@ -129,33 +130,35 @@ code,
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--gris-clair);
-  padding: 14px 12px 6px;
+  padding: 12px 10px 4px;
 }
 .nav-lien {
   display: flex;
   align-items: center;
-  gap: 11px;
-  padding: 9px 12px;
-  border-radius: 11px;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 9px;
   color: #475569;
-  font-size: 0.89rem;
+  font-size: 0.86rem;
   font-weight: 500;
-  transition: background 0.15s, color 0.15s;
+  transition:
+    background 0.15s,
+    color 0.15s;
 }
 .nav-lien:hover {
   background: var(--bleu-tres-clair);
   color: var(--bleu);
 }
 .nav-lien.actif {
-  background: var(--degrade);
-  color: #fff;
-  box-shadow: 0 6px 16px rgba(47, 91, 234, 0.3);
+  background: var(--bleu-clair);
+  color: var(--bleu);
+  font-weight: 600;
 }
 .nav-lien .point {
   margin-left: auto;
 }
 .nav-lien.actif .point {
-  box-shadow: 0 0 0 2px #fff;
+  box-shadow: none;
 }
 .carte-grafana {
   margin-top: auto;
@@ -178,7 +181,7 @@ code,
 
 .contenu {
   min-width: 0;
-  padding: 0 32px 48px;
+  padding: 0 24px 40px;
 }
 .entete {
   position: sticky;
@@ -187,12 +190,12 @@ code,
   display: flex;
   align-items: center;
   gap: 16px;
-  padding: 18px 0 16px;
-  margin-bottom: 8px;
+  padding: 14px 0 12px;
+  margin-bottom: 6px;
   background: linear-gradient(var(--fond) 70%, rgba(246, 248, 253, 0));
 }
 .entete-titre h1 {
-  font-size: 1.35rem;
+  font-size: 1.25rem;
 }
 .entete-titre p {
   margin: 3px 0 0;
@@ -317,7 +320,10 @@ code,
 /* --- Grilles -------------------------------------------------------------- */
 .grille {
   display: grid;
-  gap: 18px;
+  gap: 14px;
+}
+.g5 {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
 }
 .g2 {
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -334,10 +340,10 @@ code,
 .empile {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: 14px;
 }
 .mb {
-  margin-bottom: 18px;
+  margin-bottom: 14px;
 }
 
 /* --- Cartes -------------------------------------------------------------- */
@@ -346,7 +352,7 @@ code,
   border: 1px solid var(--bord);
   border-radius: var(--rayon);
   box-shadow: var(--ombre);
-  padding: 20px;
+  padding: 16px;
   min-width: 0;
 }
 .carte.serree {
@@ -357,10 +363,10 @@ code,
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 12px;
 }
 .carte-tete h3 {
-  font-size: 0.98rem;
+  font-size: 0.94rem;
 }
 .carte-tete p {
   margin: 2px 0 0;
@@ -374,7 +380,7 @@ code,
   align-items: center;
 }
 .serree .carte-tete {
-  padding: 18px 20px 0;
+  padding: 14px 16px 0;
 }
 
 /* --- Indicateurs (KPI) ---------------------------------------------------- */
@@ -386,7 +392,7 @@ code,
   display: flex;
   align-items: center;
   gap: 10px;
-  margin-bottom: 14px;
+  margin-bottom: 10px;
 }
 .tuile {
   width: 38px;
@@ -429,7 +435,7 @@ code,
   font-weight: 500;
 }
 .kpi-valeur {
-  font-size: 1.75rem;
+  font-size: 1.55rem;
   font-weight: 700;
   color: var(--encre);
   letter-spacing: -0.03em;
@@ -598,9 +604,12 @@ code,
 /* --- Domaines (cartes « fonctionnalités ») -------------------------------- */
 .domaine {
   display: flex;
-  gap: 14px;
+  gap: 12px;
   align-items: flex-start;
-  transition: transform 0.15s, box-shadow 0.15s;
+  padding: 14px;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
   color: inherit;
 }
 .domaine:hover {
@@ -608,14 +617,19 @@ code,
   box-shadow: var(--ombre-forte);
 }
 .domaine h4 {
-  font-size: 0.92rem;
-  margin-bottom: 4px;
+  font-size: 0.86rem;
+  margin-bottom: 2px;
 }
 .domaine p {
-  margin: 0 0 10px;
+  margin: 0 0 6px;
   color: var(--gris);
-  font-size: 0.8rem;
-  line-height: 1.45;
+  font-size: 0.76rem;
+  line-height: 1.4;
+}
+.domaine .tuile.grande {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
 }
 .lien-fleche {
   display: inline-flex;
@@ -683,13 +697,13 @@ table.tableau {
   letter-spacing: 0.05em;
   color: var(--gris-clair);
   font-weight: 600;
-  padding: 10px 20px;
+  padding: 8px 16px;
   border-bottom: 1px solid var(--bord);
   white-space: nowrap;
   background: #fbfcff;
 }
 .tableau td {
-  padding: 12px 20px;
+  padding: 9px 16px;
   border-bottom: 1px solid #f0f3fa;
   vertical-align: middle;
 }
@@ -714,12 +728,12 @@ table.tableau {
 /* --- Mesures ------------------------------------------------------------- */
 .mesures {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(170px, 1fr));
+  gap: 10px;
 }
 .mesure {
-  padding: 14px 16px;
-  border-radius: 13px;
+  padding: 10px 12px 10px 14px;
+  border-radius: 11px;
   border: 1px solid var(--bord);
   background: #fff;
   position: relative;
@@ -755,10 +769,10 @@ table.tableau {
   font-weight: 500;
 }
 .mesure-valeur {
-  font-size: 1.35rem;
+  font-size: 1.15rem;
   font-weight: 700;
   color: var(--encre);
-  margin: 6px 0 4px;
+  margin: 3px 0 2px;
   letter-spacing: -0.02em;
   font-variant-numeric: tabular-nums;
 }
@@ -1310,7 +1324,6 @@ label.etiquette {
   padding: 48px 20px;
 }
 
-
 .lien-bouton {
   border: 0;
   background: none;
@@ -1814,5 +1827,81 @@ label.etiquette {
 @keyframes tourne {
   to {
     transform: rotate(360deg);
+  }
+}
+
+/* --- Bande de statistiques (compacte, en ligne) --------------------------- */
+.stats {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 22px;
+  margin: 2px 0 6px;
+}
+.stat {
+  min-width: 0;
+}
+.stat-libelle {
+  display: block;
+  font-size: 0.7rem;
+  color: var(--gris);
+  font-weight: 500;
+  white-space: nowrap;
+}
+.stat-valeur {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--encre);
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+.stat-valeur .point {
+  width: 7px;
+  height: 7px;
+}
+.voir-plus {
+  display: flex;
+  justify-content: center;
+  padding: 8px 0 2px;
+}
+.serree .voir-plus {
+  padding: 8px 16px 12px;
+}
+.etiquette-cat {
+  font-size: 0.66rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--gris-clair);
+}
+.chips-etapes {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip-etape {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 10px;
+  border-radius: 9px;
+  border: 1px solid var(--bord);
+  font-size: 0.78rem;
+  color: var(--texte);
+  background: #fff;
+}
+.chip-etape strong {
+  color: var(--encre);
+}
+@media (max-width: 1280px) {
+  .g5 {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+@media (max-width: 860px) {
+  .g5 {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }

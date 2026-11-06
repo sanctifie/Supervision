@@ -42,16 +42,20 @@ export default function Automatisations() {
                           <div className="discret" style={{ fontSize: '0.74rem' }}>
                             {a.detail}
                           </div>
+                        </td>
+                        <td className="discret">
+                          {a.outil}
                           {a.commande && (
-                            <div className="ligne-flex" style={{ marginTop: 6, gap: 6 }}>
-                              <code style={{ background: '#f4f7ff', padding: '3px 8px', borderRadius: 6 }}>{a.commande}</code>
-                              <button className="bouton petit" title="Copier" onClick={() => navigator.clipboard?.writeText(a.commande ?? '')}>
-                                <Copy size={12} />
-                              </button>
-                            </div>
+                            <button
+                              className="bouton petit"
+                              style={{ marginLeft: 8 }}
+                              title={`Copier : ${a.commande}`}
+                              onClick={() => navigator.clipboard?.writeText(a.commande ?? '')}
+                            >
+                              <Copy size={12} /> Commande
+                            </button>
                           )}
                         </td>
-                        <td className="discret">{a.outil}</td>
                         <td>
                           <Pastille statut={a.statut}>{a.statut === 'inconnu' ? 'À faire' : undefined}</Pastille>
                         </td>

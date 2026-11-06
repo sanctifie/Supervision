@@ -1,10 +1,10 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ExternalLink, GitMerge, Play, RotateCw, Sparkles } from 'lucide-react';
+import { ExternalLink, GitMerge, Play, RotateCw } from 'lucide-react';
 import { useSupervision } from '../components/Coquille';
 import { useDonnees } from '../lib/useDonnees';
 import { appeler } from '../lib/api';
-import { Carte, Charge, GrilleMesures, Pastille, Vide } from '../components/ui';
+import { BandeStats, Carte, Charge, Pastille, Vide, VoirPlus } from '../components/ui';
 import { dateHeure, depuis, duree } from '../../../shared/format';
 import { LIBELLE_EXECUTION, NOM_OUTIL, STATUT_EXECUTION, type Execution, type VueOutils } from '../../../shared/outils';
 
@@ -22,6 +22,42 @@ function EtatExecution({ e }: { e: Execution }) {
       {e.etat === 'en-cours' && <RotateCw size={11} className="tourne" />}
       {LIBELLE_EXECUTION[e.etat]}
     </Pastille>
+  );
+}
+
+/** Une tuile compacte par outil : nom (lien), état, une ligne de contexte. */
+function TuileOutil({
+  nom,
+  url,
+  actif,
+  joignable,
+  enfant,
+  droite,
+}: {
+  nom: string;
+  url: string | null;
+  actif: boolean;
+  joignable: boolean;
+  enfant: React.ReactNode;
+  droite?: React.ReactNode;
+}) {
+  return (
+    <div className="carte" style={{ padding: '12px 14px' }}>
+      <div className="ligne-flex" style={{ marginBottom: 6 }}>
+        <strong style={{ color: 'var(--encre)', fontSize: '0.9rem' }}>
+          {url ? (
+            <a href={url} target="_blank" rel="noreferrer" style={{ color: 'inherit' }}>
+              {nom} <ExternalLink size={11} style={{ verticalAlign: -1, opacity: 0.5 }} />
+            </a>
+          ) : (
+            nom
+          )}
+        </strong>
+        <span className="espace" />
+        {droite ?? (!actif || !joignable ? <Pastille statut={!actif ? 'inconnu' : 'rouge'}>{!actif ? 'Non configuré' : 'Injoignable'}</Pastille> : null)}
+      </div>
+      <div style={{ fontSize: '0.8rem' }}>{enfant}</div>
+    </div>
   );
 }
 
@@ -49,275 +85,233 @@ export default function Orchestration() {
   return (
     <Charge etat={etat}>
       {(v) => {
-        const demo = [...v.outils, ...(v.qualite.demo ? [{ cle: 'sonar' as const, nom: v.qualite.nom }] : [])].filter((o) => ('demo' in o ? o.demo : true));
         const q = v.qualite;
         const qActif = q.configure || q.demo;
         const lancable = v.lancables.find((l) => `${l.outil}:${l.id}` === choix) ?? v.lancables[0];
         return (
           <div className="empile">
-            {demo.length > 0 && (
-              <div className="bandeau-mode">
-                <Sparkles size={16} />
-                <span>
-                  <strong>Démonstration</strong> pour {demo.map((o) => o.nom).join(', ')} : renseignez {demo.map((o) => VARIABLES[o.cle]).join(' ; ')} dans <code>.env</code> pour
-                  lire vos vrais outils.
-                </span>
-              </div>
-            )}
-
-            <div className="grille g4">
+            <div className="grille g5">
               {v.outils.map((o) => {
+                const actif = o.configure || o.demo;
                 const derniere = v.executions.find((e) => e.outil === o.cle);
                 return (
-                  <Carte
+                  <TuileOutil
                     key={o.cle}
-                    titre={o.nom}
-                    sousTitre={
-                      {
-                        gitlab: 'Pipelines CI/CD et demandes de fusion',
-                        github: 'Workflows GitHub Actions et pull requests',
-                        awx: 'Jobs Ansible et modèles de job',
-                        controlm: 'Jobs planifiés (batch)',
-                      }[o.cle]
-                    }
-                    droite={
-                      <Pastille statut={!o.configure && !o.demo ? 'inconnu' : o.joignable ? 'vert' : 'rouge'}>
-                        {!o.configure && !o.demo ? 'Non configuré' : o.joignable ? 'Joignable' : 'Injoignable'}
-                      </Pastille>
-                    }
-                  >
-                    {o.erreur && <div className="erreur">{o.erreur}</div>}
-                    {!o.configure && !o.demo ? (
-                      <p className="discret">
-                        Variables : <code>{VARIABLES[o.cle]}</code>
-                      </p>
-                    ) : derniere ? (
-                      <div style={{ fontSize: '0.88rem' }}>
-                        <div className="ligne-flex">
+                    nom={o.nom}
+                    url={o.url}
+                    actif={actif}
+                    joignable={o.joignable}
+                    enfant={
+                      o.erreur ? (
+                        <span className="texte-rouge">{o.erreur}</span>
+                      ) : !actif ? (
+                        <code className="discret">{VARIABLES[o.cle]}</code>
+                      ) : derniere ? (
+                        <span className="ligne-flex" style={{ gap: 6 }}>
                           <EtatExecution e={derniere} />
-                          <strong>{derniere.nom}</strong>
-                        </div>
-                        <div className="discret" style={{ marginTop: 6 }}>
-                          {derniere.contexte} · {depuis(derniere.debut)}
-                        </div>
-                      </div>
-                    ) : (
-                      <p className="discret">Aucune exécution récente.</p>
-                    )}
-                    {o.url && (
-                      <a className="lien-fleche" href={o.url} target="_blank" rel="noreferrer" style={{ marginTop: 8 }}>
-                        Ouvrir {o.nom} <ExternalLink size={13} />
-                      </a>
-                    )}
-                  </Carte>
+                          <span className="discret" style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {derniere.nom} · {depuis(derniere.debut)}
+                          </span>
+                        </span>
+                      ) : (
+                        <span className="discret">Aucune exécution récente</span>
+                      )
+                    }
+                  />
                 );
               })}
-              <Carte
-                titre={q.nom}
-                sousTitre="Qualité du code : porte qualité et mesures"
+              <TuileOutil
+                nom={q.nom}
+                url={q.lien ?? q.url}
+                actif={qActif}
+                joignable={q.joignable}
                 droite={
-                  <Pastille statut={!qActif ? 'inconnu' : !q.joignable ? 'rouge' : q.porte === 'OK' ? 'vert' : q.porte === 'ERROR' ? 'rouge' : 'inconnu'}>
-                    {!qActif
-                      ? 'Non configuré'
-                      : !q.joignable
-                        ? 'Injoignable'
-                        : q.porte === 'OK'
-                          ? 'Porte qualité OK'
-                          : q.porte === 'ERROR'
-                            ? 'Porte qualité en échec'
-                            : 'Porte inconnue'}
-                  </Pastille>
+                  qActif && q.joignable ? (
+                    <Pastille statut={q.porte === 'OK' ? 'vert' : q.porte === 'ERROR' ? 'rouge' : 'inconnu'}>
+                      {q.porte === 'OK' ? 'Porte OK' : q.porte === 'ERROR' ? 'Porte en échec' : 'Porte inconnue'}
+                    </Pastille>
+                  ) : undefined
                 }
-              >
-                {q.erreur && <div className="erreur">{q.erreur}</div>}
-                {!qActif ? (
-                  <p className="discret">
-                    Variables : <code>{VARIABLES.sonar}</code>
-                  </p>
-                ) : (
-                  <ul className="liste-points" style={{ margin: 0, fontSize: '0.84rem' }}>
-                    {q.conditions.map((c) => (
-                      <li key={c.libelle}>
-                        <span className={`point ${c.statut === 'OK' ? 'vert' : 'rouge'}`} /> {c.libelle} : {c.valeur} <span className="discret">({c.seuil})</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {(q.lien ?? q.url) && (
-                  <a className="lien-fleche" href={q.lien ?? (q.url as string)} target="_blank" rel="noreferrer" style={{ marginTop: 8 }}>
-                    Ouvrir {q.nom} <ExternalLink size={13} />
-                  </a>
-                )}
-              </Carte>
+                enfant={
+                  q.erreur ? (
+                    <span className="texte-rouge">{q.erreur}</span>
+                  ) : !qActif ? (
+                    <code className="discret">{VARIABLES.sonar}</code>
+                  ) : (
+                    <span className="discret">
+                      {q.conditions.filter((c) => c.statut === 'OK').length}/{q.conditions.length} conditions · {q.mesures.find((m) => m.cle === 'coverage')?.valeur ?? '—'} %
+                      couvert
+                    </span>
+                  )
+                }
+              />
             </div>
 
-            {qActif && q.joignable && (
-              <Carte titre={`Mesures SonarQube — ${q.projet}`} sousTitre="Bugs, vulnérabilités, points chauds, dette, couverture et duplication du projet">
-                <GrilleMesures mesures={q.mesures} />
-              </Carte>
-            )}
-
-            {agent && v.lancables.length > 0 && (
-              <Carte titre="Lancer" sousTitre="Un pipeline GitLab sur une branche, ou un modèle de job AWX. L’action est signée de votre nom dans le fil d’activité.">
-                <div className="ligne-flex">
-                  <select
-                    className="champ"
-                    style={{ flex: 1 }}
-                    value={lancable ? `${lancable.outil}:${lancable.id}` : ''}
-                    onChange={(e) => setChoix(e.target.value)}
-                    aria-label="Quoi lancer"
-                  >
-                    {v.lancables.map((l) => (
-                      <option key={`${l.outil}:${l.id}`} value={`${l.outil}:${l.id}`}>
-                        {NOM_OUTIL[l.outil]} — {l.nom}
-                      </option>
-                    ))}
-                  </select>
-                  <button className="bouton primaire" disabled={enCours || !lancable} onClick={() => lancable && action(`/outils/${lancable.outil}/lancer`, { id: lancable.id })}>
-                    <Play size={14} /> Lancer
-                  </button>
-                </div>
-                {lancable?.description && (
-                  <p className="discret" style={{ marginTop: 8 }}>
-                    {lancable.description}
-                  </p>
-                )}
-              </Carte>
-            )}
             {message && <div className={message.ok ? 'encadre' : 'erreur'}>{message.texte}</div>}
 
-            <Carte serree titre="Dernières exécutions" sousTitre="Pipelines, jobs AWX et jobs Control-M, du plus récent au plus ancien">
-              {v.executions.length === 0 ? (
-                <Vide>Aucune exécution à afficher.</Vide>
-              ) : (
-                <div className="tableau-conteneur">
-                  <table className="tableau">
-                    <thead>
-                      <tr>
-                        <th>Outil</th>
-                        <th>Exécution</th>
-                        <th>État</th>
-                        <th>Début</th>
-                        <th className="num">Durée</th>
-                        <th>Par</th>
-                        <th>Ticket</th>
-                        <th />
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {v.executions.map((e) => (
-                        <tr key={`${e.outil}:${e.id}`}>
-                          <td>
-                            <Pastille statut="bleu">{NOM_OUTIL[e.outil]}</Pastille>
-                          </td>
-                          <td>
-                            <strong>{e.nom}</strong>
-                            <div className="discret" style={{ fontSize: '0.78rem' }}>
-                              {e.contexte}
-                            </div>
-                          </td>
-                          <td>
-                            <EtatExecution e={e} />
-                            <div className="discret mono" style={{ fontSize: '0.72rem' }}>
-                              {e.statutBrut}
-                            </div>
-                          </td>
-                          <td title={dateHeure(e.debut)}>{depuis(e.debut)}</td>
-                          <td className="num">{e.debut && e.fin ? duree((e.fin - e.debut) / 1000) : '—'}</td>
-                          <td className="discret">{e.par ?? '—'}</td>
-                          <td className="mono">
-                            {v.tickets[`${e.outil}:${e.id}`] ? <Link to={`/tickets/${v.tickets[`${e.outil}:${e.id}`]}`}>{v.tickets[`${e.outil}:${e.id}`]}</Link> : '—'}
-                          </td>
-                          <td style={{ whiteSpace: 'nowrap' }}>
-                            {e.lien && (
-                              <a className="bouton petit" href={e.lien} target="_blank" rel="noreferrer" title="Ouvrir dans l’outil">
-                                <ExternalLink size={13} />
-                              </a>
-                            )}{' '}
-                            {agent && e.etat !== 'en-cours' && e.etat !== 'attente' && (
-                              <button
-                                className="bouton petit"
-                                disabled={enCours}
-                                onClick={() => action(`/outils/${e.outil}/executions/${encodeURIComponent(e.id)}/relancer`, {})}
-                                title="Relancer"
-                              >
-                                <RotateCw size={13} /> Relancer
-                              </button>
-                            )}
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </Carte>
-
-            {v.etapes.length > 0 && (
-              <Carte
-                serree
-                titre="Étapes du dernier pipeline (branche principale)"
-                sousTitre="Les jobs tels que la CI les a exécutés ; ils cochent les étapes du guide (page Automatisations)"
-              >
-                <div className="grille g3" style={{ padding: 14 }}>
-                  {v.etapes.map((e, i) => (
-                    <div key={i} className={`mesure ${STATUT_EXECUTION[e.etat]}`}>
-                      <div className="mesure-tete">
-                        <span>
-                          <strong style={{ color: 'var(--encre)' }}>{e.etape}</strong> · {e.nom}
-                        </span>
-                        <Pastille statut={STATUT_EXECUTION[e.etat]}>{LIBELLE_EXECUTION[e.etat]}</Pastille>
+            <div className="grille g-principal">
+              <Carte serree titre="Dernières exécutions" sousTitre="Pipelines, jobs AWX et jobs Control-M, du plus récent au plus ancien">
+                {v.executions.length === 0 ? (
+                  <Vide>Aucune exécution à afficher.</Vide>
+                ) : (
+                  <VoirPlus
+                    elements={v.executions}
+                    n={8}
+                    rendu={(visibles) => (
+                      <div className="tableau-conteneur">
+                        <table className="tableau">
+                          <thead>
+                            <tr>
+                              <th>Exécution</th>
+                              <th>État</th>
+                              <th>Début</th>
+                              <th className="num">Durée</th>
+                              <th>Ticket</th>
+                              <th />
+                            </tr>
+                          </thead>
+                          <tbody>
+                            {visibles.map((e) => (
+                              <tr key={`${e.outil}:${e.id}`}>
+                                <td style={{ maxWidth: 0, width: '44%' }}>
+                                  <div className="ligne-flex" style={{ gap: 8, flexWrap: 'nowrap' }}>
+                                    <Pastille statut="bleu">{NOM_OUTIL[e.outil]}</Pastille>
+                                    <span style={{ minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={`${e.nom} · ${e.contexte}`}>
+                                      <strong>{e.nom}</strong>
+                                      <span className="discret"> · {e.contexte}</span>
+                                    </span>
+                                  </div>
+                                </td>
+                                <td title={e.statutBrut}>
+                                  <EtatExecution e={e} />
+                                </td>
+                                <td title={dateHeure(e.debut)} style={{ whiteSpace: 'nowrap' }}>
+                                  {depuis(e.debut)}
+                                </td>
+                                <td className="num">{e.debut && e.fin ? duree((e.fin - e.debut) / 1000) : '—'}</td>
+                                <td className="mono">
+                                  {v.tickets[`${e.outil}:${e.id}`] ? <Link to={`/tickets/${v.tickets[`${e.outil}:${e.id}`]}`}>{v.tickets[`${e.outil}:${e.id}`]}</Link> : '—'}
+                                </td>
+                                <td style={{ whiteSpace: 'nowrap', textAlign: 'right' }}>
+                                  {e.lien && (
+                                    <a className="bouton petit" href={e.lien} target="_blank" rel="noreferrer" title="Ouvrir dans l’outil">
+                                      <ExternalLink size={13} />
+                                    </a>
+                                  )}{' '}
+                                  {agent && e.etat !== 'en-cours' && e.etat !== 'attente' && (
+                                    <button
+                                      className="bouton petit"
+                                      disabled={enCours}
+                                      onClick={() => action(`/outils/${e.outil}/executions/${encodeURIComponent(e.id)}/relancer`, {})}
+                                      title="Relancer"
+                                    >
+                                      <RotateCw size={13} />
+                                    </button>
+                                  )}
+                                </td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
-                      {e.lien && (
-                        <a className="lien-fleche" href={e.lien} target="_blank" rel="noreferrer">
-                          Ouvrir <ExternalLink size={12} />
-                        </a>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                    )}
+                  />
+                )}
               </Carte>
-            )}
 
-            {v.demandesFusion.length > 0 && (
-              <Carte serree titre="Demandes de fusion ouvertes" sousTitre="GitLab : ce qui attend une revue, avec l’état du pipeline de la branche">
-                <div className="tableau-conteneur">
-                  <table className="tableau">
-                    <thead>
-                      <tr>
-                        <th>MR</th>
-                        <th>Titre</th>
-                        <th>Branches</th>
-                        <th>Pipeline</th>
-                        <th>Mise à jour</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {v.demandesFusion.map((m) => (
-                        <tr key={m.iid}>
-                          <td>
-                            <a href={m.lien} target="_blank" rel="noreferrer" className="mono">
-                              <GitMerge size={13} style={{ verticalAlign: -2 }} /> !{m.iid}
-                            </a>
-                          </td>
-                          <td>
-                            <strong>{m.titre}</strong>
-                            <div className="discret" style={{ fontSize: '0.78rem' }}>
-                              {m.auteur}
-                            </div>
-                          </td>
-                          <td className="mono discret">
-                            {m.source} → {m.cible}
-                          </td>
-                          <td>{m.pipeline ? <Pastille statut={STATUT_EXECUTION[m.pipeline]}>{LIBELLE_EXECUTION[m.pipeline]}</Pastille> : '—'}</td>
-                          <td title={dateHeure(m.majLe)}>{depuis(m.majLe)}</td>
-                        </tr>
+              <div className="empile">
+                {agent && v.lancables.length > 0 && (
+                  <Carte titre="Lancer" sousTitre="Pipeline sur une branche ou modèle de job AWX, signé de votre nom">
+                    <div className="ligne-flex">
+                      <select
+                        className="champ"
+                        style={{ flex: 1, minWidth: 0 }}
+                        value={lancable ? `${lancable.outil}:${lancable.id}` : ''}
+                        onChange={(e) => setChoix(e.target.value)}
+                        aria-label="Quoi lancer"
+                      >
+                        {v.lancables.map((l) => (
+                          <option key={`${l.outil}:${l.id}`} value={`${l.outil}:${l.id}`}>
+                            {NOM_OUTIL[l.outil]} — {l.nom}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="bouton primaire"
+                        disabled={enCours || !lancable}
+                        onClick={() => lancable && action(`/outils/${lancable.outil}/lancer`, { id: lancable.id })}
+                      >
+                        <Play size={14} /> Lancer
+                      </button>
+                    </div>
+                    {lancable?.description && (
+                      <p className="discret" style={{ margin: '8px 0 0', fontSize: '0.78rem' }}>
+                        {lancable.description}
+                      </p>
+                    )}
+                  </Carte>
+                )}
+
+                {v.etapes.length > 0 && (
+                  <Carte titre="Étapes du dernier pipeline" sousTitre="Branche principale ; elles cochent les étapes du guide (Automatisations)">
+                    <div className="chips-etapes">
+                      {v.etapes.map((e, i) => (
+                        <a key={i} className="chip-etape" href={e.lien ?? undefined} target={e.lien ? '_blank' : undefined} rel="noreferrer" title={e.nom}>
+                          <span className={`point ${STATUT_EXECUTION[e.etat]}`} />
+                          <strong>{e.etape}</strong>
+                          <span className="discret">{e.nom}</span>
+                        </a>
                       ))}
-                    </tbody>
-                  </table>
-                </div>
-              </Carte>
-            )}
+                    </div>
+                  </Carte>
+                )}
+
+                {qActif && q.joignable && (
+                  <Carte titre="Qualité du code" sousTitre={`${q.nom} — ${q.projet}`}>
+                    <BandeStats mesures={q.mesures.filter((m) => m.cle !== 'ncloc')} />
+                    {q.conditions.some((c) => c.statut !== 'OK') && (
+                      <ul className="liste-points" style={{ margin: '6px 0 0', fontSize: '0.8rem' }}>
+                        {q.conditions
+                          .filter((c) => c.statut !== 'OK')
+                          .map((c) => (
+                            <li key={c.libelle}>
+                              <span className="point rouge" /> {c.libelle} : {c.valeur} <span className="discret">({c.seuil})</span>
+                            </li>
+                          ))}
+                      </ul>
+                    )}
+                  </Carte>
+                )}
+
+                {v.demandesFusion.length > 0 && (
+                  <Carte titre="Demandes de fusion ouvertes" sousTitre="En attente de revue, avec l’état du pipeline de la branche">
+                    <ul className="activite">
+                      {v.demandesFusion.slice(0, 5).map((m) => (
+                        <li key={m.iid}>
+                          <span className={`tuile ${m.pipeline ? STATUT_EXECUTION[m.pipeline] : 'inconnu'}`}>
+                            <GitMerge size={14} />
+                          </span>
+                          <div style={{ minWidth: 0 }}>
+                            <strong>
+                              <a href={m.lien} target="_blank" rel="noreferrer">
+                                !{m.iid} {m.titre}
+                              </a>
+                            </strong>
+                            <span>
+                              {m.auteur} ·{' '}
+                              <span className="mono">
+                                {m.source} → {m.cible}
+                              </span>
+                            </span>
+                          </div>
+                          <time title={dateHeure(m.majLe)}>{depuis(m.majLe)}</time>
+                        </li>
+                      ))}
+                    </ul>
+                  </Carte>
+                )}
+              </div>
+            </div>
           </div>
         );
       }}
