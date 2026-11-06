@@ -594,7 +594,8 @@ export class Supervision {
     };
     const checklist: ElementChecklist[] = CHECKLIST.map((e) => {
       const c = this.stockage.confirmation(`checklist:${e.id}`);
-      const x = auto[e.id] ?? verifs[`checklist:${e.id}`] ?? null;
+      // Un outil relié (sonde externe, Sentry, Argo CD) est plus sûr que l'heuristique locale.
+      const x = verifs[`checklist:${e.id}`] ?? auto[e.id] ?? null;
       return {
         ...e,
         auto: x?.statut ?? null,

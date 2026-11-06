@@ -5,8 +5,9 @@
 # et Loki par leur nom (installés par supervision/docker-compose.supervision.yml
 # du dépôt Pharmatech). Rien n'est modifié côté Officina.
 #
-#   cp .env.exemple .env      # puis remplir le mot de passe
-#   docker compose up -d --build
+#   bash deploy/installer.sh  # serveur neuf : installe aussi Prometheus, Loki…
+#   (ou : cp .env.exemple .env, puis docker compose up -d --build, si Officina
+#   a déjà sa supervision Pharmatech)
 #
 # L'interface écoute sur 127.0.0.1:8080 : on l'ouvre par un tunnel SSH
 #   ssh -L 8080:127.0.0.1:8080 utilisateur@serveur   puis http://localhost:8080
@@ -25,6 +26,8 @@ services:
       - '127.0.0.1:${PORT_PUBLIE:-8080}:8080'
     volumes:
       - donnees:/donnees
+      # Rapports déposés par les outils (Trivy de deploy/, Lynis, AIDE) : TRIVY_RAPPORT, LYNIS_RAPPORT, AIDE_RAPPORT.
+      - rapports:/donnees/rapports
     networks:
       - officina
     mem_limit: 192m
@@ -41,3 +44,6 @@ networks:
 
 volumes:
   donnees:
+  # Même volume que le conteneur trivy de deploy/docker-compose.outils.yml.
+  rapports:
+    name: supervision_rapports

@@ -1,0 +1,164 @@
+# Règles d'alerte d'Officina : un nom par runbook (shared/runbooks.ts).
+# Étiquettes lues par l'application : gravite (critique | attention | info),
+# service ; annotations : resume, action. Seuils : shared/seuils.ts.
+groups:
+  - name: services
+    rules:
+      - alert: ServiceInjoignable
+        expr: probe_success{job="sondes-internes"} == 0
+        for: 2m
+        labels: { gravite: critique }
+        annotations:
+          resume: 'Le service {{ $labels.service }} ne répond plus'
+          action: 'docker compose logs --tail=100 {{ $labels.service }} puis docker compose up -d {{ $labels.service }}'
+      - alert: SiteInjoignable
+        expr: probe_success{job="site-public"} == 0
+        for: 3m
+        labels: { gravite: critique, service: caddy }
+        annotations:
+          resume: 'Le site ne répond plus en HTTPS ({{ $labels.instance }})'
+          action: 'docker compose logs --tail=100 caddy ; vérifier le DNS et le certificat'
+      - alert: CertificatBientotExpire
+        expr: (probe_ssl_earliest_cert_expiry{job="site-public"} - time()) / 86400 < 30
+        for: 1h
+        labels: { gravite: attention, service: caddy }
+        annotations:
+          resume: 'Le certificat HTTPS expire dans {{ $value | printf "%.0f" }} jours'
+          action: 'docker compose logs caddy | grep -i certificate ; vérifier le DNS et le port 443'
+      - alert: CertificatBientotExpire
+        expr: (probe_ssl_earliest_cert_expiry{job="site-public"} - time()) / 86400 < 7
+        for: 10m
+        labels: { gravite: critique, service: caddy }
+        annotations:
+          resume: 'Le certificat HTTPS expire dans {{ $value | printf "%.0f" }} jours'
+          action: 'Renouveler immédiatement : docker compose restart caddy, puis vérifier les journaux'
+      - alert: CibleDeSupervisionEnPanne
+        expr: up == 0
+        for: 5m
+        labels: { gravite: attention }
+        annotations:
+          resume: 'L’exporteur {{ $labels.job }} ({{ $labels.instance }}) ne répond plus'
+          action: 'docker compose -f deploy/docker-compose.supervision.yml ps ; up -d <exporteur>'
+
+  - name: application
+    rules:
+      - alert: ErreursServeur
+        expr: >
+          100 * sum by (service) (rate(officine_http_requetes_total{code=~"5.."}[5m]))
+            / (sum by (service) (rate(officine_http_requetes_total[5m])) > 0) > 1
+        for: 5m
+        labels: { gravite: attention }
+        annotations:
+          resume: '{{ $labels.service }} : {{ $value | printf "%.1f" }} % de réponses 5xx'
+          action: 'docker compose logs --tail=200 {{ $labels.service }} | grep -i error'
+      - alert: ErreursServeur
+        expr: >
+          100 * sum by (service) (rate(officine_http_requetes_total{code=~"5.."}[5m]))
+            / (sum by (service) (rate(officine_http_requetes_total[5m])) > 0) > 5
+        for: 2m
+        labels: { gravite: critique }
+        annotations:
+          resume: '{{ $labels.service }} : {{ $value | printf "%.1f" }} % de réponses 5xx'
+          action: 'Revenir à la version précédente si un déploiement vient d’avoir lieu'
+      - alert: ApiLente
+        expr: 1000 * histogram_quantile(0.95, sum by (le, service) (rate(officine_http_duree_secondes_bucket[5m]))) > 800
+        for: 10m
+        labels: { gravite: attention }
+        annotations:
+          resume: '{{ $labels.service }} : p95 à {{ $value | printf "%.0f" }} ms'
+          action: 'Vérifier la base (verrous, connexions) et la charge CPU'
+      - alert: ConnexionsRefuseesNombreuses
+        expr: sum(increase(officine_connexions_refusees_total[1h])) > 20
+        for: 5m
+        labels: { gravite: attention, service: identity }
+        annotations:
+          resume: '{{ $value | printf "%.0f" }} connexions refusées en une heure'
+          action: 'Journaux identity : quel poste, quel compte ? Bannir l’adresse si attaque'
+
+  - name: serveur
+    rules:
+      - alert: ProcesseurSature
+        expr: 100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 80
+        for: 10m
+        labels: { gravite: attention, service: serveur }
+        annotations:
+          resume: 'Processeur à {{ $value | printf "%.0f" }} %'
+          action: 'docker stats --no-stream : quel conteneur consomme ?'
+      - alert: ProcesseurSature
+        expr: 100 * (1 - avg(rate(node_cpu_seconds_total{mode="idle"}[5m]))) > 95
+        for: 5m
+        labels: { gravite: critique, service: serveur }
+        annotations:
+          resume: 'Processeur à {{ $value | printf "%.0f" }} %'
+          action: 'docker stats --no-stream ; redémarrer le conteneur en cause'
+      - alert: MemoireFaible
+        expr: 100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 85
+        for: 10m
+        labels: { gravite: attention, service: serveur }
+        annotations:
+          resume: 'Mémoire utilisée à {{ $value | printf "%.0f" }} %'
+          action: 'docker stats --no-stream ; vérifier les limites mémoire des conteneurs'
+      - alert: MemoireFaible
+        expr: 100 * (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) > 95 or increase(node_vmstat_oom_kill[1h]) > 0
+        for: 2m
+        labels: { gravite: critique, service: serveur }
+        annotations:
+          resume: 'Mémoire saturée ou processus tué par l’OOM'
+          action: 'dmesg | grep -i oom ; redémarrer le conteneur tué, revoir ses limites'
+      - alert: DisquePresquePlein
+        expr: 100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|nsfs|devtmpfs"} / node_filesystem_size_bytes) > 80
+        for: 15m
+        labels: { gravite: attention, service: serveur }
+        annotations:
+          resume: 'Il reste {{ with printf "%.0f" $value }}{{ . }}{{ end }} % d’occupation sur {{ $labels.mountpoint }}'
+          action: 'docker system prune -f ; vérifier backups/ et la rétention des sauvegardes'
+      - alert: DisquePlein
+        expr: >
+          100 * (1 - node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|nsfs|devtmpfs"} / node_filesystem_size_bytes) > 90
+          or predict_linear(node_filesystem_avail_bytes{fstype!~"tmpfs|overlay|squashfs|ramfs|nsfs|devtmpfs"}[6h], 24 * 3600) < 0
+        for: 5m
+        labels: { gravite: critique, service: serveur }
+        annotations:
+          resume: 'Disque {{ $labels.mountpoint }} plein ou plein sous 24 h'
+          action: 'docker system prune -af ; purger /var/log et les vieilles sauvegardes'
+      - alert: ConteneurRedemarreEnBoucle
+        expr: changes(container_start_time_seconds{container_label_com_docker_compose_service!=""}[1h]) > 3
+        for: 5m
+        labels: { gravite: attention, service: '{{ $labels.container_label_com_docker_compose_service }}' }
+        annotations:
+          resume: 'Le conteneur {{ $labels.container_label_com_docker_compose_service }} a redémarré {{ $value }} fois en une heure'
+          action: 'docker compose logs --tail=100 {{ $labels.container_label_com_docker_compose_service }}'
+
+  - name: base-de-donnees
+    rules:
+      - alert: PostgresArrete
+        expr: pg_up == 0
+        for: 1m
+        labels: { gravite: critique, service: postgres }
+        annotations:
+          resume: 'PostgreSQL ne répond plus'
+          action: 'docker compose logs --tail=100 postgres ; docker compose up -d postgres'
+      - alert: PostgresConnexionsSaturees
+        expr: sum(pg_stat_activity_count) / max(pg_settings_max_connections) > 0.8
+        for: 5m
+        labels: { gravite: attention, service: postgres }
+        annotations:
+          resume: 'Connexions PostgreSQL à {{ $value | humanizePercentage }} du maximum'
+          action: 'Chercher les requêtes longues (pg_stat_activity) ; vérifier les pools des services'
+
+  - name: sauvegardes
+    rules:
+      - alert: SauvegardeEnRetard
+        expr: (time() - max(officine_sauvegarde_derniere_reussite_secondes)) / 3600 > 26
+        for: 30m
+        labels: { gravite: attention, service: serveur }
+        annotations:
+          resume: 'Dernière sauvegarde réussie il y a {{ $value | printf "%.0f" }} h'
+          action: 'crontab -l ; bash deploy/backup.sh à la main et lire son journal'
+      - alert: AucuneSauvegardeConnue
+        expr: absent(officine_sauvegarde_derniere_reussite_secondes)
+        for: 1h
+        labels: { gravite: attention, service: serveur }
+        annotations:
+          resume: 'Aucune mesure de sauvegarde reçue'
+          action: 'Le dossier des mesures (DOSSIER_MESURES) est-il monté dans node-exporter ? backup.sh y écrit-il ?'

@@ -1,0 +1,3 @@
+# Fichiers générés par deploy/installer.sh depuis les gabarits (contiennent des secrets).
+*
+!.gitignore

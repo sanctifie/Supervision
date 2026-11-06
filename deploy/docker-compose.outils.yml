@@ -1,0 +1,167 @@
+# ============================================================================
+# Outils optionnels, chacun derrière un profil, indépendants les uns des autres :
+#
+#   docker compose -f deploy/docker-compose.outils.yml --profile uptime-kuma up -d
+#   docker compose -f deploy/docker-compose.outils.yml --profile sonarqube --profile jaeger up -d
+#
+# ou bash deploy/installer.sh --outils uptime-kuma,trivy
+#
+# Après démarrage, renseigner dans .env la variable indiquée sur chaque bloc,
+# puis redémarrer l'application (docker compose up -d).
+# ============================================================================
+name: supervision-outils
+
+x-commun: &commun
+  restart: unless-stopped
+  networks: [officina]
+  logging:
+    driver: json-file
+    options: { max-size: '10m', max-file: '3' }
+
+services:
+  # --- Sondes externes : UPTIMEKUMA_URL=http://uptime-kuma:3001, UPTIMEKUMA_CLE=<clé API créée dans Paramètres → Clés API>
+  uptime-kuma:
+    <<: *commun
+    profiles: [uptime-kuma]
+    image: louislam/uptime-kuma:1
+    volumes:
+      - uptime-kuma:/app/data
+    ports:
+      - '127.0.0.1:${PORT_UPTIME_KUMA:-3001}:3001'
+    mem_limit: 256m
+
+  # --- Qualité du code : SONAR_URL=http://sonarqube:9000, SONAR_JETON=<jeton utilisateur>, SONAR_PROJET=<clé du projet>
+  # Prérequis noyau : sysctl -w vm.max_map_count=524288 (et dans /etc/sysctl.conf). 3 Go de RAM libre.
+  sonarqube:
+    <<: *commun
+    profiles: [sonarqube]
+    image: sonarqube:lts-community
+    depends_on: [sonarqube-db]
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonarqube-db:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: ${SONARQUBE_DB_MOT_DE_PASSE:-sonar}
+      SONAR_ES_BOOTSTRAP_CHECKS_DISABLE: 'true'
+    volumes:
+      - sonarqube-data:/opt/sonarqube/data
+      - sonarqube-extensions:/opt/sonarqube/extensions
+      - sonarqube-logs:/opt/sonarqube/logs
+    ports:
+      - '127.0.0.1:${PORT_SONARQUBE:-9000}:9000'
+    mem_limit: 3g
+  sonarqube-db:
+    <<: *commun
+    profiles: [sonarqube]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: ${SONARQUBE_DB_MOT_DE_PASSE:-sonar}
+      POSTGRES_DB: sonar
+    volumes:
+      - sonarqube-db:/var/lib/postgresql/data
+    mem_limit: 256m
+
+  # --- Traces : JAEGER_URL=http://jaeger:16686 ; les services envoient en OTLP sur jaeger:4317 (gRPC) ou :4318 (HTTP).
+  jaeger:
+    <<: *commun
+    profiles: [jaeger]
+    image: jaegertracing/all-in-one:1.62.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: 'true'
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: 'false'
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    volumes:
+      - jaeger:/badger
+    ports:
+      - '127.0.0.1:${PORT_JAEGER:-16686}:16686'
+    mem_limit: 512m
+
+  # --- Détection et bannissement : CROWDSEC_URL=http://crowdsec:8080, CROWDSEC_CLE=<clé> créée par :
+  #     docker compose -f deploy/docker-compose.outils.yml exec crowdsec cscli bouncers add supervision
+  # Lit les connexions SSH du serveur (/var/log/auth.log). Pour bannir vraiment, installer aussi le
+  # bouncer firewall sur l'hôte (crowdsec-firewall-bouncer) pointé sur http://127.0.0.1:${PORT_CROWDSEC:-8081}.
+  crowdsec:
+    <<: *commun
+    profiles: [crowdsec]
+    image: crowdsecurity/crowdsec:v1.6.3
+    environment:
+      COLLECTIONS: crowdsecurity/linux crowdsecurity/sshd crowdsecurity/caddy
+      GID: '${GID_DOCKER:-999}'
+    volumes:
+      - ./outils/crowdsec-acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - /var/log/auth.log:/var/log/auth.log:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - crowdsec-config:/etc/crowdsec
+      - crowdsec-data:/var/lib/crowdsec/data
+    ports:
+      - '127.0.0.1:${PORT_CROWDSEC:-8081}:8080'
+    mem_limit: 256m
+
+  # --- Vulnérabilités des images : TRIVY_RAPPORT=/donnees/rapports/trivy.json (déjà la valeur par défaut).
+  # Scanne chaque jour les images listées dans TRIVY_IMAGES (séparées par des espaces) et écrit un
+  # rapport Trivy unique dans le volume « rapports », monté dans l'application.
+  trivy:
+    <<: *commun
+    profiles: [trivy]
+    image: aquasec/trivy:0.56.2
+    entrypoint: ['/bin/sh', '/scan.sh']
+    environment:
+      TRIVY_IMAGES: ${TRIVY_IMAGES:-officine-os-gateway:latest officine-os-sales:latest officine-os-payments:latest postgres:16-alpine caddy:2}
+      TRIVY_INTERVALLE: ${TRIVY_INTERVALLE:-86400}
+    volumes:
+      - ./outils/trivy-scan.sh:/scan.sh:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - trivy-cache:/root/.cache/trivy
+      - rapports:/rapports
+    mem_limit: 1g
+
+  # --- Comportements anormaux dans les conteneurs : FALCO_METRICS_URL=http://falco:8765
+  # Privilégié : il lit les appels système du noyau (eBPF moderne, noyau ≥ 5.8).
+  falco:
+    <<: *commun
+    profiles: [falco]
+    image: falcosecurity/falco:0.39.1
+    privileged: true
+    command:
+      - /usr/bin/falco
+      - -o
+      - engine.kind=modern_ebpf
+      - -o
+      - metrics.enabled=true
+      - -o
+      - metrics.interval=30s
+      - -o
+      - metrics.rules_counters_enabled=true
+      - -o
+      - webserver.enabled=true
+      - -o
+      - webserver.listen_port=8765
+      - -o
+      - webserver.prometheus_metrics_enabled=true
+    volumes:
+      - /var/run/docker.sock:/host/var/run/docker.sock:ro
+      - /proc:/host/proc:ro
+      - /etc:/host/etc:ro
+      - /sys/kernel/debug:/sys/kernel/debug:ro
+    mem_limit: 512m
+
+networks:
+  officina:
+    external: true
+    name: ${RESEAU_OFFICINA:-officine-os_default}
+
+volumes:
+  uptime-kuma:
+  sonarqube-data:
+  sonarqube-extensions:
+  sonarqube-logs:
+  sonarqube-db:
+  jaeger:
+  crowdsec-config:
+  crowdsec-data:
+  trivy-cache:
+  # Partagé avec l'application (docker-compose.yml à la racine) : même nom.
+  rapports:
+    name: supervision_rapports

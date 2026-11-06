@@ -24,15 +24,13 @@ export function lectureFalco(echantillons: EchantillonTexte[], lien: string | nu
       { cle: 'critiques', libelle: 'Événements critiques', valeur: critiques, unite: '', statut: critiques ? 'rouge' : 'vert', detail: 'Emergency, Alert, Critical, Error' },
       { cle: 'avertissements', libelle: 'Avertissements', valeur: avertissements, unite: '', statut: avertissements ? 'orange' : 'vert', detail: 'Priorité Warning' },
     ],
-    lignes: regles
-      .slice(0, 15)
-      .map((r) => ({
-        libelle: r.regle,
-        detail: `${r.priorite} · ${r.n} fois`,
-        statut: CRITIQUES.has(r.priorite) ? 'rouge' : r.priorite === 'Warning' ? 'orange' : 'vert',
-        lien: null,
-        t: null,
-      })),
+    lignes: regles.slice(0, 15).map((r) => ({
+      libelle: r.regle,
+      detail: `${r.priorite} · ${r.n} fois`,
+      statut: CRITIQUES.has(r.priorite) ? 'rouge' : r.priorite === 'Warning' ? 'orange' : 'vert',
+      lien: null,
+      t: null,
+    })),
     lien,
     verifie: [{ cle: 'securite:runtime', statut: critiques ? 'rouge' : 'vert', detail: `Falco en marche, ${regles.length} règle(s) déclenchée(s)` }],
   };

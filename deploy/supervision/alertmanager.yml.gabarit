@@ -1,0 +1,32 @@
+# Gabarit : deploy/installer.sh écrit genere/alertmanager.yml en insérant les
+# récepteurs Telegram (TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID) et e-mail
+# (SMTP_*, ALERTES_EMAIL) du .env à la fin de ce fichier.
+global:
+  resolve_timeout: 5m
+
+route:
+  receiver: equipe
+  group_by: [alertname, service]
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    # Les alertes de test partent tout de suite, sans regroupement.
+    - matchers: ['alertname = TestSupervision']
+      receiver: equipe
+      group_wait: 0s
+      repeat_interval: 1h
+    - matchers: ['gravite = info']
+      receiver: silencieux
+
+inhibit_rules:
+  # Un critique masque l'attention du même nom sur le même service.
+  - source_matchers: ['gravite = critique']
+    target_matchers: ['gravite = attention']
+    equal: [alertname, service]
+
+receivers:
+  - name: silencieux
+  - name: equipe
+__TELEGRAM__
+__EMAIL__

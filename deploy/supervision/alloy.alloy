@@ -1,0 +1,30 @@
+// Journaux de tous les conteneurs Docker → Loki, avec l'étiquette « service »
+// (nom du service compose) que lit l'application.
+discovery.docker "conteneurs" {
+  host = "unix:///var/run/docker.sock"
+}
+
+discovery.relabel "service" {
+  targets = discovery.docker.conteneurs.targets
+  rule {
+    source_labels = ["__meta_docker_container_label_com_docker_compose_service"]
+    target_label  = "service"
+  }
+  rule {
+    source_labels = ["__meta_docker_container_name"]
+    regex         = "/(.*)"
+    target_label  = "conteneur"
+  }
+}
+
+loki.source.docker "conteneurs" {
+  host       = "unix:///var/run/docker.sock"
+  targets    = discovery.relabel.service.output
+  forward_to = [loki.write.local.receiver]
+}
+
+loki.write "local" {
+  endpoint {
+    url = "http://loki:3100/loki/api/v1/push"
+  }
+}

@@ -1,0 +1,11 @@
+# Sources lues par CrowdSec : SSH de l'hôte et journaux Docker des conteneurs (caddy, gateway…).
+filenames:
+  - /var/log/auth.log
+labels:
+  type: syslog
+---
+source: docker
+container_name_regexp:
+  - .*caddy.*
+labels:
+  type: caddy

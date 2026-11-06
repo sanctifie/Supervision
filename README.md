@@ -28,7 +28,8 @@ est cliquable et mène au détail.
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
-| **Orchestration** | **GitLab** (pipelines CI/CD, demandes de fusion ouvertes), **AWX** (jobs Ansible, modèles de job) et **Control-M** (jobs planifiés) dans une seule chronologie ; **SonarQube** (porte qualité, bugs, vulnérabilités, couverture, duplication) ; lancer un pipeline ou un modèle AWX, relancer une exécution ; un voyant « Orchestration » sur le tableau de bord | 4, 5 |
+| **Orchestration** | **GitLab** ou **GitHub Actions** (pipelines, demandes de fusion, étapes du dernier pipeline), **AWX** (jobs Ansible, modèles de job) et **Control-M** (jobs planifiés) dans une seule chronologie ; **SonarQube** (porte qualité, bugs, vulnérabilités, couverture, duplication) ; lancer un pipeline ou un modèle AWX, relancer une exécution ; un voyant « Orchestration » sur le tableau de bord | 4, 5 |
+| **Outils connectés** | **Sentry** (issues, résolution), **UptimeRobot / Uptime Kuma** (sondes externes), **Trivy / Grype** (CVE des images), **CrowdSec**, **Wazuh**, **Falco**, **Lynis**, **AIDE** (sécurité et durcissement), **Argo CD** (GitOps, synchronisation), **Hetzner Cloud** (inventaire, coûts), **Jaeger** (traces). Chacun se relie par ses variables `.env` et coche seul les contrôles de sécurité, la checklist et les automatisations qu'il couvre | 1, 2, 5, 6 |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
 | **Feuille de route** | Les 5 phases et la checklist de mise en production, cochée automatiquement quand la supervision peut le vérifier | 10 |
@@ -164,10 +165,68 @@ npm start            # http://localhost:8080
 
 En développement (rechargement à chaud) : `npm run dev` puis http://localhost:5173.
 
-## Installer à côté d'Officina (production)
+## Installer sur un serveur
 
-Prérequis : Officina tourne avec sa supervision
-(`docker compose -f docker-compose.prod.yml -f supervision/docker-compose.supervision.yml up -d`).
+Deux cas. Dans les deux, l'application est le dépôt cloné dans `/opt/supervision`,
+et tout se règle dans `.env` (copié depuis `.env.exemple`).
+
+### Serveur neuf : tout installer d'un coup
+
+`deploy/installer.sh` installe la pile de mesure que l'application lit, puis
+l'application, puis les outils optionnels demandés. Il est idempotent : relancez-le
+après chaque modification du `.env`.
+
+```bash
+git clone https://github.com/sanctifie/Supervision.git /opt/supervision
+cd /opt/supervision
+bash deploy/installer.sh      # 1er passage : crée .env et s'arrête
+nano .env                     # SUPERVISION_CODE_INSTALLATION, POSTGRES_PASSWORD, URL_PUBLIQUE, Telegram…
+bash deploy/installer.sh      # installe et démarre tout
+bash deploy/installer.sh --outils uptime-kuma,trivy     # plus tard, des outils en plus
+```
+
+Ce que la pile contient (`deploy/docker-compose.supervision.yml`, réseau Docker
+d'Officina, aucun port publié, images épinglées) :
+
+| Service | Rôle | Fichier |
+|---------|------|---------|
+| Prometheus | Mesures, règles d'alerte (une par runbook) | `deploy/supervision/prometheus.yml.gabarit`, `alertes.yml` |
+| Alertmanager | Envoi Telegram / e-mail, silences | `alertmanager.yml.gabarit` (récepteurs insérés depuis le `.env`) |
+| Loki + Alloy | Journaux de tous les conteneurs, étiquette `service` | `loki.yml`, `alloy.alloy` |
+| node-exporter, cAdvisor | Serveur et conteneurs | |
+| blackbox | `/health` des 15 services (`PORT_SERVICES`), site public (`URL_PUBLIQUE`) | `blackbox.yml` |
+| postgres-exporter | PostgreSQL d'Officina (`POSTGRES_*`) | |
+
+Les fichiers générés vont dans `deploy/supervision/genere/` (ignoré par Git : ils
+contiennent les secrets). Les sauvegardes déposent leurs mesures (`officine_sauvegarde_*`,
+fichier `.prom`) dans `DOSSIER_MESURES` (`deploy/mesures/` par défaut), lu par node-exporter.
+
+Outils optionnels, chacun derrière un profil de `deploy/docker-compose.outils.yml` :
+
+| Profil | Outil | Puis dans `.env` |
+|--------|-------|------------------|
+| `uptime-kuma` | Sondes externes (interface sur 127.0.0.1:3001) | `UPTIMEKUMA_URL=http://uptime-kuma:3001`, `UPTIMEKUMA_CLE` (clé API) |
+| `sonarqube` | Qualité du code (127.0.0.1:9000 ; `sysctl -w vm.max_map_count=524288`) | `SONAR_URL=http://sonarqube:9000`, `SONAR_JETON`, `SONAR_PROJET` |
+| `jaeger` | Traces OpenTelemetry (127.0.0.1:16686, OTLP sur `jaeger:4317`) | `JAEGER_URL=http://jaeger:16686` |
+| `crowdsec` | Détection SSH / Caddy ; clé : `docker compose -f deploy/docker-compose.outils.yml exec crowdsec cscli bouncers add supervision` | `CROWDSEC_URL=http://crowdsec:8080`, `CROWDSEC_CLE` |
+| `trivy` | Scan quotidien des images `TRIVY_IMAGES` → `/donnees/rapports/trivy.json` | `TRIVY_RAPPORT=/donnees/rapports/trivy.json` (défaut) |
+| `falco` | Comportements anormaux dans les conteneurs (privilégié, eBPF) | `FALCO_METRICS_URL=http://falco:8765` |
+
+Lynis et AIDE tournent sur l'hôte et écrivent un rapport ; copiez-le dans le volume
+des rapports, l'application le lit :
+
+```bash
+# /etc/cron.daily/supervision-rapports
+lynis audit system --quiet && cp /var/log/lynis-report.dat /var/lib/docker/volumes/supervision_rapports/_data/
+aide --check > /var/lib/docker/volumes/supervision_rapports/_data/aide.txt || true
+```
+
+avec `LYNIS_RAPPORT=/donnees/rapports/lynis-report.dat` et `AIDE_RAPPORT=/donnees/rapports/aide.txt`.
+
+### Officina a déjà sa supervision (dépôt Pharmatech)
+
+Prometheus, Alertmanager et Loki existent déjà (`supervision/docker-compose.supervision.yml`) :
+n'installez que l'application.
 
 ```bash
 git clone https://github.com/sanctifie/Supervision.git /opt/supervision
@@ -175,8 +234,10 @@ cd /opt/supervision
 cp .env.exemple .env
 nano .env                     # SUPERVISION_CODE_INSTALLATION au minimum
 docker network ls             # vérifier le nom du réseau d'Officina (officine-os_default)
-docker compose up -d --build
+bash deploy/installer.sh --sans-pile     # ou : docker compose up -d --build
 ```
+
+### Après l'installation
 
 À la première ouverture, l'interface demande de **créer le compte administrateur**
 (avec le code d'installation). L'administrateur crée ensuite les comptes de
@@ -218,6 +279,11 @@ supervision.mon-officine.ga {
 | `COOKIE_SECURISE` | `false` | `true` derrière HTTPS |
 | `RESEAU_OFFICINA` | `officine-os_default` | Réseau Docker d'Officina |
 | `DOSSIER_DONNEES` | `./donnees` | Tickets, équipe, checklist, fil d'activité (`etat.json` + copies quotidiennes) |
+| `PORT_SERVICES` | `3000` | Port `/health` et `/metrics` des services Officina (pile `deploy/`) |
+| `DOSSIER_MESURES` | `deploy/mesures` | Dossier des mesures textfile (sauvegardes) lu par node-exporter (pile `deploy/`) |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB`, `POSTGRES_HOTE` | `officine`, *(requis)*, `postgres`, `postgres` | Accès de postgres-exporter à la base d'Officina (pile `deploy/`) |
+| `ALERTES_EMAIL` | *(vide)* | Destinataire des alertes Alertmanager par e-mail (pile `deploy/`) |
+| `TRIVY_IMAGES` | images Officina | Images scannées chaque jour par le profil `trivy` |
 
 ## Architecture
 
@@ -229,6 +295,14 @@ Deux familles de sources, chacune avec une version réelle et une version de dé
 | **Orchestration** | GitLab, AWX, Control-M | `Outil` (`server/src/outils/`) | Outil configuré dans `.env` → réel ; sinon simulé quand la supervision est en démo ; sinon « non configuré » |
 
 SonarQube s'y ajoute en lecture (`outils/sonar.ts`) : porte qualité et mesures du projet.
+
+Les autres outils sont des **signaux** (`server/src/outils/signaux/`, un fichier par outil,
+interface `SourceSignal`) : un état, un résumé, des mesures, des lignes avec leurs actions
+réelles (résoudre une issue Sentry, synchroniser une application Argo CD), et les cases que
+l'outil vérifie seul (`securite:cve`, `checklist:sentry`, `automatisation:inventaire`…).
+Ajouter un outil = un fichier et une ligne dans `signaux/index.ts`. La page **Outils connectés**
+les affiche tous de la même façon ; un voyant « Outils connectés » les résume sur le tableau
+de bord.
 
 Les trois outils d'orchestration livrent leurs exécutions dans **un même modèle**
 (`shared/outils.ts` : nom, contexte, état `succes / echec / en-cours / attente / annule`,
@@ -277,8 +351,12 @@ server/src/        API Express (TypeScript)
   pieces.ts        pièces jointes
   connaissances.ts base de connaissances ; catalogue.ts : catalogue de demandes
   catalogues.ts    contenu du guide : checklist, phases, sécurité, automatisations
-  outils/          orchestration : gitlab.ts, awx.ts, controlm.ts (clients), demo.ts,
-                   outils.ts (vue unifiée, voyant, fil d'activité), api.ts (/api/outils)
+  outils/          orchestration : gitlab.ts, github.ts, awx.ts, controlm.ts, sonar.ts (clients),
+                   demo.ts, etapes.ts (jobs → étapes du pipeline), outils.ts (vue unifiée,
+                   voyant, fil d'activité), api.ts (/api/outils)
+    signaux/       un fichier par outil relié (Sentry, UptimeRobot, Uptime Kuma, Trivy, CrowdSec,
+                   Wazuh, Falco, Lynis, AIDE, Argo CD, Hetzner, Jaeger) ; index.ts les liste
+deploy/            pile de supervision et outils optionnels pour un serveur neuf (installer.sh)
 web/src/           interface React (Vite, Recharts) ; pages/itsm/ pour le service desk
 shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en forme
 ```

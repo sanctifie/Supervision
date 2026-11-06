@@ -1,0 +1,93 @@
+# Gabarit : deploy/installer.sh y met le port des services (PORT_SERVICES) et
+# l'adresse publique (URL_PUBLIQUE), puis écrit genere/prometheus.yml. Les noms de jobs et d'étiquettes sont ceux
+# que lit server/src/fournisseurs/reel.ts : ne pas les renommer.
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+rule_files:
+  - /etc/prometheus/alertes.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ['alertmanager:9093']
+
+scrape_configs:
+  # Serveur : CPU, mémoire, disques, réseau, horloge, redémarrage requis, mesures textfile (sauvegardes).
+  - job_name: machine
+    static_configs:
+      - targets: ['node-exporter:9100']
+
+  # Conteneurs : cAdvisor expose container_label_com_docker_compose_service.
+  - job_name: conteneurs
+    static_configs:
+      - targets: ['cadvisor:8080']
+
+  - job_name: postgresql
+    static_configs:
+      - targets: ['postgres-exporter:9187']
+
+  # Métriques RED et runtime Node.js du gateway Officina (officine_*).
+  - job_name: gateway
+    static_configs:
+      - targets: ['gateway:__PORT_SERVICES__']
+
+  # /health de chaque service Officina, par blackbox. L'étiquette « service »
+  # est celle de l'interface ; adapter le port d'un service ici s'il diffère.
+  - job_name: sondes-internes
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    static_configs:
+      - targets: ['http://gateway:__PORT_SERVICES__/health']
+        labels: { service: gateway }
+      - targets: ['http://identity:__PORT_SERVICES__/health']
+        labels: { service: identity }
+      - targets: ['http://catalog:__PORT_SERVICES__/health']
+        labels: { service: catalog }
+      - targets: ['http://inventory:__PORT_SERVICES__/health']
+        labels: { service: inventory }
+      - targets: ['http://syncd:__PORT_SERVICES__/health']
+        labels: { service: syncd }
+      - targets: ['http://sales:__PORT_SERVICES__/health']
+        labels: { service: sales }
+      - targets: ['http://regulatory:__PORT_SERVICES__/health']
+        labels: { service: regulatory }
+      - targets: ['http://purchasing:__PORT_SERVICES__/health']
+        labels: { service: purchasing }
+      - targets: ['http://insurance:__PORT_SERVICES__/health']
+        labels: { service: insurance }
+      - targets: ['http://billing:__PORT_SERVICES__/health']
+        labels: { service: billing }
+      - targets: ['http://ledger:__PORT_SERVICES__/health']
+        labels: { service: ledger }
+      - targets: ['http://payments:__PORT_SERVICES__/health']
+        labels: { service: payments }
+      - targets: ['http://notify:__PORT_SERVICES__/health']
+        labels: { service: notify }
+      - targets: ['http://hr:__PORT_SERVICES__/health']
+        labels: { service: hr }
+      - targets: ['http://documents:__PORT_SERVICES__/health']
+        labels: { service: documents }
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - target_label: __address__
+        replacement: blackbox:9115
+
+  # Le site public en HTTPS, vu depuis le serveur ; « instance » = l'adresse.
+  - job_name: site-public
+    metrics_path: /probe
+    params: { module: [http_2xx] }
+    static_configs:
+      - targets:
+          - '__URL_PUBLIQUE__/health'
+          - '__URL_PUBLIQUE__/officine/'
+          - '__URL_PUBLIQUE__/comptoir/'
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: __param_target
+      - source_labels: [__address__]
+        target_label: instance
+      - target_label: __address__
+        replacement: blackbox:9115

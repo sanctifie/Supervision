@@ -1,0 +1,121 @@
+# ============================================================================
+# Pile de supervision pour un serveur neuf : exactement ce que l'application
+# lit (server/src/fournisseurs/reel.ts) — Prometheus, Alertmanager, Loki,
+# Alloy (journaux Docker), node-exporter, cAdvisor, blackbox, postgres-exporter.
+#
+#   bash deploy/installer.sh          # génère les fichiers de genere/ puis démarre
+#
+# Tout est sur le réseau Docker d'Officina ; aucun port n'est publié. Pour
+# regarder Prometheus depuis un poste : ssh -L 9090:prometheus:9090 … ou
+# décommenter un bloc « ports ».
+# ============================================================================
+name: supervision-pile
+
+x-commun: &commun
+  restart: unless-stopped
+  networks: [officina]
+  logging:
+    driver: json-file
+    options: { max-size: '10m', max-file: '3' }
+
+services:
+  prometheus:
+    <<: *commun
+    image: prom/prometheus:v2.54.1
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=${PROMETHEUS_RETENTION:-45d}
+      - --web.enable-lifecycle
+    volumes:
+      - ./supervision/genere/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./supervision/alertes.yml:/etc/prometheus/alertes.yml:ro
+      - prometheus:/prometheus
+    mem_limit: 768m
+    # ports: ['127.0.0.1:9090:9090']
+
+  alertmanager:
+    <<: *commun
+    image: prom/alertmanager:v0.27.0
+    command:
+      - --config.file=/etc/alertmanager/alertmanager.yml
+      - --storage.path=/alertmanager
+    volumes:
+      - ./supervision/genere/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+      - alertmanager:/alertmanager
+    mem_limit: 128m
+
+  loki:
+    <<: *commun
+    image: grafana/loki:3.1.1
+    command: -config.file=/etc/loki/loki.yml
+    volumes:
+      - ./supervision/loki.yml:/etc/loki/loki.yml:ro
+      - loki:/loki
+    mem_limit: 512m
+
+  alloy:
+    <<: *commun
+    image: grafana/alloy:v1.4.2
+    command: run --storage.path=/var/lib/alloy/data /etc/alloy/config.alloy
+    volumes:
+      - ./supervision/alloy.alloy:/etc/alloy/config.alloy:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - alloy:/var/lib/alloy/data
+    mem_limit: 256m
+
+  node-exporter:
+    <<: *commun
+    image: prom/node-exporter:v1.8.2
+    pid: host
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/mesures
+      # Les sauvegardes déposent officine_sauvegarde_*.prom dans ce dossier (deploy/backup.sh côté Officina).
+    volumes:
+      - /:/host:ro,rslave
+      - ${DOSSIER_MESURES:-./mesures}:/mesures:ro
+    mem_limit: 128m
+
+  cadvisor:
+    <<: *commun
+    image: gcr.io/cadvisor/cadvisor:v0.49.1
+    command:
+      - --docker_only=true
+      - --housekeeping_interval=30s
+      - --disable_metrics=advtcp,cpu_topology,cpuset,hugetlb,memory_numa,percpu,process,referenced_memory,resctrl,sched,tcp,udp
+    privileged: true
+    devices: ['/dev/kmsg']
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+    mem_limit: 256m
+
+  blackbox:
+    <<: *commun
+    image: prom/blackbox-exporter:v0.25.0
+    command: --config.file=/etc/blackbox/blackbox.yml
+    volumes:
+      - ./supervision/blackbox.yml:/etc/blackbox/blackbox.yml:ro
+    mem_limit: 64m
+
+  postgres-exporter:
+    <<: *commun
+    image: prometheuscommunity/postgres-exporter:v0.15.0
+    environment:
+      # Mêmes variables que le .env d'Officina (POSTGRES_USER, POSTGRES_PASSWORD, POSTGRES_DB).
+      DATA_SOURCE_NAME: postgresql://${POSTGRES_USER:-officine}:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD manquant dans .env}@${POSTGRES_HOTE:-postgres}:5432/${POSTGRES_DB:-postgres}?sslmode=disable
+    mem_limit: 64m
+
+networks:
+  officina:
+    external: true
+    name: ${RESEAU_OFFICINA:-officine-os_default}
+
+volumes:
+  prometheus:
+  alertmanager:
+  loki:
+  alloy:
