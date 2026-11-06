@@ -40,7 +40,9 @@ export function instantControlm(s: string | undefined): number | null {
 
 export class Controlm implements Outil {
   readonly cle = 'controlm' as const;
-  readonly url = config.controlmUrl;
+  get url() {
+    return config.controlmUrl;
+  }
 
   private appel<T>(chemin: string, methode = 'GET'): Promise<T> {
     return lireJson<T>(`${config.controlmUrl}/automation-api${chemin}`, { method: methode, headers: { 'x-api-key': config.controlmJeton } });

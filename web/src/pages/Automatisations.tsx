@@ -4,8 +4,6 @@ import { Carte, Charge, Pastille } from '../components/ui';
 import { CaseConfirmation } from '../components/Confirmation';
 import type { VueAutomatisations } from '../../../shared/types';
 
-const MESUREES = new Set(['sauvegardes', 'certificats', 'auto-reparation', 'nettoyage']);
-
 export default function Automatisations() {
   const etat = useDonnees<VueAutomatisations>('/automatisations', 30_000);
   return (
@@ -34,13 +32,7 @@ export default function Automatisations() {
                     {v.serveur.map((a) => (
                       <tr key={a.cle}>
                         <td>
-                          <CaseConfirmation
-                            cle={`automatisation:${a.cle}`}
-                            faite={a.statut === 'vert'}
-                            auto={MESUREES.has(a.cle) && a.statut !== 'inconnu'}
-                            apres={etat.recharger}
-                            titre={a.domaine}
-                          />
+                          <CaseConfirmation cle={`automatisation:${a.cle}`} faite={a.statut === 'vert'} auto={a.auto} apres={etat.recharger} titre={a.domaine} />
                         </td>
                         <td>
                           <strong>{a.domaine}</strong>
@@ -70,12 +62,15 @@ export default function Automatisations() {
               </div>
             </Carte>
 
-            <Carte titre={`Pipeline CI/CD — ${pipelineFait}/${v.pipeline.length} étapes en place`} sousTitre="Guide, chapitre 5.1 : de la qualité du code au rollback automatique">
+            <Carte
+              titre={`Pipeline CI/CD — ${pipelineFait}/${v.pipeline.length} étapes en place`}
+              sousTitre="Guide, chapitre 5.1 : de la qualité du code au rollback automatique. Qualité, tests et build se vérifient seuls avec SonarQube et GitLab (page Orchestration)."
+            >
               <div className="grille g3">
                 {v.pipeline.map((p) => (
                   <div key={p.cle} className={`mesure ${p.statut}`}>
                     <div className="ligne-flex" style={{ alignItems: 'flex-start' }}>
-                      <CaseConfirmation cle={`pipeline:${p.cle}`} faite={p.statut === 'vert'} apres={etat.recharger} titre={p.etape} />
+                      <CaseConfirmation cle={`pipeline:${p.cle}`} faite={p.statut === 'vert'} auto={p.auto} apres={etat.recharger} titre={p.etape} />
                       <div style={{ flex: 1 }}>
                         <strong style={{ fontSize: '0.88rem', color: 'var(--encre)' }}>{p.etape}</strong>
                         <div className="mesure-detail" style={{ marginTop: 4 }}>
@@ -83,6 +78,7 @@ export default function Automatisations() {
                         </div>
                         <div className="mesure-seuils">
                           <span>Bloquant : {p.bloquant}</span>
+                          {p.auto && <span>{p.detail}</span>}
                         </div>
                       </div>
                     </div>

@@ -57,6 +57,9 @@ export const config = {
   awxJeton: texte('AWX_JETON'),
   controlmUrl: texte('CONTROLM_URL').replace(/\/$/, ''),
   controlmJeton: texte('CONTROLM_JETON'),
+  sonarUrl: texte('SONAR_URL').replace(/\/$/, ''),
+  sonarJeton: texte('SONAR_JETON'),
+  sonarProjet: texte('SONAR_PROJET'),
   /** Fuseau et heures d'ouverture de l'officine (alerte « zéro vente »). */
   fuseau: texte('FUSEAU', 'Africa/Libreville'),
   ouverture: Number(texte('HEURE_OUVERTURE', '8')),

@@ -215,11 +215,11 @@ export const PAGES: DescriptionPage[] = [
   {
     chemin: '/orchestration',
     titre: 'Orchestration',
-    description: 'Pipelines GitLab, jobs AWX et jobs Control-M : voir, lancer, relancer.',
+    description: 'Pipelines GitLab, jobs AWX, jobs Control-M et qualité SonarQube : voir, lancer, relancer.',
     groupe: 'Réagir',
     icone: Rocket,
     domaine: 'orchestration',
-    motsCles: 'gitlab awx ansible control-m controlm pipeline job batch déploiement ci cd',
+    motsCles: 'gitlab awx ansible control-m controlm sonar sonarqube qualité pipeline job batch déploiement ci cd',
   },
   {
     chemin: '/securite',

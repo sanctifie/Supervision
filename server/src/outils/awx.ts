@@ -28,7 +28,9 @@ export function etatAwx(status: string): EtatExecution {
 
 export class Awx implements Outil {
   readonly cle = 'awx' as const;
-  readonly url = config.awxUrl;
+  get url() {
+    return config.awxUrl;
+  }
 
   private appel<T>(chemin: string, methode = 'GET', corps?: unknown): Promise<T> {
     return lireJson<T>(`${config.awxUrl}/api/v2${chemin}`, {

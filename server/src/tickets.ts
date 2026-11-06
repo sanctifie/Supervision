@@ -27,6 +27,8 @@ import {
   type TypeTicket,
 } from '../../shared/itsm';
 import type { Alerte, Priorite } from '../../shared/types';
+import { FINI } from './outils/outil';
+import { LIBELLE_EXECUTION, NOM_OUTIL, cleJob, type Execution } from '../../shared/outils';
 import type { EvenementTicket } from './notifications';
 import { config } from './config';
 import { calendrierParDefaut } from '../../shared/calendrier';
@@ -631,6 +633,89 @@ export class Tickets {
       }
     }
     this.verifierSla(maintenant);
+  }
+
+  /** Un déploiement lancé depuis la fiche d'un changement en cours de mise en œuvre. */
+  attacherExecution(cle: string, e: Execution, auteur: string): Ticket {
+    const t = this.exiger(cle);
+    if (t.type !== 'changement' || t.statut !== 'en-cours') throw new ErreurMetier('Un déploiement se lance depuis un changement en cours de mise en œuvre');
+    this.stockage.modifier(() => {
+      t.executions = [...(t.executions ?? []), { outil: e.outil, id: e.id, nom: e.nom, contexte: e.contexte, etat: e.etat, lien: e.lien, lanceLe: Date.now(), par: auteur }];
+      this.tracer(t, auteur, `${NOM_OUTIL[e.outil]} : ${e.nom} lancé (${e.contexte}).`);
+    });
+    return t;
+  }
+
+  /** Numéro du ticket qui porte chaque exécution (« outil:id ») : changement qui l'a lancée, incident qu'elle a ouvert. */
+  parExecution(): Record<string, string> {
+    const r: Record<string, string> = {};
+    for (const t of [...this.liste].reverse()) {
+      for (const e of t.executions ?? []) r[`${e.outil}:${e.id}`] = t.numero;
+      if (t.job) r[`${t.job.outil}:${t.job.execution}`] = t.numero;
+    }
+    return r;
+  }
+
+  /**
+   * Rapproche les tickets des exécutions (GitLab, AWX, Control-M) :
+   * l'état des déploiements lancés depuis un changement, un incident P3 par
+   * job dont la dernière exécution a échoué, résolu quand le job réussit.
+   */
+  synchroniserExecutions(executions: Execution[], maintenant = Date.now()): void {
+    const parId = new Map(executions.map((e) => [`${e.outil}:${e.id}`, e]));
+    for (const t of this.liste) {
+      if (t.type !== 'changement' || !estOuvert(t) || !t.executions?.length) continue;
+      for (const l of t.executions) {
+        const e = parId.get(`${l.outil}:${l.id}`);
+        if (!e || e.etat === l.etat) continue;
+        const texteTrace = `${NOM_OUTIL[e.outil]} : ${e.nom} ${LIBELLE_EXECUTION[e.etat].toLowerCase()}${e.etat === 'echec' ? ' — appliquer le plan de retour arrière si besoin' : ''}.`;
+        this.stockage.modifier(() => {
+          l.etat = e.etat;
+          l.lien = e.lien ?? l.lien;
+          if (FINI.includes(e.etat)) this.tracer(t, 'supervision', texteTrace);
+        });
+        // L'assigné du changement est prévenu (cloche, Telegram, e-mail) de la fin du déploiement.
+        if (FINI.includes(e.etat)) this.signaler({ type: 'activite', ticket: t, nature: 'note', texte: texteTrace, auteur: 'supervision' });
+      }
+    }
+
+    const dernieres = new Map<string, Execution>();
+    for (const e of executions) if (FINI.includes(e.etat) && !dernieres.has(cleJob(e))) dernieres.set(cleJob(e), e);
+    for (const [cle, e] of dernieres) {
+      const ouvert = this.liste.find((t) => t.type === 'incident' && t.automatique && estOuvert(t) && t.job?.cle === cle);
+      if (e.etat === 'echec') {
+        if (ouvert || this.liste.some((t) => t.job?.execution === e.id && t.job.outil === e.outil)) continue;
+        const changement = this.liste.find((t) => t.type === 'changement' && t.executions?.some((x) => x.outil === e.outil && x.id === e.id));
+        const t = this.creer(
+          'incident',
+          {
+            titre: `Échec de ${e.nom} (${NOM_OUTIL[e.outil]})`,
+            description: `${e.contexte}\nStatut ${NOM_OUTIL[e.outil]} : ${e.statutBrut}${e.lien ? `\n${e.lien}` : ''}`,
+            impact: 2,
+            urgence: 2,
+            categorie: 'Automatisation',
+            groupe: 'Exploitation',
+          },
+          'supervision',
+          { automatique: true, creeLe: e.fin ?? e.debut ?? maintenant, lien: changement?.numero },
+        );
+        this.stockage.modifier(() => {
+          t.job = { cle, execution: e.id, outil: e.outil, nom: e.nom, lien: e.lien };
+        });
+      } else if (ouvert && !ouvert.activite.some((x) => x.texte.startsWith('Le job a réussi'))) {
+        this.stockage.modifier(() => {
+          if (ouvert.statut === 'nouveau') {
+            ouvert.statut = 'resolu';
+            ouvert.resoluLe = maintenant;
+            ouvert.codeResolution = 'Résolu automatiquement';
+            ouvert.notesResolution = `Le job a réussi depuis (${e.nom}).`;
+            this.tracer(ouvert, 'supervision', 'Le job a réussi depuis : résolu automatiquement.');
+          } else {
+            this.tracer(ouvert, 'supervision', 'Le job a réussi depuis : vérifier puis résoudre.');
+          }
+        });
+      }
+    }
   }
 
   /** Prévient une seule fois par phase quand un SLA devient à risque, puis dépassé. */

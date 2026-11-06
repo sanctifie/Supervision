@@ -254,7 +254,7 @@ export interface VueEtat {
   raison: string;
   kpis: Kpi[];
   domaines: Domaine[];
-  trafic: { debit: Point[]; debitJ7: Point[] };
+  trafic: { debit: Point[]; debitJ7: Point[]; deploiements: { t: number; nom: string }[] };
   activite: Evenement[];
   services: { nom: string; statut: Statut; detail: string }[];
   slo: { objectif: number; disponibilite: number | null; budgetConsomme: number | null };
@@ -393,9 +393,11 @@ export interface Automatisation {
   statut: Statut;
   detail: string;
   commande: string | null;
+  /** Vérifié automatiquement (supervision, AWX, GitLab) : pas de case à cocher. */
+  auto: boolean;
 }
 
 export interface VueAutomatisations {
   serveur: Automatisation[];
-  pipeline: { cle: string; etape: string; contenu: string; bloquant: string; statut: Statut }[];
+  pipeline: { cle: string; etape: string; contenu: string; bloquant: string; statut: Statut; detail: string; auto: boolean }[];
 }

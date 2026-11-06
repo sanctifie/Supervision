@@ -32,6 +32,7 @@ export function Courbe({
   hauteur = 260,
   format = (v: number) => String(Math.round(v)),
   seuils = [],
+  reperes = [],
   domaine,
   longue,
 }: {
@@ -39,6 +40,8 @@ export function Courbe({
   hauteur?: number;
   format?: (v: number) => string;
   seuils?: { valeur: number; couleur: string; libelle: string }[];
+  /** Instants à marquer d'un trait vertical (déploiements). */
+  reperes?: { t: number; libelle: string }[];
   domaine?: [number | 'auto', number | 'auto'];
   longue?: boolean;
 }) {
@@ -100,6 +103,9 @@ export function Courbe({
               strokeDasharray="4 4"
               label={{ value: s.libelle, position: 'insideTopRight', fontSize: 10, fill: s.couleur }}
             />
+          ))}
+          {reperes.map((r) => (
+            <ReferenceLine key={r.t} x={r.t} stroke="#7c3aed" strokeDasharray="3 3" label={{ value: '▲', position: 'insideBottom', fontSize: 10, fill: '#7c3aed' }} />
           ))}
           {series.map((s, i) => (
             <Area

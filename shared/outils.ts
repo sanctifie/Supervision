@@ -4,7 +4,7 @@
  * planifiés). Chacun livre ses exécutions dans un même modèle, pour une seule
  * chronologie et un seul voyant « Orchestration » sur le tableau de bord.
  */
-import type { Statut } from './types';
+import type { Mesure, Statut } from './types';
 
 export type CleOutil = 'gitlab' | 'awx' | 'controlm';
 export type EtatExecution = 'succes' | 'echec' | 'en-cours' | 'attente' | 'annule' | 'inconnu';
@@ -45,6 +45,14 @@ export interface Execution {
   lien: string | null;
 }
 
+/** Un même job d'une exécution à l'autre : outil, contexte, nom sans son numéro. */
+export function cleJob(e: Pick<Execution, 'outil' | 'contexte' | 'nom'>): string {
+  return `${e.outil}:${e.contexte}:${e.nom.replace(/\s*#\d+$/, '')}`;
+}
+
+/** Une exécution rattachée à un changement (lancée depuis sa fiche). */
+export type ExecutionLiee = Pick<Execution, 'outil' | 'id' | 'nom' | 'contexte' | 'etat' | 'lien'> & { lanceLe: number; par: string };
+
 export interface EtatOutil {
   cle: CleOutil;
   nom: string;
@@ -76,10 +84,28 @@ export interface DemandeFusion {
   pipeline: EtatExecution | null;
 }
 
+/** SonarQube : la porte qualité du projet et ses mesures clés. */
+export interface QualiteCode {
+  nom: string;
+  url: string | null;
+  configure: boolean;
+  demo: boolean;
+  joignable: boolean;
+  erreur: string | null;
+  projet: string;
+  porte: 'OK' | 'ERROR' | null;
+  conditions: { libelle: string; statut: 'OK' | 'ERROR'; valeur: string; seuil: string }[];
+  mesures: Mesure[];
+  lien: string | null;
+}
+
 export interface VueOutils {
   statut: Statut;
   outils: EtatOutil[];
   executions: Execution[];
   lancables: Lancable[];
   demandesFusion: DemandeFusion[];
+  /** Ticket (changement, incident) qui porte chaque exécution, par « outil:id ». */
+  tickets: Record<string, string>;
+  qualite: QualiteCode;
 }

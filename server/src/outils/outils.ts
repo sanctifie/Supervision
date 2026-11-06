@@ -4,9 +4,10 @@ import { Gitlab } from './gitlab';
 import { Awx } from './awx';
 import { Controlm } from './controlm';
 import { OutilDemo } from './demo';
+import { Sonar, configureSonar, qualiteDemo } from './sonar';
 import { FINI, type Outil } from './outil';
 import { ErreurMetier } from '../erreurs';
-import { NOM_OUTIL, type CleOutil, type EtatOutil, type Execution, type VueOutils } from '../../../shared/outils';
+import { NOM_OUTIL, cleJob, type CleOutil, type EtatOutil, type Execution, type QualiteCode, type VueOutils } from '../../../shared/outils';
 import type { Statut } from '../../../shared/types';
 
 const CLES: CleOutil[] = ['gitlab', 'awx', 'controlm'];
@@ -24,6 +25,7 @@ const CONFIGURE: Record<CleOutil, () => boolean> = {
 export class Outils {
   private readonly reels: Record<CleOutil, Outil>;
   private readonly demos: Record<CleOutil, Outil>;
+  private readonly sonar = new Sonar();
   private cache: { expire: number; valeur: Promise<VueOutils> } | null = null;
 
   constructor(
@@ -54,7 +56,7 @@ export class Outils {
   }
 
   private async assembler(): Promise<VueOutils> {
-    const vue: VueOutils = { statut: 'inconnu', outils: [], executions: [], lancables: [], demandesFusion: [] };
+    const vue: VueOutils = { statut: 'inconnu', outils: [], executions: [], lancables: [], demandesFusion: [], tickets: {}, qualite: await this.qualite() };
     await Promise.all(
       CLES.map(async (cle) => {
         const a = this.actif(cle);
@@ -76,6 +78,31 @@ export class Outils {
     vue.executions.sort((x, y) => (y.debut ?? 0) - (x.debut ?? 0));
     vue.statut = statutOrchestration(vue);
     return vue;
+  }
+
+  private async qualite(): Promise<QualiteCode> {
+    const q: QualiteCode = {
+      nom: 'SonarQube',
+      url: this.sonar.url || null,
+      configure: configureSonar(),
+      demo: false,
+      joignable: false,
+      erreur: null,
+      projet: this.sonar.projet(),
+      porte: null,
+      conditions: [],
+      mesures: [],
+      lien: null,
+    };
+    if (!q.configure) {
+      if (!this.modeDemo()) return q;
+      return { ...q, demo: true, joignable: true, projet: 'officina', ...qualiteDemo() };
+    }
+    try {
+      return { ...q, joignable: true, ...(await this.sonar.lire()) };
+    } catch (e) {
+      return { ...q, erreur: (e as Error).message || 'injoignable' };
+    }
   }
 
   private exiger(cle: string): Outil {
@@ -130,14 +157,15 @@ export class Outils {
  * job a échoué ou si un outil configuré ne répond pas ; inconnu si rien n'est
  * configuré ; vert sinon.
  */
-export function statutOrchestration(vue: Pick<VueOutils, 'outils' | 'executions'>): Statut {
+export function statutOrchestration(vue: Pick<VueOutils, 'outils' | 'executions'> & { qualite?: Pick<QualiteCode, 'configure' | 'demo' | 'joignable' | 'porte'> }): Statut {
   const actifs = vue.outils.filter((o) => o.configure || o.demo);
-  if (!actifs.length) return 'inconnu';
-  if (actifs.some((o) => !o.joignable)) return 'orange';
+  const q = vue.qualite && (vue.qualite.configure || vue.qualite.demo) ? vue.qualite : null;
+  if (!actifs.length && !q) return 'inconnu';
+  if (actifs.some((o) => !o.joignable) || (q && (!q.joignable || q.porte === 'ERROR'))) return 'orange';
   const dernieres = new Map<string, Execution>();
   for (const e of vue.executions) {
     if (!FINI.includes(e.etat)) continue;
-    const cle = `${e.outil}:${e.contexte}:${e.nom.replace(/#\d+$/, '')}`;
+    const cle = cleJob(e);
     if (!dernieres.has(cle)) dernieres.set(cle, e);
   }
   return [...dernieres.values()].some((e) => e.etat === 'echec') ? 'orange' : 'vert';
@@ -146,9 +174,11 @@ export function statutOrchestration(vue: Pick<VueOutils, 'outils' | 'executions'
 /** Le résumé du voyant sur le tableau de bord. */
 export function resumeOrchestration(vue: VueOutils): string {
   const actifs = vue.outils.filter((o) => o.configure || o.demo);
-  if (!actifs.length) return 'Non configuré';
-  const muets = actifs.filter((o) => !o.joignable);
+  const q = vue.qualite.configure || vue.qualite.demo ? vue.qualite : null;
+  if (!actifs.length && !q) return 'Non configuré';
+  const muets = [...actifs, ...(q && !q.joignable ? [q] : [])].filter((o) => !o.joignable);
   if (muets.length) return `${muets.map((o) => o.nom).join(', ')} injoignable`;
+  if (q?.porte === 'ERROR') return 'Porte qualité SonarQube en échec';
   const jour = Date.now() - 86_400_000;
   const recentes = vue.executions.filter((e) => (e.debut ?? 0) > jour);
   const echecs = recentes.filter((e) => e.etat === 'echec').length;

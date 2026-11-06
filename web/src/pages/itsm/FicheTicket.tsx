@@ -1,6 +1,6 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, Link2, Lock, MessageSquare, Plus, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X, BookOpen } from 'lucide-react';
+import { AlertTriangle, ArrowLeft, Check, Link2, Lock, MessageSquare, Play, Plus, Rocket, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X, BookOpen } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
@@ -35,6 +35,7 @@ import {
   type Ticket,
   type TicketResume,
 } from '../../../../shared/itsm';
+import { LIBELLE_EXECUTION, NOM_OUTIL, STATUT_EXECUTION, type VueOutils } from '../../../../shared/outils';
 
 interface Detail {
   ticket: Ticket;
@@ -541,6 +542,8 @@ function SectionsChangement({
         )}
       </Carte>
 
+      {(t.statut === 'en-cours' || (t.executions ?? []).length > 0) && <CarteDeploiement t={t} ouvert={ouvert} action={action} />}
+
       {['en-cours', 'revue', 'clos'].includes(t.statut) && (
         <Carte titre="Résultat">
           <select className="champ" value={t.resultat ?? ''} disabled={t.statut === 'clos' || !ouvert} onChange={(e) => patch({ resultat: e.target.value || null })}>
@@ -553,6 +556,80 @@ function SectionsChangement({
         </Carte>
       )}
     </>
+  );
+}
+
+/** Lancer un pipeline GitLab ou un job AWX depuis un changement en cours, et suivre son résultat. */
+function CarteDeploiement({ t, ouvert, action }: { t: Ticket; ouvert: boolean; action: (chemin: string, corps: unknown) => Promise<boolean> }) {
+  const outils = useDonnees<VueOutils>('/outils', 20_000);
+  const [choix, setChoix] = useState('');
+  const [enCours, setEnCours] = useState(false);
+  const lancables = outils.donnees?.lancables ?? [];
+  const lancable = lancables.find((l) => `${l.outil}:${l.id}` === choix) ?? lancables[0];
+  const peutLancer = ouvert && t.statut === 'en-cours';
+  return (
+    <Carte titre="Déploiement" sousTitre="Orchestration : pipeline GitLab ou modèle de job AWX, rattaché à ce changement. Un échec ouvre un incident lié.">
+      {(t.executions ?? []).length > 0 && (
+        <ul className="activite" style={{ marginBottom: 10 }}>
+          {(t.executions ?? []).map((e) => (
+            <li key={`${e.outil}:${e.id}`}>
+              <span className={`tuile ${STATUT_EXECUTION[e.etat]}`}>
+                <Rocket size={14} />
+              </span>
+              <div>
+                <strong>
+                  {NOM_OUTIL[e.outil]} · {e.nom} <Pastille statut={STATUT_EXECUTION[e.etat]}>{LIBELLE_EXECUTION[e.etat]}</Pastille>
+                </strong>
+                <span>
+                  {e.contexte} · lancé par {e.par}
+                  {e.lien && (
+                    <>
+                      {' '}
+                      ·{' '}
+                      <a href={e.lien} target="_blank" rel="noreferrer">
+                        ouvrir
+                      </a>
+                    </>
+                  )}
+                </span>
+              </div>
+              <time>{dateHeure(e.lanceLe)}</time>
+            </li>
+          ))}
+        </ul>
+      )}
+      {peutLancer && lancables.length > 0 && (
+        <div className="ligne-flex">
+          <select
+            className="champ"
+            style={{ flex: 1 }}
+            value={lancable ? `${lancable.outil}:${lancable.id}` : ''}
+            onChange={(e) => setChoix(e.target.value)}
+            aria-label="Quoi lancer"
+          >
+            {lancables.map((l) => (
+              <option key={`${l.outil}:${l.id}`} value={`${l.outil}:${l.id}`}>
+                {NOM_OUTIL[l.outil]} — {l.nom}
+              </option>
+            ))}
+          </select>
+          <button
+            className="bouton primaire"
+            disabled={enCours || !lancable}
+            onClick={async () => {
+              if (!lancable) return;
+              setEnCours(true);
+              await action('/executions', { outil: lancable.outil, id: lancable.id });
+              setEnCours(false);
+            }}
+          >
+            <Play size={14} /> Lancer
+          </button>
+        </div>
+      )}
+      {peutLancer && outils.donnees && lancables.length === 0 && <p className="discret">Rien à lancer : configurez GitLab ou AWX (page Orchestration).</p>}
+      {!peutLancer && !(t.executions ?? []).length && <p className="discret">Aucun déploiement rattaché.</p>}
+    </Carte>
   );
 }
 

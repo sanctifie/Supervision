@@ -1,10 +1,11 @@
 import { Router, type Request, type Response } from 'express';
 import type { Outils } from './outils';
+import type { Tickets } from '../tickets';
 import { exiger } from '../acces';
 import { ErreurMetier } from '../erreurs';
 
 /** /api/outils : la vue unifiée, lancer, relancer. */
-export function creerApiOutils(outils: Outils): Router {
+export function creerApiOutils(outils: Outils, tickets: Tickets): Router {
   const api = Router();
   const repondre = (f: (req: Request, res: Response) => Promise<unknown>) => async (req: Request, res: Response) => {
     try {
@@ -18,7 +19,7 @@ export function creerApiOutils(outils: Outils): Router {
 
   api.get(
     '/',
-    repondre(() => outils.vue()),
+    repondre(async () => ({ ...(await outils.vue()), tickets: tickets.parExecution() })),
   );
   api.post(
     '/:outil/lancer',

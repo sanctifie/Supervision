@@ -21,6 +21,8 @@ import { PiecesJointes } from './pieces';
 import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
 import { Outils, resumeOrchestration } from './outils/outils';
+import { FINI } from './outils/outil';
+import { NOM_OUTIL, type VueOutils } from '../../shared/outils';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -117,7 +119,10 @@ export class Supervision {
         else this.tickets.verifierSla();
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
-        await this.outils.surveiller().catch((e) => console.error('[supervision] outils :', (e as Error).message));
+        await this.outils
+          .surveiller()
+          .then(async () => this.tickets.synchroniserExecutions((await this.outils.vue()).executions))
+          .catch((e) => console.error('[supervision] outils :', (e as Error).message));
       } catch (e) {
         console.error('[supervision] boucle :', (e as Error).message);
       }
@@ -401,7 +406,7 @@ export class Supervision {
       raison,
       kpis,
       domaines,
-      trafic: { debit: application?.series.debit ?? [], debitJ7: application?.series.debitJ7 ?? [] },
+      trafic: { debit: application?.series.debit ?? [], debitJ7: application?.series.debitJ7 ?? [], deploiements: deploiements(outils, Date.now() - 86_400_000) },
       activite: this.stockage.donnees.evenements.slice(0, 12),
       services: produits,
       slo: { objectif: SLO_DISPONIBILITE, disponibilite, budgetConsomme: budget },
@@ -459,12 +464,25 @@ export class Supervision {
   }
 
   async automatisations(): Promise<VueAutomatisations> {
-    const [sauvegardes, services, conteneurs, serveur] = await Promise.all([
+    const [sauvegardes, services, conteneurs, serveur, outils] = await Promise.all([
       this.sauvegardes().catch(() => null),
       this.services().catch(() => null),
       this.conteneurs().catch(() => null),
       this.serveur().catch(() => null),
+      this.outils.vue().catch(() => null),
     ]);
+    const dernier = (outil: 'awx' | 'gitlab') =>
+      outils?.executions.find((e) => e.outil === outil && FINI.includes(e.etat) && (outil !== 'gitlab' || /^(main|master|prod)/.test(e.contexte)));
+    const parOutil = (outil: 'awx' | 'gitlab', libelle: string): { statut: Statut; detail: string } | undefined => {
+      const o = outils?.outils.find((x) => x.cle === outil);
+      if (!o || (!o.configure && !o.demo)) return undefined;
+      if (!o.joignable) return { statut: 'orange', detail: `${o.nom} injoignable` };
+      const e = dernier(outil);
+      return e
+        ? { statut: e.etat === 'succes' ? 'vert' : 'orange', detail: `${libelle} : ${e.nom} ${e.etat === 'succes' ? 'réussi' : 'en échec'} (${e.contexte})` }
+        : { statut: 'inconnu', detail: `${o.nom} : aucune exécution` };
+    };
+    const sonar = outils?.qualite.configure || outils?.qualite.demo ? outils.qualite : null;
     const jours = services?.publiques.map((p) => p.joursCertificat).filter((j): j is number => j !== null) ?? [];
     const disque = serveur?.partitions.find((p) => p.point === '/');
     const auto: Record<string, { statut: Statut; detail: string } | undefined> = {
@@ -486,25 +504,45 @@ export class Supervision {
       nettoyage: disque
         ? { statut: disque.statut, detail: `Disque / à ${pourcent(disque.utilisePct, 0)}${disque.joursAvantPlein ? `, plein dans ~${nombre(disque.joursAvantPlein)} j` : ''}` }
         : undefined,
+      configuration: parOutil('awx', 'Dernier job AWX'),
+    };
+    const autoPipeline: Record<string, { statut: Statut; detail: string } | undefined> = {
+      qualite: sonar
+        ? sonar.joignable
+          ? { statut: sonar.porte === 'OK' ? 'vert' : sonar.porte === 'ERROR' ? 'rouge' : 'inconnu', detail: `Porte qualité SonarQube : ${sonar.porte ?? 'inconnue'}` }
+          : { statut: 'orange', detail: 'SonarQube injoignable' }
+        : undefined,
+      tests: parOutil('gitlab', 'Dernier pipeline'),
+      build: parOutil('gitlab', 'Dernier pipeline'),
     };
     const statutManuel = (cle: string): { statut: Statut; detail: string } => {
       const c = this.confirme(cle);
       return c ? { statut: 'vert', detail: `Confirmé par ${c.par}${c.note ? ` — ${c.note}` : ''}` } : { statut: 'inconnu', detail: 'À mettre en place ou à confirmer' };
     };
     return {
-      serveur: AUTOMATISATIONS.map((a) => ({ ...a, ...(auto[a.cle] ?? statutManuel(`automatisation:${a.cle}`)) })),
-      pipeline: PIPELINE.map((p) => ({ etape: p.etape, contenu: p.contenu, bloquant: p.bloquant, cle: p.cle, statut: statutManuel(`pipeline:${p.cle}`).statut })),
+      serveur: AUTOMATISATIONS.map((a) => ({ ...a, ...(auto[a.cle] ?? statutManuel(`automatisation:${a.cle}`)), auto: !!auto[a.cle] })),
+      pipeline: PIPELINE.map((p) => ({
+        etape: p.etape,
+        contenu: p.contenu,
+        bloquant: p.bloquant,
+        cle: p.cle,
+        ...(autoPipeline[p.cle] ?? statutManuel(`pipeline:${p.cle}`)),
+        auto: !!autoPipeline[p.cle],
+      })),
     };
   }
 
   async feuilleDeRoute(): Promise<VueFeuilleDeRoute> {
-    const [sources, services, serveur, application, sauvegardes] = await Promise.all([
+    const [sources, services, serveur, application, sauvegardes, outils] = await Promise.all([
       this.sources(),
       this.services().catch(() => null),
       this.serveur().catch(() => null),
       this.application().catch(() => null),
       this.sauvegardes().catch(() => null),
+      this.outils.vue().catch(() => null),
     ]);
+    const gitlab = outils?.outils.find((o) => o.cle === 'gitlab');
+    const pipelineMain = outils?.executions.find((e) => e.outil === 'gitlab' && FINI.includes(e.etat) && /^(main|master|prod)/.test(e.contexte));
     const a = (statut: Statut, detail: string) => ({ statut, detail });
     const auto: Record<string, { statut: Statut; detail: string } | null> = {
       'sonde-externe': services?.publiques.length
@@ -521,6 +559,17 @@ export class Supervision {
       sauvegarde: sauvegardes
         ? a(sauvegardes.statut === 'vert' ? 'orange' : sauvegardes.statut, 'Sauvegarde mesurée ; confirmer le chiffrement hors site et une restauration testée')
         : null,
+      pipeline:
+        gitlab && (gitlab.configure || gitlab.demo)
+          ? gitlab.joignable
+            ? pipelineMain
+              ? a(
+                  pipelineMain.etat === 'succes' ? 'vert' : 'orange',
+                  `GitLab : ${pipelineMain.nom} sur ${pipelineMain.contexte} ${pipelineMain.etat === 'succes' ? 'réussi' : 'en échec'}`,
+                )
+              : a('orange', 'GitLab joignable, aucun pipeline terminé sur la branche principale')
+            : a('rouge', 'GitLab injoignable')
+          : null,
       'canal-alerte': sources.alertmanager ? a('orange', 'Alertmanager joignable : envoyer une alerte de test et confirmer sa réception') : a('rouge', 'Alertmanager injoignable'),
       runbooks: a('vert', `${RUNBOOKS.length} runbooks, un par alerte d’Officina (page Alertes)`),
       'page-statut': a('vert', 'Page de statut publique intégrée : /statut'),
@@ -579,4 +628,11 @@ export class Supervision {
       incidents: this.tickets.incidentsPublics(),
     };
   }
+}
+
+/** Les déploiements réussis depuis `depuis` : jobs AWX et pipelines GitLab de la branche principale (repères sur les courbes). */
+function deploiements(outils: VueOutils | null, depuis: number): { t: number; nom: string }[] {
+  return (outils?.executions ?? [])
+    .filter((e) => e.etat === 'succes' && e.fin && e.fin > depuis && (e.outil === 'awx' || (e.outil === 'gitlab' && /^(main|master|prod)/.test(e.contexte))))
+    .map((e) => ({ t: e.fin as number, nom: `${e.nom} (${NOM_OUTIL[e.outil]})` }));
 }

@@ -1,13 +1,19 @@
 import { useState } from 'react';
+import { Link } from 'react-router-dom';
 import { ExternalLink, GitMerge, Play, RotateCw, Sparkles } from 'lucide-react';
 import { useSupervision } from '../components/Coquille';
 import { useDonnees } from '../lib/useDonnees';
 import { appeler } from '../lib/api';
-import { Carte, Charge, Pastille, Vide } from '../components/ui';
+import { Carte, Charge, GrilleMesures, Pastille, Vide } from '../components/ui';
 import { dateHeure, depuis, duree } from '../../../shared/format';
 import { LIBELLE_EXECUTION, NOM_OUTIL, STATUT_EXECUTION, type Execution, type VueOutils } from '../../../shared/outils';
 
-const VARIABLES = { gitlab: 'GITLAB_URL, GITLAB_JETON, GITLAB_PROJET', awx: 'AWX_URL, AWX_JETON', controlm: 'CONTROLM_URL, CONTROLM_JETON' };
+const VARIABLES = {
+  gitlab: 'GITLAB_URL, GITLAB_JETON, GITLAB_PROJET',
+  awx: 'AWX_URL, AWX_JETON',
+  controlm: 'CONTROLM_URL, CONTROLM_JETON',
+  sonar: 'SONAR_URL, SONAR_JETON, SONAR_PROJET',
+};
 
 function EtatExecution({ e }: { e: Execution }) {
   return (
@@ -42,7 +48,9 @@ export default function Orchestration() {
   return (
     <Charge etat={etat}>
       {(v) => {
-        const demo = v.outils.filter((o) => o.demo);
+        const demo = [...v.outils, ...(v.qualite.demo ? [{ cle: 'sonar' as const, nom: v.qualite.nom }] : [])].filter((o) => ('demo' in o ? o.demo : true));
+        const q = v.qualite;
+        const qActif = q.configure || q.demo;
         const lancable = v.lancables.find((l) => `${l.outil}:${l.id}` === choix) ?? v.lancables[0];
         return (
           <div className="empile">
@@ -56,7 +64,7 @@ export default function Orchestration() {
               </div>
             )}
 
-            <div className="grille g3">
+            <div className="grille g4">
               {v.outils.map((o) => {
                 const derniere = v.executions.find((e) => e.outil === o.cle);
                 return (
@@ -96,7 +104,50 @@ export default function Orchestration() {
                   </Carte>
                 );
               })}
+              <Carte
+                titre={q.nom}
+                sousTitre="Qualité du code : porte qualité et mesures"
+                droite={
+                  <Pastille statut={!qActif ? 'inconnu' : !q.joignable ? 'rouge' : q.porte === 'OK' ? 'vert' : q.porte === 'ERROR' ? 'rouge' : 'inconnu'}>
+                    {!qActif
+                      ? 'Non configuré'
+                      : !q.joignable
+                        ? 'Injoignable'
+                        : q.porte === 'OK'
+                          ? 'Porte qualité OK'
+                          : q.porte === 'ERROR'
+                            ? 'Porte qualité en échec'
+                            : 'Porte inconnue'}
+                  </Pastille>
+                }
+              >
+                {q.erreur && <div className="erreur">{q.erreur}</div>}
+                {!qActif ? (
+                  <p className="discret">
+                    Variables : <code>{VARIABLES.sonar}</code>
+                  </p>
+                ) : (
+                  <ul className="liste-points" style={{ margin: 0, fontSize: '0.84rem' }}>
+                    {q.conditions.map((c) => (
+                      <li key={c.libelle}>
+                        <span className={`point ${c.statut === 'OK' ? 'vert' : 'rouge'}`} /> {c.libelle} : {c.valeur} <span className="discret">({c.seuil})</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {(q.lien ?? q.url) && (
+                  <a className="lien-fleche" href={q.lien ?? (q.url as string)} target="_blank" rel="noreferrer" style={{ marginTop: 8 }}>
+                    Ouvrir {q.nom} <ExternalLink size={13} />
+                  </a>
+                )}
+              </Carte>
             </div>
+
+            {qActif && q.joignable && (
+              <Carte titre={`Mesures SonarQube — ${q.projet}`} sousTitre="Bugs, vulnérabilités, points chauds, dette, couverture et duplication du projet">
+                <GrilleMesures mesures={q.mesures} />
+              </Carte>
+            )}
 
             {agent && v.lancables.length > 0 && (
               <Carte titre="Lancer" sousTitre="Un pipeline GitLab sur une branche, ou un modèle de job AWX. L’action est signée de votre nom dans le fil d’activité.">
@@ -141,6 +192,7 @@ export default function Orchestration() {
                         <th>Début</th>
                         <th className="num">Durée</th>
                         <th>Par</th>
+                        <th>Ticket</th>
                         <th />
                       </tr>
                     </thead>
@@ -165,6 +217,9 @@ export default function Orchestration() {
                           <td title={dateHeure(e.debut)}>{depuis(e.debut)}</td>
                           <td className="num">{e.debut && e.fin ? duree((e.fin - e.debut) / 1000) : '—'}</td>
                           <td className="discret">{e.par ?? '—'}</td>
+                          <td className="mono">
+                            {v.tickets[`${e.outil}:${e.id}`] ? <Link to={`/tickets/${v.tickets[`${e.outil}:${e.id}`]}`}>{v.tickets[`${e.outil}:${e.id}`]}</Link> : '—'}
+                          </td>
                           <td style={{ whiteSpace: 'nowrap' }}>
                             {e.lien && (
                               <a className="bouton petit" href={e.lien} target="_blank" rel="noreferrer" title="Ouvrir dans l’outil">

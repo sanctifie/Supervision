@@ -45,9 +45,12 @@ describe('statuts des outils → un même modèle', () => {
 
 describe('voyant Orchestration', () => {
   const t = Date.now();
-  it('est inconnu sans outil, orange si un outil est muet', () => {
+  it('est inconnu sans outil, orange si un outil est muet ou si la porte qualité est en échec', () => {
     expect(statutOrchestration({ outils: [outil('gitlab', false, false)], executions: [] })).toBe('inconnu');
     expect(statutOrchestration({ outils: [outil('awx', false)], executions: [] })).toBe('orange');
+    const sonar = (porte: 'OK' | 'ERROR') => ({ configure: true, demo: false, joignable: true, porte });
+    expect(statutOrchestration({ outils: [], executions: [], qualite: sonar('OK') })).toBe('vert');
+    expect(statutOrchestration({ outils: [outil('gitlab')], executions: [], qualite: sonar('ERROR') })).toBe('orange');
   });
   it('ne regarde que la dernière exécution terminée de chaque job', () => {
     const outils = [outil('gitlab'), outil('controlm')];

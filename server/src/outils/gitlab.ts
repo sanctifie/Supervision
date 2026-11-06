@@ -29,8 +29,12 @@ export function etatGitlab(status: string): EtatExecution {
 
 export class Gitlab implements Outil {
   readonly cle = 'gitlab' as const;
-  readonly url = config.gitlabUrl;
-  private readonly projet = `${config.gitlabUrl}/api/v4/projects/${encodeURIComponent(config.gitlabProjet)}`;
+  get url() {
+    return config.gitlabUrl;
+  }
+  private get projet() {
+    return `${config.gitlabUrl}/api/v4/projects/${encodeURIComponent(config.gitlabProjet)}`;
+  }
 
   private appel<T>(chemin: string, methode = 'GET', corps?: unknown): Promise<T> {
     return lireJson<T>(`${this.projet}${chemin}`, {

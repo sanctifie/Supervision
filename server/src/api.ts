@@ -180,7 +180,7 @@ export function creerApi(sup: Supervision): Router {
   );
 
   // Orchestration : GitLab, AWX, Control-M.
-  api.use('/outils', creerApiOutils(sup.outils));
+  api.use('/outils', creerApiOutils(sup.outils, sup.tickets));
 
   // --- ITSM : incidents, problèmes, changements, demandes ---------------------
   /** Enveloppe des actions sur tickets : règle métier → 422, introuvable → 404. */
@@ -312,6 +312,20 @@ export function creerApi(sup: Supervision): Router {
       if (decision !== 'approuve' && decision !== 'rejete') throw new ErreurMetier('Décision : approuve ou rejete');
       sup.tickets.approuver(String(req.params.numero), decision, String(commentaire ?? ''), res.locals.nom);
       return detail(String(req.params.numero), res);
+    }),
+  );
+  // Lancer un déploiement (pipeline GitLab, modèle AWX) depuis un changement en cours.
+  api.post(
+    '/tickets/:numero/executions',
+    exiger('agir'),
+    agir(async (req, res) => {
+      const numero = String(req.params.numero);
+      const t = sup.tickets.trouver(numero);
+      if (!t) throw new ErreurMetier(`Ticket ${numero} introuvable`);
+      if (t.type !== 'changement' || t.statut !== 'en-cours') throw new ErreurMetier('Un déploiement se lance depuis un changement en cours de mise en œuvre');
+      const e = await sup.outils.lancer(String(req.body?.outil ?? ''), String(req.body?.id ?? '').slice(0, 200), res.locals.nom);
+      sup.tickets.attacherExecution(numero, e, res.locals.nom);
+      return detail(numero, res);
     }),
   );
   api.post(

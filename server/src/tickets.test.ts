@@ -219,3 +219,57 @@ describe('SLA en heures ouvrées', () => {
     expect(SLA.incident.P3.resolution).toBe(36 * H);
   });
 });
+
+describe('orchestration ↔ tickets', () => {
+  const execution = (id: string, etat: 'succes' | 'echec' | 'en-cours', debut: number, nom = 'EXPORT-COMPTA'): import('../../shared/outils').Execution => ({
+    outil: 'controlm',
+    id,
+    nom,
+    contexte: 'OFFICINA-NUIT',
+    etat,
+    statutBrut: etat,
+    debut,
+    fin: etat === 'en-cours' ? null : debut + 60_000,
+    par: null,
+    lien: null,
+  });
+
+  it('ouvre un incident P3 quand un job échoue, une seule fois, et le résout quand le job réussit', () => {
+    const { tickets } = moteur();
+    const t0 = Date.now() - 3_600_000;
+    tickets.synchroniserExecutions([execution('j1', 'echec', t0)]);
+    tickets.synchroniserExecutions([execution('j1', 'echec', t0)]);
+    const incidents = tickets.lister({ type: 'incident', etat: 'tous' });
+    expect(incidents).toHaveLength(1);
+    const inc = tickets.trouver(incidents[0].numero)!;
+    expect(inc).toMatchObject({ priorite: 'P3', automatique: true, categorie: 'Automatisation', job: { execution: 'j1', outil: 'controlm' } });
+    expect(inc.titre).toBe('Échec de EXPORT-COMPTA (Control-M)');
+
+    // Un autre job qui échoue n'est pas le même incident ; le même job relancé avec succès résout le sien.
+    tickets.synchroniserExecutions([execution('j3', 'echec', t0 + 100, 'PURGE-LOGS'), execution('j2', 'succes', t0 + 60_000), execution('j1', 'echec', t0)]);
+    expect(tickets.lister({ type: 'incident', etat: 'tous' })).toHaveLength(2);
+    expect(inc.statut).toBe('resolu');
+    expect(inc.codeResolution).toBe('Résolu automatiquement');
+    // Un nouvel échec, plus tard, rouvre un incident distinct.
+    tickets.synchroniserExecutions([execution('j4', 'echec', t0 + 120_000), execution('j2', 'succes', t0 + 60_000)]);
+    expect(tickets.lister({ type: 'incident', etat: 'tous' })).toHaveLength(3);
+  });
+
+  it('suit un déploiement lancé depuis un changement en cours et lie l’incident en cas d’échec', async () => {
+    const { tickets } = moteur();
+    const c = tickets.creer('changement', { titre: 'Déployer v2', typeChangement: 'standard', debutPrevu: Date.now(), finPrevue: Date.now() + 3_600_000 }, 'Alex');
+    expect(() => tickets.attacherExecution(c.numero, execution('p1', 'en-cours', Date.now(), 'Pipeline #9'), 'Alex')).toThrow(/en cours de mise en œuvre/);
+    await tickets.changerStatut(c.numero, 'planifie', 'Alex');
+    await tickets.changerStatut(c.numero, 'en-cours', 'Alex');
+    tickets.attacherExecution(c.numero, { ...execution('p1', 'en-cours', Date.now(), 'Pipeline #9'), outil: 'gitlab', contexte: 'main' }, 'Alex');
+    expect(c.executions).toHaveLength(1);
+    expect(tickets.parExecution()).toEqual({ 'gitlab:p1': c.numero });
+
+    tickets.synchroniserExecutions([{ ...execution('p1', 'echec', Date.now() - 60_000, 'Pipeline #9'), outil: 'gitlab', contexte: 'main' }]);
+    expect(c.executions![0].etat).toBe('echec');
+    expect(c.activite.some((a) => /retour arrière/.test(a.texte))).toBe(true);
+    const inc = tickets.lister({ type: 'incident' })[0];
+    expect(inc.liens).toBe(1);
+    expect(tickets.trouver(inc.numero)!.liens).toEqual([c.numero]);
+  });
+});

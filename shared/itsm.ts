@@ -5,6 +5,7 @@
  */
 
 import { ajouter, calendrierPour, entre, type CalendrierService } from './calendrier';
+import type { CleOutil, ExecutionLiee } from './outils';
 
 export type TypeTicket = 'incident' | 'probleme' | 'changement' | 'demande';
 export type PrioriteTicket = 'P1' | 'P2' | 'P3' | 'P4';
@@ -81,6 +82,8 @@ export interface Ticket {
 
   // Incident
   codeResolution?: string;
+  /** Incident ouvert par l'échec d'un job (GitLab, AWX, Control-M). */
+  job?: { cle: string; execution: string; outil: CleOutil; nom: string; lien: string | null };
   notesResolution?: string;
   postMortem?: string;
 
@@ -102,6 +105,8 @@ export interface Ticket {
   /** Mettre en silence les alertes du CI pendant la fenêtre. */
   silencerAlertes?: boolean;
   silenceId?: string | null;
+  /** Déploiements lancés depuis la fiche (pipeline GitLab, job AWX). */
+  executions?: ExecutionLiee[];
 }
 
 /** Version allégée pour les listes. */
@@ -287,7 +292,7 @@ export const CODES_RESOLUTION = [
 ];
 
 export const CATEGORIES: Record<TypeTicket, string[]> = {
-  incident: ['Application', 'Caisse / comptoir', 'Paiements', 'Synchronisation', 'Base de données', 'Serveur', 'Réseau', 'Sécurité', 'Impression', 'Autre'],
+  incident: ['Application', 'Caisse / comptoir', 'Paiements', 'Synchronisation', 'Base de données', 'Serveur', 'Réseau', 'Sécurité', 'Impression', 'Automatisation', 'Autre'],
   probleme: ['Application', 'Infrastructure', 'Base de données', 'Réseau', 'Sécurité', 'Fournisseur externe', 'Autre'],
   changement: ['Déploiement applicatif', 'Mise à jour système', 'Base de données (migration)', 'Configuration', 'Infrastructure', 'Sécurité', 'Autre'],
   demande: ['Accès / compte', 'Nouveau poste', 'Imprimante / matériel', 'Paramétrage', 'Formation', 'Données / export', 'Autre'],

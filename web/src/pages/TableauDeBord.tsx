@@ -119,7 +119,17 @@ function Contenu({ e }: { e: VueEtat }) {
               { nom: 'Aujourd’hui', points: e.trafic.debit },
               { nom: 'J-7', points: e.trafic.debitJ7, couleur: '#94a3b8', pointilles: true },
             ]}
+            reperes={e.trafic.deploiements.map((d) => ({ t: d.t, libelle: d.nom }))}
           />
+          {e.trafic.deploiements.length > 0 && (
+            <p className="discret" style={{ margin: '8px 0 0', fontSize: '0.78rem' }}>
+              ▲ {e.trafic.deploiements.length} déploiement{e.trafic.deploiements.length > 1 ? 's' : ''} sur 24 h (AWX, GitLab) :{' '}
+              {e.trafic.deploiements
+                .slice(-3)
+                .map((d) => `${d.nom} à ${heure(d.t)}`)
+                .join(' · ')}
+            </p>
+          )}
         </Carte>
 
         <Carte
