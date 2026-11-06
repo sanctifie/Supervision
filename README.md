@@ -28,6 +28,7 @@ est cliquable et mène au détail.
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
+| **Orchestration** | **GitLab** (pipelines CI/CD, demandes de fusion ouvertes), **AWX** (jobs Ansible, modèles de job) et **Control-M** (jobs planifiés) dans une seule chronologie ; lancer un pipeline ou un modèle AWX, relancer une exécution ; un voyant « Orchestration » sur le tableau de bord ; chaque échec dans le fil d'activité | 4, 5 |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
 | **Feuille de route** | Les 5 phases et la checklist de mise en production, cochée automatiquement quand la supervision peut le vérifier | 10 |
@@ -208,11 +209,31 @@ supervision.mon-officine.ga {
 | `ALERTMANAGER_URL` | `http://alertmanager:9093` | Alertes, silences, alerte de test |
 | `LOKI_URL` | `http://loki:3100` | Journaux |
 | `GRAFANA_URL` | *(vide)* | Lien « Ouvrir Grafana » |
+| `GITLAB_URL`, `GITLAB_JETON`, `GITLAB_PROJET` | *(vides)* | Pipelines et demandes de fusion du projet (identifiant ou `groupe/projet`) ; jeton avec l'accès API |
+| `AWX_URL`, `AWX_JETON` | *(vides)* | Jobs et modèles de job AWX ; jeton personnel (portée « write » pour lancer) |
+| `CONTROLM_URL`, `CONTROLM_JETON` | *(vides)* | Statut des jobs Control-M (Automation API) et relance ; jeton d'API |
 | `NOM_PRODUIT` | `Officina` | |
 | `FUSEAU`, `HEURE_OUVERTURE`, `HEURE_FERMETURE` | `Africa/Libreville`, `8`, `20` | Pour l'alerte « zéro vente » |
 | `COOKIE_SECURISE` | `false` | `true` derrière HTTPS |
 | `RESEAU_OFFICINA` | `officine-os_default` | Réseau Docker d'Officina |
 | `DOSSIER_DONNEES` | `./donnees` | Tickets, équipe, checklist, fil d'activité (`etat.json` + copies quotidiennes) |
+
+## Architecture
+
+Deux familles de sources, chacune avec une version réelle et une version de démonstration :
+
+| Famille | Outils | Interface | Choix réel / démo |
+|---------|--------|-----------|-------------------|
+| **Observabilité** | Prometheus, Alertmanager, Loki | `Fournisseur` (`server/src/fournisseurs/`) | Prometheus répond → réel, sinon démo (`SUPERVISION_MODE`) |
+| **Orchestration** | GitLab, AWX, Control-M | `Outil` (`server/src/outils/`) | Outil configuré dans `.env` → réel ; sinon simulé quand la supervision est en démo ; sinon « non configuré » |
+
+Les trois outils d'orchestration livrent leurs exécutions dans **un même modèle**
+(`shared/outils.ts` : nom, contexte, état `succes / echec / en-cours / attente / annule`,
+début, fin, auteur, lien). Le serveur n'en fait qu'une vue (`/api/outils`), un voyant
+(« Orchestration » : orange si la dernière exécution terminée d'un job a échoué ou si un
+outil configuré ne répond pas) et des événements (chaque échec, une seule fois ; chaque
+lancement, signé). Les jetons restent côté serveur ; lancer et relancer demandent le rôle
+agent.
 
 ## Comment c'est calculé
 
@@ -242,6 +263,8 @@ server/src/        API Express (TypeScript)
   pieces.ts        pièces jointes
   connaissances.ts base de connaissances ; catalogue.ts : catalogue de demandes
   catalogues.ts    contenu du guide : checklist, phases, sécurité, automatisations
+  outils/          orchestration : gitlab.ts, awx.ts, controlm.ts (clients), demo.ts,
+                   outils.ts (vue unifiée, voyant, fil d'activité), api.ts (/api/outils)
 web/src/           interface React (Vite, Recharts) ; pages/itsm/ pour le service desk
 shared/            types, seuils, runbooks, modèle ITSM (itsm.ts), mise en forme
 ```

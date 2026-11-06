@@ -16,6 +16,7 @@ import {
   Flag,
   LayoutDashboard,
   Radar,
+  Rocket,
   ScrollText,
   ShieldCheck,
   ShoppingBag,
@@ -210,6 +211,15 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Réagir',
     icone: Bell,
     motsCles: 'alertmanager silence runbook telegram',
+  },
+  {
+    chemin: '/orchestration',
+    titre: 'Orchestration',
+    description: 'Pipelines GitLab, jobs AWX et jobs Control-M : voir, lancer, relancer.',
+    groupe: 'Réagir',
+    icone: Rocket,
+    domaine: 'orchestration',
+    motsCles: 'gitlab awx ansible control-m controlm pipeline job batch déploiement ci cd',
   },
   {
     chemin: '/securite',

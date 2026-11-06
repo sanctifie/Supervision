@@ -16,6 +16,7 @@ const ICONES_DOMAINE: Record<string, typeof Cpu> = {
   bdd: Database,
   metier: ShoppingBag,
   sauvegardes: Archive,
+  orchestration: Rocket,
   securite: ShieldCheck,
 };
 const COULEUR: Record<Statut, string> = { vert: '#16a34a', orange: '#e5860a', rouge: '#dc2626', inconnu: '#94a3b8' };

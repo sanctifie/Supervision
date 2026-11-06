@@ -1806,3 +1806,13 @@ label.etiquette {
     display: none;
   }
 }
+
+/* Icône qui tourne (exécution en cours). */
+.tourne {
+  animation: tourne 1.2s linear infinite;
+}
+@keyframes tourne {
+  to {
+    transform: rotate(360deg);
+  }
+}

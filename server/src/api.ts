@@ -7,6 +7,7 @@ import { RUNBOOKS } from '../../shared/runbooks';
 import { ErreurMetier } from './erreurs';
 import { estOuvert, type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
+import { creerApiOutils } from './outils/api';
 
 const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
 /** Ce qu'un demandeur peut renseigner en ouvrant un ticket. */
@@ -177,6 +178,9 @@ export function creerApi(sup: Supervision): Router {
       return { ok: true };
     }),
   );
+
+  // Orchestration : GitLab, AWX, Control-M.
+  api.use('/outils', creerApiOutils(sup.outils));
 
   // --- ITSM : incidents, problèmes, changements, demandes ---------------------
   /** Enveloppe des actions sur tickets : règle métier → 422, introuvable → 404. */

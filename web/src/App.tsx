@@ -16,6 +16,7 @@ import Application from './pages/Application';
 import Metier from './pages/Metier';
 import Journaux from './pages/Journaux';
 import Alertes from './pages/Alertes';
+import Orchestration from './pages/Orchestration';
 import AccueilItsm from './pages/itsm/AccueilItsm';
 import ListeTickets from './pages/itsm/ListeTickets';
 import FicheTicket from './pages/itsm/FicheTicket';
@@ -41,6 +42,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/metier': Metier,
   '/journaux': Journaux,
   '/alertes': Alertes,
+  '/orchestration': Orchestration,
   '/itsm': AccueilItsm,
   '/incidents': () => <ListeTickets key="incident" type="incident" />,
   '/problemes': () => <ListeTickets key="probleme" type="probleme" />,

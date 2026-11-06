@@ -3,7 +3,8 @@ import type { Point } from '../../../shared/types';
 
 /** Petits clients HTTP pour Prometheus, Alertmanager et Loki (fetch natif). */
 
-async function lireJson<T>(url: string, init?: RequestInit): Promise<T> {
+/** GET/POST JSON avec délai d'attente ; une réponse non 2xx est une erreur lisible. */
+export async function lireJson<T>(url: string, init?: RequestInit): Promise<T> {
   const controle = new AbortController();
   const minuterie = setTimeout(() => controle.abort(), config.delaiRequeteMs);
   try {

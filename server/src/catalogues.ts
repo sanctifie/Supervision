@@ -3,7 +3,7 @@ import type { Phase } from '../../shared/types';
 /**
  * Le contenu du guide « Automatisation & Supervision », chapitres 4, 5, 6 et
  * 10. Chaque élément est soit vérifié automatiquement par la supervision
- * (voir `vues.ts`), soit confirmé à la main dans l'interface.
+ * (voir `supervision.ts`), soit confirmé à la main dans l'interface.
  */
 
 export const PHASES: Phase[] = [

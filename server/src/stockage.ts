@@ -53,7 +53,7 @@ export interface Etat {
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;
   /** Mémoire de ce qui a déjà été vu, pour ne publier chaque événement qu'une fois. */
-  vus: { alertes: Record<string, number>; derniereSauvegarde: number | null };
+  vus: { alertes: Record<string, number>; derniereSauvegarde: number | null; executions?: Record<string, number> };
 }
 
 const VIDE: Etat = {

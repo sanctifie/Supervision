@@ -48,6 +48,15 @@ export const config = {
   smtpUtilisateur: texte('SMTP_UTILISATEUR'),
   smtpMotDePasse: texte('SMTP_MOT_DE_PASSE'),
   smtpExpediteur: texte('SMTP_EXPEDITEUR') || texte('SMTP_UTILISATEUR'),
+  /** Outils d'orchestration (facultatifs) : vides = non configurés (démonstration si Prometheus l'est aussi). */
+  gitlabUrl: texte('GITLAB_URL').replace(/\/$/, ''),
+  gitlabJeton: texte('GITLAB_JETON'),
+  /** Identifiant numérique ou chemin « groupe/projet ». */
+  gitlabProjet: texte('GITLAB_PROJET'),
+  awxUrl: texte('AWX_URL').replace(/\/$/, ''),
+  awxJeton: texte('AWX_JETON'),
+  controlmUrl: texte('CONTROLM_URL').replace(/\/$/, ''),
+  controlmJeton: texte('CONTROLM_JETON'),
   /** Fuseau et heures d'ouverture de l'officine (alerte « zéro vente »). */
   fuseau: texte('FUSEAU', 'Africa/Libreville'),
   ouverture: Number(texte('HEURE_OUVERTURE', '8')),

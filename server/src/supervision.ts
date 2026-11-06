@@ -20,6 +20,7 @@ import { Notifications } from './notifications';
 import { PiecesJointes } from './pieces';
 import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
+import { Outils, resumeOrchestration } from './outils/outils';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -65,6 +66,7 @@ export class Supervision {
   readonly pieces: PiecesJointes;
   readonly connaissances: BaseConnaissances;
   readonly catalogue: Catalogue;
+  readonly outils: Outils;
 
   constructor(
     readonly stockage: Stockage,
@@ -86,6 +88,7 @@ export class Supervision {
     this.pieces = new PiecesJointes(stockage.dossier, stockage, this.tickets);
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
+    this.outils = new Outils(stockage, () => this.fournisseur.mode === 'demo');
   }
 
   get mode() {
@@ -114,6 +117,7 @@ export class Supervision {
         else this.tickets.verifierSla();
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
+        await this.outils.surveiller().catch((e) => console.error('[supervision] outils :', (e as Error).message));
       } catch (e) {
         console.error('[supervision] boucle :', (e as Error).message);
       }
@@ -208,7 +212,7 @@ export class Supervision {
   /** Vue direction (guide, chapitre 8) : l'état global lisible en 3 secondes. */
   async etat(): Promise<VueEtat> {
     const securite = () => this.securite();
-    const [sources, serveur, conteneurs, services, application, bdd, metier, sauvegardes, alertes, secu] = await Promise.all([
+    const [sources, serveur, conteneurs, services, application, bdd, metier, sauvegardes, alertes, secu, outils] = await Promise.all([
       this.sources(),
       this.serveur().catch(() => null),
       this.conteneurs().catch(() => null),
@@ -219,6 +223,7 @@ export class Supervision {
       this.sauvegardes().catch(() => null),
       this.alertes(),
       securite().catch(() => null),
+      this.outils.vue().catch(() => null),
     ]);
 
     const actives = alertes.alertes.filter((a) => !a.silencieuse && a.priorite !== 'Info');
@@ -271,6 +276,13 @@ export class Supervision {
         statut: st(sauvegardes),
         resume: sauvegardes ? (sauvegardes.mesures[0].valeur === null ? 'Aucune connue' : `Il y a ${nombre(sauvegardes.mesures[0].valeur, 0)} h`) : 'Non mesuré',
         lien: '/sauvegardes',
+      },
+      {
+        cle: 'orchestration',
+        libelle: 'Orchestration',
+        statut: outils?.statut ?? 'inconnu',
+        resume: outils ? resumeOrchestration(outils) : 'Non mesuré',
+        lien: '/orchestration',
       },
       {
         cle: 'securite',
