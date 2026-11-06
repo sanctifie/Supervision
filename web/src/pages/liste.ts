@@ -15,6 +15,7 @@ import {
   Database,
   Flag,
   LayoutDashboard,
+  Plug,
   Radar,
   Rocket,
   ScrollText,
@@ -220,6 +221,15 @@ export const PAGES: DescriptionPage[] = [
     icone: Rocket,
     domaine: 'orchestration',
     motsCles: 'gitlab awx ansible control-m controlm sonar sonarqube qualité pipeline job batch déploiement ci cd',
+  },
+  {
+    chemin: '/outils',
+    titre: 'Outils connectés',
+    description: 'Sentry, sondes externes, CrowdSec, Wazuh, Trivy, Argo CD, Hetzner, Jaeger… tout ce qui est relié.',
+    groupe: 'Réagir',
+    icone: Plug,
+    domaine: 'outils',
+    motsCles: 'sentry uptime kuma uptimerobot trivy grype crowdsec fail2ban wazuh falco lynis aide argocd hetzner jaeger traces',
   },
   {
     chemin: '/securite',

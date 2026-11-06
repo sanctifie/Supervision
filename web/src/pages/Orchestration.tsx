@@ -10,6 +10,7 @@ import { LIBELLE_EXECUTION, NOM_OUTIL, STATUT_EXECUTION, type Execution, type Vu
 
 const VARIABLES = {
   gitlab: 'GITLAB_URL, GITLAB_JETON, GITLAB_PROJET',
+  github: 'GITHUB_JETON, GITHUB_DEPOT',
   awx: 'AWX_URL, AWX_JETON',
   controlm: 'CONTROLM_URL, CONTROLM_JETON',
   sonar: 'SONAR_URL, SONAR_JETON, SONAR_PROJET',
@@ -71,7 +72,14 @@ export default function Orchestration() {
                   <Carte
                     key={o.cle}
                     titre={o.nom}
-                    sousTitre={{ gitlab: 'Pipelines CI/CD et demandes de fusion', awx: 'Jobs Ansible et modèles de job', controlm: 'Jobs planifiés (batch)' }[o.cle]}
+                    sousTitre={
+                      {
+                        gitlab: 'Pipelines CI/CD et demandes de fusion',
+                        github: 'Workflows GitHub Actions et pull requests',
+                        awx: 'Jobs Ansible et modèles de job',
+                        controlm: 'Jobs planifiés (batch)',
+                      }[o.cle]
+                    }
                     droite={
                       <Pastille statut={!o.configure && !o.demo ? 'inconnu' : o.joignable ? 'vert' : 'rouge'}>
                         {!o.configure && !o.demo ? 'Non configuré' : o.joignable ? 'Joignable' : 'Injoignable'}

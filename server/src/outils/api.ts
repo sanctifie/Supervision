@@ -27,6 +27,13 @@ export function creerApiOutils(outils: Outils, tickets: Tickets): Router {
     repondre((req, res) => outils.lancer(String(req.params.outil), String(req.body?.id ?? '').slice(0, 200), res.locals.nom)),
   );
   api.post(
+    '/signaux/:cle/actions/:action',
+    exiger('agir'),
+    repondre(async (req, res) => ({
+      message: await outils.agirSignal(String(req.params.cle), String(req.params.action), String(req.body?.cible ?? '').slice(0, 200), res.locals.nom),
+    })),
+  );
+  api.post(
     '/:outil/executions/:id/relancer',
     exiger('agir'),
     repondre((req, res) => outils.relancer(String(req.params.outil), String(req.params.id), res.locals.nom)),

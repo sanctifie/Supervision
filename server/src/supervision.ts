@@ -20,7 +20,7 @@ import { Notifications } from './notifications';
 import { PiecesJointes } from './pieces';
 import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
-import { Outils, resumeOrchestration } from './outils/outils';
+import { Outils, resumeOrchestration, statutSignaux } from './outils/outils';
 import { FINI } from './outils/outil';
 import { NOM_OUTIL, type VueOutils } from '../../shared/outils';
 import { canauxReels, type Canaux } from './canaux';
@@ -290,6 +290,13 @@ export class Supervision {
         lien: '/orchestration',
       },
       {
+        cle: 'outils',
+        libelle: 'Outils connectés',
+        statut: outils ? statutSignaux(outils.signaux).statut : 'inconnu',
+        resume: outils ? statutSignaux(outils.signaux).resume : 'Non mesuré',
+        lien: '/outils',
+      },
+      {
         cle: 'securite',
         libelle: 'Sécurité',
         statut: st(secu),
@@ -420,7 +427,12 @@ export class Supervision {
 
   async securite(): Promise<VueSecurite> {
     return this.memo('securite', 10_000, async () => {
-      const [services, metier, application] = await Promise.all([this.services().catch(() => null), this.metier().catch(() => null), this.application().catch(() => null)]);
+      const [services, metier, application, verifs] = await Promise.all([
+        this.services().catch(() => null),
+        this.metier().catch(() => null),
+        this.application().catch(() => null),
+        this.outils.verifications().catch(() => ({}) as Awaited<ReturnType<Outils['verifications']>>),
+      ]);
       const refus = metier?.mesures.find((m) => m.cle === 'refus') ?? null;
       const jours = services?.publiques.map((p) => p.joursCertificat).filter((j): j is number => j !== null) ?? [];
       const joursMin = jours.length ? Math.min(...jours) : null;
@@ -439,11 +451,11 @@ export class Supervision {
       };
 
       const controles: Controle[] = CONTROLES_SECURITE.map((c) => {
-        const a = auto[c.cle];
+        const a = auto[c.cle] ?? verifs[`securite:${c.cle}`];
         const conf = this.confirme(`securite:${c.cle}`);
-        if (a) return { ...c, statut: a.statut, detail: a.detail };
-        if (conf) return { ...c, statut: 'vert', detail: `Confirmé par ${conf.par}${conf.note ? ` — ${conf.note}` : ''}` };
-        return { ...c, statut: 'inconnu', detail: 'À mettre en place ou à confirmer' };
+        if (a) return { ...c, statut: a.statut, detail: a.detail, auto: true };
+        if (conf) return { ...c, statut: 'vert', detail: `Confirmé par ${conf.par}${conf.note ? ` — ${conf.note}` : ''}`, auto: false };
+        return { ...c, statut: 'inconnu', detail: 'À mettre en place ou à confirmer', auto: false };
       });
       const mesures = [
         ...(refus ? [refus] : []),
@@ -483,6 +495,7 @@ export class Supervision {
         : { statut: 'inconnu', detail: `${o.nom} : aucune exécution` };
     };
     const sonar = outils?.qualite.configure || outils?.qualite.demo ? outils.qualite : null;
+    const verifs = await this.outils.verifications().catch(() => ({}) as Awaited<ReturnType<Outils['verifications']>>);
     const jours = services?.publiques.map((p) => p.joursCertificat).filter((j): j is number => j !== null) ?? [];
     const disque = serveur?.partitions.find((p) => p.point === '/');
     const auto: Record<string, { statut: Statut; detail: string } | undefined> = {
@@ -506,6 +519,7 @@ export class Supervision {
         : undefined,
       configuration: parOutil('awx', 'Dernier job AWX'),
     };
+    for (const a of AUTOMATISATIONS) auto[a.cle] ??= verifs[`automatisation:${a.cle}`];
     const autoPipeline: Record<string, { statut: Statut; detail: string } | undefined> = {
       qualite: sonar
         ? sonar.joignable
@@ -541,6 +555,7 @@ export class Supervision {
       this.sauvegardes().catch(() => null),
       this.outils.vue().catch(() => null),
     ]);
+    const verifs = await this.outils.verifications().catch(() => ({}) as Awaited<ReturnType<Outils['verifications']>>);
     const gitlab = outils?.outils.find((o) => o.cle === 'gitlab');
     const pipelineMain = outils?.executions.find((e) => e.outil === 'gitlab' && FINI.includes(e.etat) && /^(main|master|prod)/.test(e.contexte));
     const a = (statut: Statut, detail: string) => ({ statut, detail });
@@ -576,7 +591,7 @@ export class Supervision {
     };
     const checklist: ElementChecklist[] = CHECKLIST.map((e) => {
       const c = this.stockage.confirmation(`checklist:${e.id}`);
-      const x = auto[e.id];
+      const x = auto[e.id] ?? verifs[`checklist:${e.id}`] ?? null;
       return {
         ...e,
         auto: x?.statut ?? null,

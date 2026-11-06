@@ -319,6 +319,8 @@ export interface Controle {
   statut: Statut;
   detail: string;
   outil: string;
+  /** Vérifié par une mesure ou un outil relié : pas de case à cocher. */
+  auto: boolean;
 }
 
 export interface VueSecurite {

@@ -6,10 +6,10 @@
  */
 import type { Mesure, Statut } from './types';
 
-export type CleOutil = 'gitlab' | 'awx' | 'controlm';
+export type CleOutil = 'gitlab' | 'github' | 'awx' | 'controlm';
 export type EtatExecution = 'succes' | 'echec' | 'en-cours' | 'attente' | 'annule' | 'inconnu';
 
-export const NOM_OUTIL: Record<CleOutil, string> = { gitlab: 'GitLab', awx: 'AWX', controlm: 'Control-M' };
+export const NOM_OUTIL: Record<CleOutil, string> = { gitlab: 'GitLab', github: 'GitHub', awx: 'AWX', controlm: 'Control-M' };
 
 export const LIBELLE_EXECUTION: Record<EtatExecution, string> = {
   succes: 'Réussi',
@@ -99,6 +99,61 @@ export interface QualiteCode {
   lien: string | null;
 }
 
+/**
+ * Les autres outils, lus en « signaux » : un état, un résumé, des mesures,
+ * des lignes (issues, moniteurs, bannissements, serveurs…) et les cases
+ * qu'ils vérifient seuls (sécurité, checklist, automatisations).
+ */
+export type CategorieSignal = 'erreurs' | 'sondes' | 'securite' | 'vulnerabilites' | 'gitops' | 'infrastructure' | 'traces';
+
+export const LIBELLE_CATEGORIE: Record<CategorieSignal, string> = {
+  erreurs: 'Erreurs applicatives',
+  sondes: 'Sondes externes',
+  securite: 'Sécurité et détection',
+  vulnerabilites: 'Vulnérabilités et durcissement',
+  gitops: 'GitOps',
+  infrastructure: 'Infrastructure et coûts',
+  traces: 'Traces',
+};
+
+export interface ActionSignal {
+  id: string;
+  libelle: string;
+}
+
+export interface LigneSignal {
+  libelle: string;
+  detail: string;
+  statut: Statut;
+  lien: string | null;
+  t: number | null;
+  /** Actions réelles sur cette ligne (résoudre, synchroniser…). */
+  actions?: ActionSignal[];
+}
+
+export interface LectureSignal {
+  statut: Statut;
+  resume: string;
+  mesures: Mesure[];
+  lignes: LigneSignal[];
+  lien: string | null;
+  /** Cases vérifiées par cet outil : « securite:cve », « checklist:sentry », « automatisation:inventaire ». */
+  verifie: { cle: string; statut: Statut; detail: string }[];
+}
+
+export interface Signal extends LectureSignal {
+  cle: string;
+  nom: string;
+  categorie: CategorieSignal;
+  /** Variables .env à renseigner. */
+  variables: string;
+  url: string | null;
+  configure: boolean;
+  demo: boolean;
+  joignable: boolean;
+  erreur: string | null;
+}
+
 export interface VueOutils {
   statut: Statut;
   outils: EtatOutil[];
@@ -108,4 +163,5 @@ export interface VueOutils {
   /** Ticket (changement, incident) qui porte chaque exécution, par « outil:id ». */
   tickets: Record<string, string>;
   qualite: QualiteCode;
+  signaux: Signal[];
 }

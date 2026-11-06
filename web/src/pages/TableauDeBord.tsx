@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Activity, ArrowRight, Archive, Bell, Boxes, CheckCircle2, Cpu, Database, Info, Radar, Rocket, ShieldCheck, ShoppingBag, Siren, Gauge } from 'lucide-react';
+import { Activity, ArrowRight, Archive, Bell, Boxes, CheckCircle2, Cpu, Database, Info, Plug, Radar, Rocket, ShieldCheck, ShoppingBag, Siren, Gauge } from 'lucide-react';
 import { useSupervision } from '../components/Coquille';
 import { Carte, Charge, IconeStatut, Jauge, Pastille, Point, Vide } from '../components/ui';
 import { Courbe, Etincelle } from '../components/graphiques';
@@ -17,6 +17,7 @@ const ICONES_DOMAINE: Record<string, typeof Cpu> = {
   metier: ShoppingBag,
   sauvegardes: Archive,
   orchestration: Rocket,
+  outils: Plug,
   securite: ShieldCheck,
 };
 const COULEUR: Record<Statut, string> = { vert: '#16a34a', orange: '#e5860a', rouge: '#dc2626', inconnu: '#94a3b8' };

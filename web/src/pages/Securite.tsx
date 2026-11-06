@@ -3,8 +3,6 @@ import { Carte, Charge, GrilleMesures, Pastille } from '../components/ui';
 import { CaseConfirmation } from '../components/Confirmation';
 import type { VueSecurite } from '../../../shared/types';
 
-const MESURES_AUTO = new Set(['pin', 'https', 'rate-limit']);
-
 export default function Securite() {
   const etat = useDonnees<VueSecurite>('/securite', 30_000);
   return (
@@ -20,7 +18,7 @@ export default function Securite() {
             <Carte
               serree
               titre={`Contrôles de sécurité — ${enPlace}/${v.controles.length} en place`}
-              sousTitre="Guide, chapitres 2.6 et 6. Cochez ce qui est en place ; les signaux mesurés se cochent seuls."
+              sousTitre="Guide, chapitres 2.6 et 6. Cochez ce qui est en place ; les signaux mesurés et les outils reliés (CrowdSec, Wazuh, Trivy, Lynis, AIDE, Falco) se cochent seuls."
             >
               {couches.map((couche) => (
                 <div key={couche}>
@@ -31,13 +29,7 @@ export default function Securite() {
                     .filter((c) => c.couche === couche)
                     .map((c) => (
                       <div className="case" key={c.cle}>
-                        <CaseConfirmation
-                          cle={`securite:${c.cle}`}
-                          faite={c.statut === 'vert'}
-                          auto={MESURES_AUTO.has(c.cle) && c.statut !== 'inconnu'}
-                          apres={etat.recharger}
-                          titre={c.libelle}
-                        />
+                        <CaseConfirmation cle={`securite:${c.cle}`} faite={c.statut === 'vert'} auto={c.auto} apres={etat.recharger} titre={c.libelle} />
                         <div className="case-texte">
                           <strong>{c.libelle}</strong>
                           <span>

@@ -1,18 +1,23 @@
 import { config } from '../config';
 import type { Stockage } from '../stockage';
 import { Gitlab } from './gitlab';
+import { Github } from './github';
 import { Awx } from './awx';
 import { Controlm } from './controlm';
 import { OutilDemo } from './demo';
 import { Sonar, configureSonar, qualiteDemo } from './sonar';
+import { SOURCES } from './signaux';
+import { LECTURE_VIDE } from './signaux/signal';
 import { FINI, type Outil } from './outil';
 import { ErreurMetier } from '../erreurs';
-import { NOM_OUTIL, cleJob, type CleOutil, type EtatOutil, type Execution, type QualiteCode, type VueOutils } from '../../../shared/outils';
+import { NOM_OUTIL, cleJob, type CleOutil, type EtatOutil, type Execution, type QualiteCode, type Signal, type VueOutils } from '../../../shared/outils';
+import { pire } from '../../../shared/seuils';
 import type { Statut } from '../../../shared/types';
 
-const CLES: CleOutil[] = ['gitlab', 'awx', 'controlm'];
+const CLES: CleOutil[] = ['gitlab', 'github', 'awx', 'controlm'];
 const CONFIGURE: Record<CleOutil, () => boolean> = {
   gitlab: () => !!(config.gitlabUrl && config.gitlabJeton && config.gitlabProjet),
+  github: () => !!(config.githubJeton && config.githubDepot),
   awx: () => !!(config.awxUrl && config.awxJeton),
   controlm: () => !!(config.controlmUrl && config.controlmJeton),
 };
@@ -33,13 +38,14 @@ export class Outils {
     private readonly modeDemo: () => boolean,
     reels?: Partial<Record<CleOutil, Outil>>,
   ) {
-    this.reels = { gitlab: new Gitlab(), awx: new Awx(), controlm: new Controlm(), ...reels };
-    this.demos = { gitlab: new OutilDemo('gitlab'), awx: new OutilDemo('awx'), controlm: new OutilDemo('controlm') };
+    this.reels = { gitlab: new Gitlab(), github: new Github(), awx: new Awx(), controlm: new Controlm(), ...reels };
+    this.demos = { gitlab: new OutilDemo('gitlab'), github: new OutilDemo('github'), awx: new OutilDemo('awx'), controlm: new OutilDemo('controlm') };
   }
 
   private actif(cle: CleOutil): { outil: Outil; demo: boolean } | null {
     if (CONFIGURE[cle]()) return { outil: this.reels[cle], demo: false };
-    if (this.modeDemo()) return { outil: this.demos[cle], demo: true };
+    // En démo, GitLab tient le rôle de la CI ; GitHub reste « non configuré » pour ne pas doubler les pipelines.
+    if (this.modeDemo() && cle !== 'github') return { outil: this.demos[cle], demo: true };
     return null;
   }
 
@@ -56,7 +62,8 @@ export class Outils {
   }
 
   private async assembler(): Promise<VueOutils> {
-    const vue: VueOutils = { statut: 'inconnu', outils: [], executions: [], lancables: [], demandesFusion: [], tickets: {}, qualite: await this.qualite() };
+    const [qualite, signaux] = await Promise.all([this.qualite(), this.signaux()]);
+    const vue: VueOutils = { statut: 'inconnu', outils: [], executions: [], lancables: [], demandesFusion: [], tickets: {}, qualite, signaux };
     await Promise.all(
       CLES.map(async (cle) => {
         const a = this.actif(cle);
@@ -103,6 +110,47 @@ export class Outils {
     } catch (e) {
       return { ...q, erreur: (e as Error).message || 'injoignable' };
     }
+  }
+
+  /** Les autres outils (Sentry, sondes, sécurité, GitOps…), chacun en un signal. */
+  private signaux(): Promise<Signal[]> {
+    return Promise.all(
+      SOURCES.map(async (src): Promise<Signal> => {
+        const base = {
+          cle: src.cle,
+          nom: src.nom,
+          categorie: src.categorie,
+          variables: src.variables,
+          url: src.url(),
+          configure: src.configure(),
+          demo: false,
+          joignable: false,
+          erreur: null,
+        };
+        if (!base.configure) return this.modeDemo() ? { ...base, ...src.demo(), demo: true, joignable: true } : { ...base, ...LECTURE_VIDE };
+        try {
+          return { ...base, ...(await src.lire()), joignable: true };
+        } catch (e) {
+          return { ...base, ...LECTURE_VIDE, erreur: (e as Error).message || 'injoignable' };
+        }
+      }),
+    );
+  }
+
+  /** Les cases que les outils vérifient seuls (« securite:cve », « checklist:sentry »…). */
+  async verifications(): Promise<Record<string, { statut: Statut; detail: string }>> {
+    const r: Record<string, { statut: Statut; detail: string }> = {};
+    for (const s of (await this.vue()).signaux) for (const v of s.verifie) r[v.cle] = { statut: v.statut, detail: `${s.nom} : ${v.detail}` };
+    return r;
+  }
+
+  async agirSignal(cle: string, action: string, cible: string, auteur: string): Promise<string> {
+    const src = SOURCES.find((s) => s.cle === cle);
+    if (!src || !src.configure() || !src.agir) throw new ErreurMetier(`${src?.nom ?? cle} : action impossible (outil non configuré)`);
+    const message = await src.agir(action, cible, auteur);
+    this.invalider();
+    this.stockage.ajouterEvenement({ t: Date.now(), type: 'info', titre: message, detail: src.nom, statut: 'vert' });
+    return message;
   }
 
   private exiger(cle: string): Outil {
@@ -183,4 +231,15 @@ export function resumeOrchestration(vue: VueOutils): string {
   const recentes = vue.executions.filter((e) => (e.debut ?? 0) > jour);
   const echecs = recentes.filter((e) => e.etat === 'echec').length;
   return echecs ? `${echecs} échec${echecs > 1 ? 's' : ''} sur 24 h` : `${recentes.length} exécution${recentes.length > 1 ? 's' : ''} sur 24 h, aucun échec`;
+}
+
+/** Le voyant « Outils connectés » : le pire des signaux actifs, inconnu si aucun. */
+export function statutSignaux(signaux: Signal[]): { statut: Statut; resume: string } {
+  const actifs = signaux.filter((s) => s.configure || s.demo);
+  if (!actifs.length) return { statut: 'inconnu', resume: 'Aucun outil configuré' };
+  const muets = actifs.filter((s) => !s.joignable);
+  const statut = pire('vert', ...actifs.map((s) => (s.joignable ? s.statut : 'orange')));
+  if (muets.length) return { statut, resume: `${muets.map((s) => s.nom).join(', ')} injoignable` };
+  const alarmes = actifs.filter((s) => s.statut === 'orange' || s.statut === 'rouge');
+  return { statut, resume: alarmes.length ? `À voir : ${alarmes.map((s) => s.nom).join(', ')}` : `${actifs.length} outil(s) relié(s), rien à signaler` };
 }
