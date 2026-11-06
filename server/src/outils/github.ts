@@ -1,7 +1,7 @@
 import { config } from '../config';
 import { lireJson } from '../fournisseurs/clients';
-import type { DemandeFusion, EtatExecution, Execution, Lancable } from '../../../shared/outils';
-import { instant, type Outil } from './outil';
+import type { DemandeFusion, EtapePipeline, EtatExecution, Execution, Lancable } from '../../../shared/outils';
+import { FINI, PRINCIPALE, instant, type Outil } from './outil';
 
 /** GitHub Actions : exécutions de workflows, lancement (workflow_dispatch), relance, pull requests (API REST, jeton). */
 
@@ -113,5 +113,14 @@ export class Github implements Outil {
       lien: p.html_url,
       pipeline: null,
     }));
+  }
+
+  async etapes(): Promise<EtapePipeline[]> {
+    const dernier = (await this.executions()).find((e) => PRINCIPALE.test(e.contexte) && FINI.includes(e.etat));
+    if (!dernier) return [];
+    const r = await this.appel<{ jobs: { name: string; status: string; conclusion: string | null; html_url: string }[] }>(
+      `/actions/runs/${encodeURIComponent(dernier.id)}/jobs?per_page=100`,
+    );
+    return r.jobs.map((j) => ({ nom: j.name, etape: j.name, etat: etatGithub(j.status, j.conclusion), lien: j.html_url }));
   }
 }

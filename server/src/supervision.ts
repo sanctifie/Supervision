@@ -22,6 +22,7 @@ import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
 import { Outils, resumeOrchestration, statutSignaux } from './outils/outils';
 import { FINI } from './outils/outil';
+import { etatEtapePipeline } from './outils/etapes';
 import { NOM_OUTIL, type VueOutils } from '../../shared/outils';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
@@ -529,6 +530,8 @@ export class Supervision {
       tests: parOutil('gitlab', 'Dernier pipeline'),
       build: parOutil('gitlab', 'Dernier pipeline'),
     };
+    // Les vrais jobs du dernier pipeline l'emportent ; puis les outils reliés (Argo CD → production) ; puis les confirmations.
+    for (const p of PIPELINE) autoPipeline[p.cle] = etatEtapePipeline(p.cle, outils?.etapes ?? []) ?? autoPipeline[p.cle] ?? verifs[`pipeline:${p.cle}`];
     const statutManuel = (cle: string): { statut: Statut; detail: string } => {
       const c = this.confirme(cle);
       return c ? { statut: 'vert', detail: `Confirmé par ${c.par}${c.note ? ` — ${c.note}` : ''}` } : { statut: 'inconnu', detail: 'À mettre en place ou à confirmer' };

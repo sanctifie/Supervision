@@ -1,4 +1,4 @@
-import type { CleOutil, DemandeFusion, EtatExecution, Execution, Lancable } from '../../../shared/outils';
+import type { CleOutil, DemandeFusion, EtapePipeline, EtatExecution, Execution, Lancable } from '../../../shared/outils';
 
 /**
  * Ce qu'un outil d'orchestration sait faire. Trois implémentations réelles
@@ -14,6 +14,8 @@ export interface Outil {
   lancer(id: string): Promise<Execution>;
   relancer(id: string): Promise<Execution>;
   demandesFusion?(): Promise<DemandeFusion[]>;
+  /** Les jobs du dernier pipeline terminé de la branche principale. */
+  etapes?(): Promise<EtapePipeline[]>;
 }
 
 /** Horodatage ISO (ou vide) → millisecondes, ou null. */
@@ -24,3 +26,6 @@ export function instant(s: string | null | undefined): number | null {
 }
 
 export const FINI: EtatExecution[] = ['succes', 'echec', 'annule'];
+
+/** La branche principale : main, master, prod… */
+export const PRINCIPALE = /^(main|master|prod)/;

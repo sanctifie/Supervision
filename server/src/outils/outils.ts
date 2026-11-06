@@ -63,7 +63,7 @@ export class Outils {
 
   private async assembler(): Promise<VueOutils> {
     const [qualite, signaux] = await Promise.all([this.qualite(), this.signaux()]);
-    const vue: VueOutils = { statut: 'inconnu', outils: [], executions: [], lancables: [], demandesFusion: [], tickets: {}, qualite, signaux };
+    const vue: VueOutils = { statut: 'inconnu', outils: [], executions: [], lancables: [], demandesFusion: [], tickets: {}, qualite, signaux, etapes: [] };
     await Promise.all(
       CLES.map(async (cle) => {
         const a = this.actif(cle);
@@ -81,6 +81,13 @@ export class Outils {
         }
       }),
     );
+    // Les jobs du dernier pipeline : premier outil CI actif (GitLab, puis GitHub).
+    for (const cle of ['gitlab', 'github'] as const) {
+      const a = this.actif(cle);
+      if (!a?.outil.etapes) continue;
+      vue.etapes = await a.outil.etapes().catch(() => []);
+      if (vue.etapes.length) break;
+    }
     vue.outils.sort((x, y) => CLES.indexOf(x.cle) - CLES.indexOf(y.cle));
     vue.executions.sort((x, y) => (y.debut ?? 0) - (x.debut ?? 0));
     vue.statut = statutOrchestration(vue);

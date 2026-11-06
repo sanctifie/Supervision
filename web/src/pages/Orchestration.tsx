@@ -253,6 +253,32 @@ export default function Orchestration() {
               )}
             </Carte>
 
+            {v.etapes.length > 0 && (
+              <Carte
+                serree
+                titre="Étapes du dernier pipeline (branche principale)"
+                sousTitre="Les jobs tels que la CI les a exécutés ; ils cochent les étapes du guide (page Automatisations)"
+              >
+                <div className="grille g3" style={{ padding: 14 }}>
+                  {v.etapes.map((e, i) => (
+                    <div key={i} className={`mesure ${STATUT_EXECUTION[e.etat]}`}>
+                      <div className="mesure-tete">
+                        <span>
+                          <strong style={{ color: 'var(--encre)' }}>{e.etape}</strong> · {e.nom}
+                        </span>
+                        <Pastille statut={STATUT_EXECUTION[e.etat]}>{LIBELLE_EXECUTION[e.etat]}</Pastille>
+                      </div>
+                      {e.lien && (
+                        <a className="lien-fleche" href={e.lien} target="_blank" rel="noreferrer">
+                          Ouvrir <ExternalLink size={12} />
+                        </a>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </Carte>
+            )}
+
             {v.demandesFusion.length > 0 && (
               <Carte serree titre="Demandes de fusion ouvertes" sousTitre="GitLab : ce qui attend une revue, avec l’état du pipeline de la branche">
                 <div className="tableau-conteneur">

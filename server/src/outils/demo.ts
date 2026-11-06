@@ -1,4 +1,4 @@
-import type { CleOutil, DemandeFusion, Execution, Lancable } from '../../../shared/outils';
+import type { CleOutil, DemandeFusion, EtapePipeline, Execution, Lancable } from '../../../shared/outils';
 import type { Outil } from './outil';
 
 /**
@@ -134,6 +134,20 @@ export class OutilDemo implements Outil {
     const avant = (await this.executions()).find((e) => e.id === id);
     if (!avant) throw new Error(`Exécution ${id} introuvable`);
     return this.pousser({ ...avant, id: `demo-${Date.now()}`, etat: 'en-cours', statutBrut: 'running', debut: Date.now(), fin: null, par: 'vous' });
+  }
+
+  async etapes(): Promise<EtapePipeline[]> {
+    if (this.cle !== 'gitlab') return [];
+    const jobs: [string, string][] = [
+      ['lint', 'qualite'],
+      ['test', 'tests'],
+      ['semgrep', 'securite'],
+      ['npm audit', 'dependances'],
+      ['build-image', 'build'],
+      ['trivy-image', 'scan'],
+      ['deploy-staging', 'staging'],
+    ];
+    return jobs.map(([nom, etape]) => ({ nom, etape, etat: 'succes', lien: null }));
   }
 
   async demandesFusion(): Promise<DemandeFusion[]> {

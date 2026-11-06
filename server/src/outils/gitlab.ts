@@ -1,7 +1,7 @@
 import { config } from '../config';
 import { lireJson } from '../fournisseurs/clients';
-import type { DemandeFusion, EtatExecution, Execution, Lancable } from '../../../shared/outils';
-import { instant, type Outil } from './outil';
+import type { DemandeFusion, EtapePipeline, EtatExecution, Execution, Lancable } from '../../../shared/outils';
+import { FINI, PRINCIPALE, instant, type Outil } from './outil';
 
 /** GitLab : pipelines CI/CD d'un projet, branches, demandes de fusion (API v4). */
 
@@ -102,5 +102,12 @@ export class Gitlab implements Outil {
       lien: m.web_url,
       pipeline: m.head_pipeline ? etatGitlab(m.head_pipeline.status) : null,
     }));
+  }
+
+  async etapes(): Promise<EtapePipeline[]> {
+    const dernier = (await this.executions()).find((e) => PRINCIPALE.test(e.contexte) && FINI.includes(e.etat));
+    if (!dernier) return [];
+    const jobs = await this.appel<{ name: string; stage: string; status: string; web_url: string }[]>(`/pipelines/${encodeURIComponent(dernier.id)}/jobs?per_page=100`);
+    return jobs.map((j) => ({ nom: j.name, etape: j.stage, etat: etatGitlab(j.status), lien: j.web_url }));
   }
 }

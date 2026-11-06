@@ -53,6 +53,14 @@ export function cleJob(e: Pick<Execution, 'outil' | 'contexte' | 'nom'>): string
 /** Une exécution rattachée à un changement (lancée depuis sa fiche). */
 export type ExecutionLiee = Pick<Execution, 'outil' | 'id' | 'nom' | 'contexte' | 'etat' | 'lien'> & { lanceLe: number; par: string };
 
+/** Un job du dernier pipeline terminé de la branche principale. */
+export interface EtapePipeline {
+  nom: string;
+  etape: string;
+  etat: EtatExecution;
+  lien: string | null;
+}
+
 export interface EtatOutil {
   cle: CleOutil;
   nom: string;
@@ -164,4 +172,5 @@ export interface VueOutils {
   tickets: Record<string, string>;
   qualite: QualiteCode;
   signaux: Signal[];
+  etapes: EtapePipeline[];
 }
