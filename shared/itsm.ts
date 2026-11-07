@@ -105,6 +105,8 @@ export interface Ticket {
   /** Mettre en silence les alertes du CI pendant la fenêtre. */
   silencerAlertes?: boolean;
   silenceId?: string | null;
+  /** Ticket Jira créé depuis cette fiche, et son dernier statut connu. */
+  jira?: { cle: string; lien: string; statut: string | null };
   /** Déploiements lancés depuis la fiche (pipeline GitLab, job AWX). */
   executions?: ExecutionLiee[];
 }

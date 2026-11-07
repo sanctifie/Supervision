@@ -11,6 +11,7 @@ import { aide } from './aide';
 import { argocd } from './argocd';
 import { hetzner } from './hetzner';
 import { jaeger } from './jaeger';
+import { jira } from './jira';
 
 /** Toutes les sources, dans l'ordre d'affichage. Ajouter un outil = un fichier ici. */
-export const SOURCES: SourceSignal[] = [sentry, uptimerobot, uptimekuma, trivy, crowdsec, wazuh, falco, lynis, aide, argocd, hetzner, jaeger];
+export const SOURCES: SourceSignal[] = [sentry, jira, uptimerobot, uptimekuma, trivy, crowdsec, wazuh, falco, lynis, aide, argocd, hetzner, jaeger];

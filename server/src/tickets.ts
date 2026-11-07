@@ -646,6 +646,30 @@ export class Tickets {
     return t;
   }
 
+  /** Rattache le ticket Jira créé pour ce ticket. */
+  lierJira(cle: string, jira: string, lien: string, auteur: string): Ticket {
+    const t = this.exiger(cle);
+    this.stockage.modifier(() => {
+      t.jira = { cle: jira, lien, statut: null };
+      this.tracer(t, auteur, `Ticket Jira ${jira} créé.`);
+    });
+    return t;
+  }
+
+  /** Reporte sur les tickets ouverts le statut de leur ticket Jira ; prévient l'assigné quand il est terminé. */
+  synchroniserJira(statuts: Record<string, { nom: string; fini: boolean }>): void {
+    for (const t of this.liste) {
+      const s = t.jira && estOuvert(t) ? statuts[t.jira.cle] : undefined;
+      if (!t.jira || !s || s.nom === t.jira.statut) continue;
+      const texteTrace = `Jira ${t.jira.cle} : ${s.nom}${s.fini ? ' — terminé côté Jira, vérifier puis résoudre.' : '.'}`;
+      this.stockage.modifier(() => {
+        (t.jira as NonNullable<Ticket['jira']>).statut = s.nom;
+        this.tracer(t, 'supervision', texteTrace);
+      });
+      if (s.fini) this.signaler({ type: 'activite', ticket: t, nature: 'note', texte: texteTrace, auteur: 'supervision' });
+    }
+  }
+
   /** Numéro du ticket qui porte chaque exécution (« outil:id ») : changement qui l'a lancée, incident qu'elle a ouvert. */
   parExecution(): Record<string, string> {
     const r: Record<string, string> = {};

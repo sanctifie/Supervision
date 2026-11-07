@@ -112,7 +112,7 @@ export interface QualiteCode {
  * des lignes (issues, moniteurs, bannissements, serveurs…) et les cases
  * qu'ils vérifient seuls (sécurité, checklist, automatisations).
  */
-export type CategorieSignal = 'erreurs' | 'sondes' | 'securite' | 'vulnerabilites' | 'gitops' | 'infrastructure' | 'traces';
+export type CategorieSignal = 'erreurs' | 'suivi' | 'sondes' | 'securite' | 'vulnerabilites' | 'gitops' | 'infrastructure' | 'traces';
 
 export const LIBELLE_CATEGORIE: Record<CategorieSignal, string> = {
   erreurs: 'Erreurs applicatives',
@@ -122,6 +122,7 @@ export const LIBELLE_CATEGORIE: Record<CategorieSignal, string> = {
   gitops: 'GitOps',
   infrastructure: 'Infrastructure et coûts',
   traces: 'Traces',
+  suivi: 'Suivi de projet',
 };
 
 export interface ActionSignal {

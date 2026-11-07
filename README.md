@@ -29,7 +29,7 @@ est cliquable et mène au détail.
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
 | **Orchestration** | **GitLab** ou **GitHub Actions** (pipelines, demandes de fusion, étapes du dernier pipeline), **AWX** (jobs Ansible, modèles de job) et **Control-M** (jobs planifiés) dans une seule chronologie ; **SonarQube** (porte qualité, bugs, vulnérabilités, couverture, duplication) ; lancer un pipeline ou un modèle AWX, relancer une exécution ; un voyant « Orchestration » sur le tableau de bord | 4, 5 |
-| **Outils connectés** | **Sentry** (issues, résolution), **UptimeRobot / Uptime Kuma** (sondes externes), **Trivy / Grype** (CVE des images), **CrowdSec**, **Wazuh**, **Falco**, **Lynis**, **AIDE** (sécurité et durcissement), **Argo CD** (GitOps, synchronisation), **Hetzner Cloud** (inventaire, coûts), **Jaeger** (traces). Chacun se relie par ses variables `.env` et coche seul les contrôles de sécurité, la checklist et les automatisations qu'il couvre | 1, 2, 5, 6 |
+| **Outils connectés** | **Sentry** (issues, résolution), **Jira** (tickets ouverts du projet ; « Créer dans Jira » depuis un ticket, statut Jira reporté sur le ticket), **UptimeRobot / Uptime Kuma** (sondes externes), **Trivy / Grype** (CVE des images), **CrowdSec**, **Wazuh**, **Falco**, **Lynis**, **AIDE** (sécurité et durcissement), **Argo CD** (GitOps, synchronisation), **Hetzner Cloud** (inventaire, coûts), **Jaeger** (traces). Chacun se relie par ses variables `.env` et coche seul les contrôles de sécurité, la checklist et les automatisations qu'il couvre | 1, 2, 5, 6 |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
 | **Feuille de route** | Les 5 phases et la checklist de mise en production, cochée automatiquement quand la supervision peut le vérifier | 10 |
@@ -274,6 +274,7 @@ supervision.mon-officine.ga {
 | `AWX_URL`, `AWX_JETON` | *(vides)* | Jobs et modèles de job AWX ; jeton personnel (portée « write » pour lancer) |
 | `CONTROLM_URL`, `CONTROLM_JETON` | *(vides)* | Statut des jobs Control-M (Automation API) et relance ; jeton d'API |
 | `SONAR_URL`, `SONAR_JETON`, `SONAR_PROJET` | *(vides)* | Porte qualité et mesures SonarQube / SonarCloud du projet ; jeton utilisateur |
+| `JIRA_URL`, `JIRA_EMAIL`, `JIRA_JETON`, `JIRA_PROJET`, `JIRA_TYPE`, `JIRA_JQL` | *(vides)*, `Task` | Jira Cloud (avec e-mail) ou Server / Data Center (sans) : tickets ouverts, création depuis un ticket, statut reporté |
 | `NOM_PRODUIT` | `Officina` | |
 | `FUSEAU`, `HEURE_OUVERTURE`, `HEURE_FERMETURE` | `Africa/Libreville`, `8`, `20` | Pour l'alerte « zéro vente » |
 | `COOKIE_SECURISE` | `false` | `true` derrière HTTPS |
@@ -320,6 +321,7 @@ agent.
 | Job échoué (GitLab, AWX, Control-M) | Incident | Un incident **P3 automatique** par job (catégorie Automatisation), lié au changement qui l'a lancé ; résolu de lui-même quand le job réussit, s'il n'a pas été pris en charge |
 | Déploiement réussi (AWX, pipeline de `main`) | Tableau de bord | Repère ▲ sur la courbe de trafic, pour voir l'effet d'une mise en production |
 | GitLab, AWX, SonarQube | Feuille de route, Automatisations | « Pipeline CI » coché par le dernier pipeline de `main` ; « Configuration (Ansible) » par le dernier job AWX ; étapes Qualité / Tests / Build du pipeline par SonarQube et GitLab |
+| Ticket (incident, problème…) | Jira | Bouton **Créer dans Jira** : ticket créé dans le projet, étiqueté `supervision` et avec le numéro ; son statut Jira revient dans l'activité, l'assigné est prévenu quand il est terminé |
 | Changement « En cours » | Alertmanager | Silence des alertes du CI pendant la fenêtre (déjà en place) |
 | Orchestration | Fil d'activité | Chaque échec une fois, chaque lancement signé |
 

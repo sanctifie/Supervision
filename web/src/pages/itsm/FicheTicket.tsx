@@ -1,6 +1,23 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
-import { AlertTriangle, ArrowLeft, Check, Link2, Lock, MessageSquare, Play, Plus, Rocket, ShieldCheck, ThumbsDown, ThumbsUp, UserCheck, X, BookOpen } from 'lucide-react';
+import {
+  AlertTriangle,
+  ArrowLeft,
+  Check,
+  Link2,
+  Lock,
+  MessageSquare,
+  Play,
+  Plus,
+  Rocket,
+  ShieldCheck,
+  ThumbsDown,
+  ThumbsUp,
+  UserCheck,
+  X,
+  BookOpen,
+  ExternalLink,
+} from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
@@ -43,6 +60,8 @@ interface Detail {
   transitions: { statut: string; libelle: string; bloque: string | null }[];
   liens: TicketResume[];
   avertissements: string[];
+  /** Jira configuré : on peut créer le ticket Jira correspondant. */
+  jira: boolean;
   articles: ArticleResume[];
   suggestions: ArticleResume[];
 }
@@ -747,7 +766,19 @@ function Liens({
           ? [{ type: 'probleme', libelle: 'Créer un problème' }]
           : [{ type: 'incident', libelle: 'Créer un incident' }];
   return (
-    <Carte titre={`Tickets liés (${d.liens.length})`}>
+    <Carte titre={`Tickets liés (${d.liens.length + (t.jira ? 1 : 0)})`}>
+      {t.jira && (
+        <div className="ligne-flex lien-ligne">
+          <span className="pastille bleu">Jira</span>
+          <a href={t.jira.lien} target="_blank" rel="noreferrer" className="mono">
+            {t.jira.cle} <ExternalLink size={11} style={{ verticalAlign: -1 }} />
+          </a>
+          <span className="espace" />
+          <span className="discret" style={{ fontSize: '0.78rem' }}>
+            {t.jira.statut ?? 'créé'}
+          </span>
+        </div>
+      )}
       {d.liens.map((l) => (
         <div key={l.numero} className="ligne-flex lien-ligne">
           <LienTicket t={l} />
@@ -781,6 +812,11 @@ function Liens({
                 <Plus size={13} /> {c.libelle}
               </button>
             ))}
+            {d.jira && !t.jira && (
+              <button className="bouton petit" onClick={() => action('/jira', {})} title="Crée le ticket dans le projet Jira, étiqueté « supervision » et avec ce numéro">
+                <Plus size={13} /> Créer dans Jira
+              </button>
+            )}
           </div>
         </>
       )}

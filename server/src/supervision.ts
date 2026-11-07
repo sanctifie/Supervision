@@ -22,6 +22,7 @@ import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
 import { Outils, resumeOrchestration, statutSignaux } from './outils/outils';
 import { FINI } from './outils/outil';
+import { configureJira, statutsJira } from './outils/signaux/jira';
 import { etatEtapePipeline } from './outils/etapes';
 import { NOM_OUTIL, type VueOutils } from '../../shared/outils';
 import { canauxReels, type Canaux } from './canaux';
@@ -124,6 +125,12 @@ export class Supervision {
           .surveiller()
           .then(async () => this.tickets.synchroniserExecutions((await this.outils.vue()).executions))
           .catch((e) => console.error('[supervision] outils :', (e as Error).message));
+        if (configureJira()) {
+          const cles = this.tickets.lister({ etat: 'ouverts' }).flatMap((r) => this.tickets.trouver(r.numero)?.jira?.cle ?? []);
+          await statutsJira(cles)
+            .then((s) => this.tickets.synchroniserJira(s))
+            .catch((e) => console.error('[supervision] jira :', (e as Error).message));
+        }
       } catch (e) {
         console.error('[supervision] boucle :', (e as Error).message);
       }

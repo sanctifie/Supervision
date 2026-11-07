@@ -86,6 +86,16 @@ export const config = {
   hetznerJeton: texte('HETZNER_JETON'),
   jaegerUrl: texte('JAEGER_URL').replace(/\/$/, ''),
   jaegerService: texte('JAEGER_SERVICE', 'gateway'),
+  jiraUrl: texte('JIRA_URL').replace(/\/$/, ''),
+  /** Renseigné : Jira Cloud (API v3, Basic e-mail + jeton). Vide : Server / Data Center (Bearer). */
+  jiraEmail: texte('JIRA_EMAIL'),
+  jiraJeton: texte('JIRA_JETON'),
+  /** Clé du projet (ex. OFF). */
+  jiraProjet: texte('JIRA_PROJET'),
+  /** Type des tickets créés depuis la supervision, tel que nommé dans le projet (Task, Tâche, Bug…). */
+  jiraType: texte('JIRA_TYPE', 'Task'),
+  /** Requête des tickets affichés (défaut : ouverts du projet). */
+  jiraJql: texte('JIRA_JQL'),
   /** Fuseau et heures d'ouverture de l'officine (alerte « zéro vente »). */
   fuseau: texte('FUSEAU', 'Africa/Libreville'),
   ouverture: Number(texte('HEURE_OUVERTURE', '8')),

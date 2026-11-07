@@ -8,6 +8,8 @@ import { ErreurMetier } from './erreurs';
 import { estOuvert, type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
 import { creerApiOutils } from './outils/api';
+import { config } from './config';
+import { configureJira, creerIssueJira, lienJira } from './outils/signaux/jira';
 
 const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
 /** Ce qu'un demandeur peut renseigner en ouvrant un ticket. */
@@ -209,6 +211,7 @@ export function creerApi(sup: Supervision): Router {
         .filter((x): x is NonNullable<typeof x> => !!x)
         .map((x) => sup.tickets.resume(x)),
       avertissements: interne ? await sup.avertissementsChangement(t.numero) : [],
+      jira: interne && configureJira(),
       articles: sup.connaissances.pourTicket(t.numero, interne),
       suggestions: estOuvert(t)
         ? sup.connaissances.suggerer(`${t.titre} ${t.ci ?? ''}`, interne, 3).filter((a) => !sup.connaissances.pourTicket(t.numero, interne).some((x) => x.id === a.id))
@@ -314,6 +317,23 @@ export function creerApi(sup: Supervision): Router {
       return detail(String(req.params.numero), res);
     }),
   );
+  // Créer le ticket Jira correspondant (une fois par ticket).
+  api.post(
+    '/tickets/:numero/jira',
+    exiger('agir'),
+    agir(async (req, res) => {
+      const numero = String(req.params.numero);
+      const t = sup.tickets.trouver(numero);
+      if (!t) throw new ErreurMetier(`Ticket ${numero} introuvable`);
+      if (!configureJira()) throw new ErreurMetier('Jira n’est pas configuré (JIRA_URL, JIRA_JETON, JIRA_PROJET)');
+      if (t.jira) throw new ErreurMetier(`Déjà lié à ${t.jira.cle}`);
+      const lien = config.urlPublique ? `\n\n${config.urlPublique}/tickets/${t.numero}` : '';
+      const cle = await creerIssueJira(`[${t.numero}] ${t.titre}`, `${t.description}${t.ci ? `\n\nÉlément : ${t.ci}` : ''}${lien}`, ['supervision', t.numero]);
+      sup.tickets.lierJira(numero, cle, lienJira(cle), res.locals.nom);
+      return detail(numero, res);
+    }, 201),
+  );
+
   // Lancer un déploiement (pipeline GitLab, modèle AWX) depuis un changement en cours.
   api.post(
     '/tickets/:numero/executions',
