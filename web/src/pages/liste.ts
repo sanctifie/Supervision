@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   Headset,
   Plug,
+  FolderKanban,
   CalendarClock,
   SquareKanban,
   Users,
@@ -70,6 +71,15 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Service desk',
     icone: SquareKanban,
     motsCles: 'kanban board tableau colonnes jira sprint glisser',
+  },
+  {
+    chemin: '/projets',
+    titre: 'Projets',
+    description: 'Backlog, sprints et tableau de chaque projet.',
+    groupe: 'Service desk',
+    icone: FolderKanban,
+    permission: 'agir',
+    motsCles: 'projet backlog sprint scrum tâche story points vélocité jira agile',
   },
   {
     chemin: '/incidents',

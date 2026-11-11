@@ -29,6 +29,7 @@ est cliquable et mène au détail.
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
 | **Tableau** | Kanban des tickets : une colonne par étape, on glisse une fiche pour la faire avancer (les règles de passage restent appliquées par le serveur) | — |
+| **Projets** | Par projet : backlog, sprints (planifier, démarrer, terminer), tableau du sprint actif, points d'effort et vélocité. Les tâches (`TSK…`) sont des tickets : commentaires, pièces jointes, assignation | — |
 | **Ordonnanceur** | Des jobs (une commande) sur vos serveurs : à la demande, à heure fixe (cron) ou à la suite d'un autre job ; sortie et code de retour de chaque exécution | 4 |
 | **Intégrations** | Jira, GitLab, SonarQube, AWX, Zabbix, Grafana et Control-M lus au même endroit : ce qui est en échec, avec un lien vers l'outil | — |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
@@ -54,6 +55,12 @@ jeton **en lecture seule**. Les agents voient ensuite les éléments, 10 par pag
 - Le jeton reste sur le serveur (`donnees/etat.json`, en clair : protégez ce dossier) ; l'API ne le renvoie jamais.
 - Changer l'adresse d'un connecteur oblige à ressaisir le jeton ; les redirections sont refusées.
 - Chaque outil est relu au plus une fois par minute ; une panne de l'outil s'affiche comme une erreur du connecteur.
+
+## Projets et sprints
+
+- Un **administrateur** crée un projet (clé de 2 à 6 lettres) ; les **agents** ajoutent des tâches au backlog, les estiment en points et les planifient dans un sprint.
+- Un seul sprint actif par projet ; un sprint vide ne démarre pas. À la clôture, les tâches non terminées retournent au backlog et les points terminés donnent la vélocité.
+- Une tâche suit « À faire → En cours → En revue → Terminé » ; elle n'a pas de SLA.
 
 ## Ordonnanceur et agents
 

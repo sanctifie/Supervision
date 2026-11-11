@@ -6,7 +6,7 @@
 
 import { ajouter, calendrierPour, entre, type CalendrierService } from './calendrier';
 
-export type TypeTicket = 'incident' | 'probleme' | 'changement' | 'demande';
+export type TypeTicket = 'incident' | 'probleme' | 'changement' | 'demande' | 'tache';
 export type PrioriteTicket = 'P1' | 'P2' | 'P3' | 'P4';
 /** 1 = élevé, 2 = moyen, 3 = faible. */
 export type Niveau = 1 | 2 | 3;
@@ -102,6 +102,14 @@ export interface Ticket {
   /** Mettre en silence les alertes du CI pendant la fenêtre. */
   silencerAlertes?: boolean;
   silenceId?: string | null;
+
+  // Tâche de projet
+  /** Clé du projet. */
+  projet?: string;
+  /** Sprint où la tâche est planifiée ; null : dans le backlog. */
+  sprint?: string | null;
+  /** Estimation (points d'effort). */
+  points?: number | null;
 }
 
 /** Version allégée pour les listes. */
@@ -124,6 +132,9 @@ export type TicketResume = Pick<
   | 'debutPrevu'
   | 'finPrevue'
   | 'risque'
+  | 'projet'
+  | 'sprint'
+  | 'points'
 > & { sla: EtatSla; echeance: number | null; liens: number };
 
 export interface EtapeStatut {
@@ -171,6 +182,13 @@ export const STATUTS: Record<TypeTicket, EtapeStatut[]> = {
     { cle: 'clos', libelle: 'Close', final: true },
     { cle: 'annule', libelle: 'Annulée', final: true, horsParcours: true },
   ],
+  tache: [
+    { cle: 'a-faire', libelle: 'À faire' },
+    { cle: 'en-cours', libelle: 'En cours' },
+    { cle: 'en-revue', libelle: 'En revue' },
+    { cle: 'termine', libelle: 'Terminé', final: true },
+    { cle: 'annule', libelle: 'Annulée', final: true, horsParcours: true },
+  ],
 };
 
 /** Transitions permises : statut actuel → statuts suivants. */
@@ -210,15 +228,23 @@ export const TRANSITIONS: Record<TypeTicket, Record<string, string[]>> = {
     clos: [],
     annule: [],
   },
+  tache: {
+    'a-faire': ['en-cours', 'termine', 'annule'],
+    'en-cours': ['a-faire', 'en-revue', 'termine', 'annule'],
+    'en-revue': ['en-cours', 'termine'],
+    termine: ['en-cours'],
+    annule: ['a-faire'],
+  },
 };
 
-export const PREFIXES: Record<TypeTicket, string> = { incident: 'INC', probleme: 'PRB', changement: 'CHG', demande: 'REQ' };
+export const PREFIXES: Record<TypeTicket, string> = { incident: 'INC', probleme: 'PRB', changement: 'CHG', demande: 'REQ', tache: 'TSK' };
 
 export const LIBELLE_TYPE: Record<TypeTicket, { un: string; des: string; nouveau: string }> = {
   incident: { un: 'Incident', des: 'Incidents', nouveau: 'Nouvel incident' },
   probleme: { un: 'Problème', des: 'Problèmes', nouveau: 'Nouveau problème' },
   changement: { un: 'Changement', des: 'Changements', nouveau: 'Nouveau changement' },
   demande: { un: 'Demande', des: 'Demandes', nouveau: 'Nouvelle demande' },
+  tache: { un: 'Tâche', des: 'Tâches', nouveau: 'Nouvelle tâche' },
 };
 
 export const LIBELLE_NIVEAU: Record<Niveau, string> = { 1: '1 — Élevé', 2: '2 — Moyen', 3: '3 — Faible' };
@@ -291,6 +317,7 @@ export const CATEGORIES: Record<TypeTicket, string[]> = {
   probleme: ['Application', 'Infrastructure', 'Base de données', 'Réseau', 'Sécurité', 'Fournisseur externe', 'Autre'],
   changement: ['Déploiement applicatif', 'Mise à jour système', 'Base de données (migration)', 'Configuration', 'Infrastructure', 'Sécurité', 'Autre'],
   demande: ['Accès / compte', 'Nouveau poste', 'Imprimante / matériel', 'Paramétrage', 'Formation', 'Données / export', 'Autre'],
+  tache: ['Fonctionnalité', 'Anomalie', 'Technique', 'Documentation', 'Autre'],
 };
 
 /** Éléments de configuration (CMDB légère) : les composants d'Officina. */

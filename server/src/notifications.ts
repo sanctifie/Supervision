@@ -147,7 +147,7 @@ export class Notifications {
             { titre: `🚨 Incident ${t.priorite} : ${t.titre}`, texte: `${t.numero}${t.ci ? ` · ${t.ci}` : ''} — ouvert par ${e.auteur}.`, lien },
             true,
           );
-        } else if (t.type !== 'changement' && t.type !== 'probleme') {
+        } else if (t.type !== 'changement' && t.type !== 'probleme' && t.type !== 'tache') {
           this.envoyer(sauf(this.responsables(t), e.auteur), { titre: `${LIBELLE_TYPE[t.type].nouveau} : ${t.titre}`, texte: `${entete} — ouvert par ${e.auteur}.`, lien });
         } else if (t.assigneA) {
           this.envoyer(sauf(this.personne(t.assigneA), e.auteur), { titre: `${LIBELLE_TYPE[t.type].un} assigné : ${t.titre}`, texte: `${t.numero} — par ${e.auteur}.`, lien });

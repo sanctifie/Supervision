@@ -12,6 +12,7 @@ import type { Outil } from '../../shared/integrations';
 import type { ConnecteurStocke } from './integrations';
 import type { AgentStocke, JobStocke } from './ordonnanceur';
 import type { Execution } from '../../shared/ordonnanceur';
+import type { Projet, Sprint } from '../../shared/projets';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -59,6 +60,8 @@ export interface Etat {
   agents?: AgentStocke[];
   jobs?: JobStocke[];
   executions?: Execution[];
+  projets?: Projet[];
+  sprints?: Sprint[];
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;

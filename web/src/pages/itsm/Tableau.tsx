@@ -10,11 +10,8 @@ const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
 /** Une colonne terminée ne garde que ce qui a bougé depuis deux semaines. */
 const RECENT_MS = 14 * 86_400_000;
 
-/** Le tableau kanban : une colonne par étape, on glisse un ticket pour le faire avancer. */
-export default function Tableau() {
-  const [type, setType] = useState<TypeTicket>('incident');
-  const [moi, setMoi] = useState(false);
-  const etat = useDonnees<TicketResume[]>(`/tickets?type=${type}&etat=tous${moi ? '&assigne=moi' : ''}`, 20_000);
+/** Les colonnes d'un type de ticket : on glisse une fiche pour la faire avancer. */
+export function Kanban({ type, tickets, recharger, cle }: { type: TypeTicket; tickets: TicketResume[]; recharger: () => Promise<void>; cle?: string }) {
   const { peut } = useSupervision();
   const agent = peut('agir');
   const [erreur, setErreur] = useState<string | null>(null);
@@ -28,8 +25,91 @@ export default function Tableau() {
     } catch (e) {
       setErreur(`${numero} : ${(e as Error).message}`);
     }
-    await etat.recharger();
+    await recharger();
   };
+
+  return (
+    <>
+      {erreur && (
+        <div className="erreur" role="alert">
+          {erreur}
+        </div>
+      )}
+      <div className="kanban">
+        {STATUTS[type]
+          .filter((s) => !s.horsParcours)
+          .map((s) => {
+            const colonne = tickets.filter((t) => t.statut === s.cle && (!s.final || Date.now() - t.majLe < RECENT_MS));
+            return (
+              <section
+                key={s.cle}
+                className={`colonne ${survol === s.cle ? 'survol' : ''}`}
+                aria-label={s.libelle}
+                onDragOver={(e) => {
+                  if (!agent) return;
+                  e.preventDefault();
+                  setSurvol(s.cle);
+                }}
+                onDragLeave={() => setSurvol(null)}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  setSurvol(null);
+                  const numero = e.dataTransfer.getData('text/plain');
+                  const t = tickets.find((x) => x.numero === numero);
+                  if (t && t.statut !== s.cle) void deplacer(numero, s.cle);
+                }}
+              >
+                <h4>
+                  {s.libelle} <span className="discret">{colonne.length}</span>
+                </h4>
+                <Pages key={cle} liste={colonne} parPage={5}>
+                  {(visibles) => (
+                    <>
+                      {visibles.map((t) => (
+                        <Carte key={t.id} className="fiche">
+                          <div draggable={agent} onDragStart={(e) => e.dataTransfer.setData('text/plain', t.numero)}>
+                            <div className="ligne-flex" style={{ gap: 6 }}>
+                              <LienTicket t={t} />
+                              <span className="espace" />
+                              {type === 'tache' ? t.points != null && <span className="pastille inconnu">{t.points} pt</span> : <PastillePriorite p={t.priorite} />}
+                            </div>
+                            <p>{t.titre}</p>
+                            <div className="ligne-flex" style={{ gap: 6, flexWrap: 'wrap' }}>
+                              <span className="discret">{t.assigneA ?? t.groupe ?? 'Non assigné'}</span>
+                              <span className="espace" />
+                              {type !== 'tache' && <BadgeSla etat={t.sla} echeance={t.echeance} />}
+                            </div>
+                            {/* Au clavier ou au doigt : le même déplacement, sans glisser. */}
+                            {agent && TRANSITIONS[type][t.statut]?.length > 0 && (
+                              <select className="champ" value="" onChange={(e) => e.target.value && void deplacer(t.numero, e.target.value)} aria-label={`Déplacer ${t.numero}`}>
+                                <option value="">Déplacer vers…</option>
+                                {TRANSITIONS[type][t.statut].map((c) => (
+                                  <option key={c} value={c}>
+                                    {libelleStatut(type, c)}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </div>
+                        </Carte>
+                      ))}
+                    </>
+                  )}
+                </Pages>
+                {!colonne.length && <div className="discret">Rien ici.</div>}
+              </section>
+            );
+          })}
+      </div>
+    </>
+  );
+}
+
+/** Le tableau du service desk : un type de ticket à la fois. */
+export default function Tableau() {
+  const [type, setType] = useState<TypeTicket>('incident');
+  const [moi, setMoi] = useState(false);
+  const etat = useDonnees<TicketResume[]>(`/tickets?type=${type}&etat=tous${moi ? '&assigne=moi' : ''}`, 20_000);
 
   return (
     <div className="empile">
@@ -45,82 +125,12 @@ export default function Tableau() {
           <input type="checkbox" checked={moi} onChange={(e) => setMoi(e.target.checked)} /> Assignés à moi
         </label>
       </div>
-      {erreur && (
-        <div className="erreur" role="alert">
-          {erreur}
-        </div>
-      )}
       {etat.erreur ? (
         <Erreur message={etat.erreur} />
       ) : !etat.donnees ? (
         <Squelette hauteur={320} />
       ) : (
-        <div className="kanban">
-          {STATUTS[type]
-            .filter((s) => !s.horsParcours)
-            .map((s) => {
-              const tickets = etat.donnees!.filter((t) => t.statut === s.cle && (!s.final || Date.now() - t.majLe < RECENT_MS));
-              return (
-                <section
-                  key={s.cle}
-                  className={`colonne ${survol === s.cle ? 'survol' : ''}`}
-                  aria-label={s.libelle}
-                  onDragOver={(e) => {
-                    if (!agent) return;
-                    e.preventDefault();
-                    setSurvol(s.cle);
-                  }}
-                  onDragLeave={() => setSurvol(null)}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    setSurvol(null);
-                    const numero = e.dataTransfer.getData('text/plain');
-                    const t = etat.donnees!.find((x) => x.numero === numero);
-                    if (t && t.statut !== s.cle) void deplacer(numero, s.cle);
-                  }}
-                >
-                  <h4>
-                    {s.libelle} <span className="discret">{tickets.length}</span>
-                  </h4>
-                  <Pages key={`${type}-${moi}`} liste={tickets} parPage={5}>
-                    {(visibles) => (
-                      <>
-                        {visibles.map((t) => (
-                          <Carte key={t.id} className="fiche">
-                            <div draggable={agent} onDragStart={(e) => e.dataTransfer.setData('text/plain', t.numero)}>
-                              <div className="ligne-flex" style={{ gap: 6 }}>
-                                <LienTicket t={t} />
-                                <span className="espace" />
-                                <PastillePriorite p={t.priorite} />
-                              </div>
-                              <p>{t.titre}</p>
-                              <div className="ligne-flex" style={{ gap: 6, flexWrap: 'wrap' }}>
-                                <span className="discret">{t.assigneA ?? t.groupe ?? 'Non assigné'}</span>
-                                <span className="espace" />
-                                <BadgeSla etat={t.sla} echeance={t.echeance} />
-                              </div>
-                              {/* Au clavier ou au doigt : le même déplacement, sans glisser. */}
-                              {agent && TRANSITIONS[type][t.statut]?.length > 0 && (
-                                <select className="champ" value="" onChange={(e) => e.target.value && void deplacer(t.numero, e.target.value)} aria-label={`Déplacer ${t.numero}`}>
-                                  <option value="">Déplacer vers…</option>
-                                  {TRANSITIONS[type][t.statut].map((c) => (
-                                    <option key={c} value={c}>
-                                      {libelleStatut(type, c)}
-                                    </option>
-                                  ))}
-                                </select>
-                              )}
-                            </div>
-                          </Carte>
-                        ))}
-                      </>
-                    )}
-                  </Pages>
-                  {!tickets.length && <div className="discret">Rien ici.</div>}
-                </section>
-              );
-            })}
-        </div>
+        <Kanban type={type} tickets={etat.donnees} recharger={etat.recharger} cle={`${type}-${moi}`} />
       )}
     </div>
   );

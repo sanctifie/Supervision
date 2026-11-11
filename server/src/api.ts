@@ -8,7 +8,7 @@ import { ErreurMetier } from './erreurs';
 import { estOuvert, type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
 
-const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
+const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande', 'tache'];
 /** Ce qu'un demandeur peut renseigner en ouvrant un ticket. */
 const CHAMPS_DEMANDEUR = ['titre', 'description', 'impact', 'urgence', 'categorie', 'ci'];
 
@@ -243,6 +243,7 @@ export function creerApi(sup: Supervision): Router {
         nonAssignes: q.nonAssignes === '1',
         groupe: q.groupe || undefined,
         ci: q.ci || undefined,
+        projet: q.projet || undefined,
         q: q.q?.slice(0, 200) || undefined,
       });
     }),
@@ -275,6 +276,8 @@ export function creerApi(sup: Supervision): Router {
     agir((req, res) => {
       const { type, lien, ...champs } = req.body ?? {};
       if (!TYPES.includes(type)) throw new ErreurMetier('Type inconnu (incident, probleme, changement, demande)');
+      // Une tâche passe par son projet, qui doit exister.
+      if (type === 'tache' && peut(res, 'agir')) return sup.projets.creerTache(champs, res.locals.nom);
       if (peut(res, 'agir')) return sup.tickets.creer(type, champs, res.locals.nom, { lien: typeof lien === 'string' ? lien : undefined });
       // Un demandeur déclare un incident ou une demande, en son nom.
       if (type !== 'incident' && type !== 'demande') {
@@ -570,6 +573,57 @@ export function creerApi(sup: Supervision): Router {
       sup.integrations.supprimer(String(req.params.outil), res.locals.nom);
       return { ok: true };
     }),
+  );
+
+  // Projets, backlog et sprints : les agents planifient, un administrateur crée les projets.
+  api.get('/projets', exiger('agir'), (_req, res) => {
+    res.json(sup.projets.lister());
+  });
+  api.post(
+    '/projets',
+    exiger('administrer'),
+    agir((req, res) => sup.projets.creer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.get(
+    '/projets/:cle',
+    exiger('agir'),
+    agir((req) => sup.projets.vue(String(req.params.cle))),
+  );
+  api.delete(
+    '/projets/:cle',
+    exiger('administrer'),
+    agir((req) => {
+      sup.projets.supprimer(String(req.params.cle));
+      return { ok: true };
+    }),
+  );
+  api.post(
+    '/projets/:cle/sprints',
+    exiger('agir'),
+    agir((req, res) => sup.projets.creerSprint(String(req.params.cle), req.body ?? {}, res.locals.nom), 201),
+  );
+  api.post(
+    '/sprints/:id/demarrer',
+    exiger('agir'),
+    agir((req, res) => sup.projets.demarrer(String(req.params.id), req.body?.jours, res.locals.nom)),
+  );
+  api.post(
+    '/sprints/:id/terminer',
+    exiger('agir'),
+    agir((req, res) => sup.projets.terminer(String(req.params.id), res.locals.nom)),
+  );
+  api.delete(
+    '/sprints/:id',
+    exiger('agir'),
+    agir((req, res) => {
+      sup.projets.supprimerSprint(String(req.params.id), res.locals.nom);
+      return { ok: true };
+    }),
+  );
+  api.put(
+    '/tickets/:numero/sprint',
+    exiger('agir'),
+    agir((req, res) => sup.tickets.resume(sup.projets.placer(String(req.params.numero), req.body?.sprint, res.locals.nom))),
   );
 
   // Ordonnanceur : un agent du service desk lance, un administrateur écrit les commandes.

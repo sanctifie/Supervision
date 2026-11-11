@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { Check, ClipboardList, GitPullRequest, Pause, Siren, Timer, Wrench } from 'lucide-react';
+import { Check, ClipboardList, GitPullRequest, Pause, Siren, Timer, Wrench, SquareCheck } from 'lucide-react';
 import { duree, dateHeure } from '../../../shared/format';
 import { STATUTS, libelleStatut, type EtatSla, type PrioriteTicket, type TicketResume, type TypeTicket } from '../../../shared/itsm';
 import { useDonnees } from '../lib/useDonnees';
@@ -8,12 +8,13 @@ import type { Statut } from '../../../shared/types';
 
 /** Petits éléments visuels communs aux pages ITSM. */
 
-export const CHEMIN_TYPE: Record<TypeTicket, string> = { incident: '/incidents', probleme: '/problemes', changement: '/changements', demande: '/demandes' };
+export const CHEMIN_TYPE: Record<TypeTicket, string> = { incident: '/incidents', probleme: '/problemes', changement: '/changements', demande: '/demandes', tache: '/projets' };
 
 export function IconeType({ type, taille = 16 }: { type: TypeTicket; taille?: number }) {
   if (type === 'incident') return <Siren size={taille} />;
   if (type === 'probleme') return <Wrench size={taille} />;
   if (type === 'changement') return <GitPullRequest size={taille} />;
+  if (type === 'tache') return <SquareCheck size={taille} />;
   return <ClipboardList size={taille} />;
 }
 

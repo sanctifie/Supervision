@@ -22,6 +22,7 @@ import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
 import { Integrations } from './integrations';
 import { Ordonnanceur } from './ordonnanceur';
+import { Projets } from './projets';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -69,6 +70,7 @@ export class Supervision {
   readonly catalogue: Catalogue;
   readonly integrations: Integrations;
   readonly ordonnanceur: Ordonnanceur;
+  readonly projets: Projets;
   private horloge: NodeJS.Timeout | null = null;
 
   constructor(
@@ -92,6 +94,7 @@ export class Supervision {
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.integrations = new Integrations(stockage);
+    this.projets = new Projets(stockage, this.tickets);
     this.ordonnanceur = new Ordonnanceur(stockage, config.fuseau, () => this.tickets.contexteSla().calendrier);
   }
 

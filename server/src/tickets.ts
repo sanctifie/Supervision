@@ -61,6 +61,7 @@ export interface FiltreTickets {
   groupe?: string;
   ci?: string;
   q?: string;
+  projet?: string;
 }
 
 /** Champs modifiables par type (le reste passe par les actions dédiées). */
@@ -82,6 +83,8 @@ const CHAMPS_PAR_TYPE: Record<TypeTicket, readonly string[]> = {
     'silencerAlertes',
   ],
   demande: [...CHAMPS_COMMUNS, 'notesResolution'],
+  // Le projet et le sprint d'une tâche se changent par Projets, qui les contrôle.
+  tache: [...CHAMPS_COMMUNS, 'points'],
 };
 
 const LIBELLES_CHAMPS: Record<string, string> = {
@@ -102,6 +105,8 @@ const LIBELLES_CHAMPS: Record<string, string> = {
 
 const texte = (v: unknown, max: number) => (typeof v === 'string' ? v.slice(0, max) : '');
 const niveau = (v: unknown): Niveau => (v === 1 || v === 2 || v === 3 ? v : Number(v) === 1 ? 1 : Number(v) === 2 ? 2 : 3);
+/** Points d'effort : un entier de 0 à 100, ou rien. */
+const points = (v: unknown): number | null => (v === null || v === undefined || v === '' || !Number.isFinite(Number(v)) ? null : Math.min(100, Math.max(0, Math.round(Number(v)))));
 const dateOuNull = (v: unknown): number | null => {
   if (v === null || v === undefined || v === '') return null;
   const n = typeof v === 'number' ? v : Date.parse(String(v));
@@ -198,6 +203,7 @@ export class Tickets {
     }
     if (type === 'probleme') Object.assign(t, { causeRacine: texte(champs.causeRacine, 20000), contournement: texte(champs.contournement, 20000) });
     if (type === 'incident') Object.assign(t, { codeResolution: '', notesResolution: '', postMortem: '' });
+    if (type === 'tache') Object.assign(t, { projet: texte(champs.projet, 6), sprint: null, points: points(champs.points) });
     if (type === 'demande') Object.assign(t, { notesResolution: '' });
     this.calculerSla(t);
     return t;
@@ -228,6 +234,17 @@ export class Tickets {
   private tracer(t: Ticket, auteur: string, texteTrace: string, type: ActiviteTicket['type'] = 'systeme'): void {
     t.activite.push({ t: Date.now(), auteur, type, texte: texteTrace });
     t.majLe = Date.now();
+  }
+
+  /** Range une tâche dans un sprint, ou la remet au backlog (null). Les contrôles sont faits par Projets. */
+  placer(numero: string, sprint: string | null, libelle: string, auteur: string): Ticket {
+    const t = this.exiger(numero);
+    if (t.sprint !== sprint)
+      this.stockage.modifier(() => {
+        t.sprint = sprint;
+        this.tracer(t, auteur, `Planification : ${libelle}`);
+      });
+    return t;
   }
 
   /** Un nom affiché a changé : on le reporte sur les tickets. */
@@ -270,6 +287,9 @@ export class Tickets {
       debutPrevu: t.debutPrevu,
       finPrevue: t.finPrevue,
       risque: t.risque,
+      projet: t.projet,
+      sprint: t.sprint,
+      points: t.points,
       sla: s.etat,
       echeance: s.echeance,
       liens: t.liens.length,
@@ -288,6 +308,7 @@ export class Tickets {
       .filter((t) => !f.nonAssignes || !t.assigneA)
       .filter((t) => !f.groupe || t.groupe === f.groupe)
       .filter((t) => !f.ci || t.ci === f.ci)
+      .filter((t) => !f.projet || t.projet === f.projet)
       .filter((t) => !q || `${t.numero} ${t.titre} ${t.description} ${t.ci ?? ''} ${t.assigneA ?? ''}`.toLowerCase().includes(q))
       .sort((a, b) => (estOuvert(a) === estOuvert(b) ? ordre[a.priorite] - ordre[b.priorite] || b.majLe - a.majLe : estOuvert(a) ? -1 : 1))
       .map((t) => this.resume(t));
@@ -296,6 +317,7 @@ export class Tickets {
   creer(type: TypeTicket, champs: Partial<Ticket>, auteur: string, options: { automatique?: boolean; alertes?: string[]; creeLe?: number; lien?: string } = {}): Ticket {
     if (!PREFIXES[type]) throw new ErreurMetier('Type de ticket inconnu');
     if (!texte(champs.titre, 200).trim()) throw new ErreurMetier('Le titre est obligatoire');
+    if (type === 'tache' && !champs.projet) throw new ErreurMetier('Une tâche appartient à un projet');
     let t!: Ticket;
     this.stockage.modifier((e) => {
       t = this.nouveauTicket(type, champs, auteur, options.creeLe);
@@ -346,6 +368,7 @@ export class Tickets {
         if (cleChamp === 'impact' || cleChamp === 'urgence') valeur = niveau(brut);
         else if (cleChamp === 'debutPrevu' || cleChamp === 'finPrevue') valeur = dateOuNull(brut);
         else if (cleChamp === 'silencerAlertes') valeur = !!brut;
+        else if (cleChamp === 'points') valeur = points(brut);
         else if (cleChamp === 'typeChangement' && !['standard', 'normal', 'urgent'].includes(String(brut))) continue;
         else if (cleChamp === 'risque' && !['faible', 'moyen', 'eleve'].includes(String(brut))) continue;
         else if (cleChamp === 'resultat' && brut !== null && !['reussi', 'echoue', 'retour-arriere'].includes(String(brut))) continue;
@@ -458,7 +481,8 @@ export class Tickets {
       if (avant === STATUTS[t.type][0].cle && !t.prisEnChargeLe && cible !== 'annule') t.prisEnChargeLe = maintenant;
       if (!t.assigneA && ['en-cours', 'analyse'].includes(cible)) t.assigneA = auteur;
       if (cible === 'resolu') t.resoluLe = maintenant;
-      if (cible === 'clos' || cible === 'annule' || cible === 'rejete') t.closLe = maintenant;
+      if (cible === 'clos' || cible === 'annule' || cible === 'rejete' || cible === 'termine') t.closLe = maintenant;
+      if (avant === 'termine' || (t.type === 'tache' && avant === 'annule')) t.closLe = null;
       if (avant === 'resolu' && !['clos'].includes(cible)) {
         t.resoluLe = null;
         t.closLe = null;
