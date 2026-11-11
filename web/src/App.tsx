@@ -21,6 +21,7 @@ import ListeTickets from './pages/itsm/ListeTickets';
 import FicheTicket from './pages/itsm/FicheTicket';
 import NouveauTicket from './pages/itsm/NouveauTicket';
 import Equipe from './pages/itsm/Equipe';
+import Tableau from './pages/itsm/Tableau';
 import Parametres from './pages/itsm/Parametres';
 import Connaissances from './pages/itsm/Connaissances';
 import Article, { NouvelArticle } from './pages/itsm/Article';
@@ -48,6 +49,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/changements': () => <ListeTickets key="changement" type="changement" />,
   '/demandes': () => <ListeTickets key="demande" type="demande" />,
   '/equipe': Equipe,
+  '/tableau': Tableau,
   '/parametres': Parametres,
   '/catalogue': Catalogue,
   '/catalogue/gerer': GestionCatalogue,

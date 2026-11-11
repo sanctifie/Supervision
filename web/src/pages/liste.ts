@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   Headset,
   Plug,
+  SquareKanban,
   Users,
   Settings,
   BookOpen,
@@ -60,6 +61,14 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Service desk',
     icone: Headset,
     motsCles: 'itsm accueil tickets sla mes tickets',
+  },
+  {
+    chemin: '/tableau',
+    titre: 'Tableau',
+    description: 'Les tickets en colonnes, étape par étape : glissez une fiche pour la faire avancer.',
+    groupe: 'Service desk',
+    icone: SquareKanban,
+    motsCles: 'kanban board tableau colonnes jira sprint glisser',
   },
   {
     chemin: '/incidents',

@@ -1,12 +1,68 @@
-import { Boxes } from 'lucide-react';
+import { useState } from 'react';
+import { Boxes, List, ListTree } from 'lucide-react';
 import { useDonnees } from '../lib/useDonnees';
 import { BarreProgres, Carte, Charge, Pages, Pastille, Vide } from '../components/ui';
 import { Barres } from '../components/graphiques';
+import { useSupervision } from '../components/Coquille';
 import { nombre, octets, pourcent } from '../../../shared/format';
-import type { VueConteneurs } from '../../../shared/types';
+import { pire } from '../../../shared/seuils';
+import type { Statut, VueConteneurs } from '../../../shared/types';
+
+type Conteneur = VueConteneurs['conteneurs'][number];
+
+/** Les conteneurs connus rangés par rôle ; tout le reste est un service de l'application. */
+const ROLES: [string, string[]][] = [
+  ['Entrée', ['caddy', 'gateway', 'traefik', 'nginx']],
+  ['Données et messagerie', ['postgres', 'redis', 'nats', 'syncd']],
+  ['Supervision', ['prometheus', 'alertmanager', 'grafana', 'loki', 'alloy', 'cadvisor', 'node-exporter', 'blackbox', 'supervision']],
+];
+
+function Noeud({ nom, statut, detail }: { nom: string; statut: Statut; detail?: string }) {
+  return (
+    <div className={`noeud ${statut}`}>
+      <strong>{nom}</strong>
+      {detail && <span className="discret">{detail}</span>}
+    </div>
+  );
+}
+
+/** La hiérarchie produit → rôle → conteneur, lue de gauche à droite. */
+function Arbre({ v, produit }: { v: VueConteneurs; produit: string }) {
+  const range = new Set(ROLES.flatMap(([, noms]) => noms));
+  const groupes: [string, Conteneur[]][] = [
+    ['Services applicatifs', v.conteneurs.filter((c) => !range.has(c.nom))],
+    ...ROLES.map(([titre, noms]): [string, Conteneur[]] => [titre, v.conteneurs.filter((c) => noms.includes(c.nom))]),
+  ];
+  return (
+    <div className="arbre">
+      <Noeud nom={produit} statut={v.statut} detail={`${v.conteneurs.length} conteneurs`} />
+      <div className="arbre-branches">
+        {groupes
+          .filter(([, liste]) => liste.length)
+          .map(([titre, liste]) => (
+            <div className="arbre-branche" key={titre}>
+              <Noeud nom={titre} statut={pire('vert', ...liste.map((c) => c.statut))} detail={`${liste.filter((c) => c.enMarche).length} / ${liste.length} en marche`} />
+              <div className="arbre-feuilles">
+                {liste.map((c) => (
+                  <Noeud
+                    key={c.nom}
+                    nom={c.nom}
+                    statut={c.statut}
+                    detail={c.enMarche ? `${c.cpuPct === null ? '—' : pourcent(c.cpuPct, 1)} · ${c.memoireOctets === null ? '—' : octets(c.memoireOctets)}` : 'Arrêté'}
+                  />
+                ))}
+              </div>
+            </div>
+          ))}
+      </div>
+    </div>
+  );
+}
 
 export default function Conteneurs() {
   const etat = useDonnees<VueConteneurs>('/conteneurs');
+  const { produit } = useSupervision();
+  const [vue, setVue] = useState<'arbre' | 'liste'>('arbre');
   return (
     <Charge etat={etat}>
       {(v) => {
@@ -43,7 +99,20 @@ export default function Conteneurs() {
                 </div>
               </div>
             </div>
-            <div className="grille g-principal">
+            <div className="onglets" style={{ alignSelf: 'flex-start' }}>
+              <button className={vue === 'arbre' ? 'actif' : ''} onClick={() => setVue('arbre')}>
+                <ListTree size={13} style={{ verticalAlign: -2 }} /> Arbre
+              </button>
+              <button className={vue === 'liste' ? 'actif' : ''} onClick={() => setVue('liste')}>
+                <List size={13} style={{ verticalAlign: -2 }} /> Liste
+              </button>
+            </div>
+            {vue === 'arbre' && (
+              <Carte titre="Hiérarchie" sousTitre="Le produit, ses rôles, ses conteneurs : la couleur d’un nœud est celle de son pire enfant">
+                <Arbre v={v} produit={produit} />
+              </Carte>
+            )}
+            <div className="grille g-principal" style={vue === 'liste' ? undefined : { display: 'none' }}>
               <Carte serree titre="Tous les conteneurs" sousTitre="CPU/RAM par conteneur vs limites, redémarrages">
                 <Pages liste={v.conteneurs}>
                   {(visibles) => (

@@ -20,7 +20,7 @@ est cliquable et mène au détail.
 |-----|---------|-------------------|
 | **Tableau de bord** | État global vert/orange/rouge, disponibilité et SLO (budget d'erreur), trafic vs J-7, activité récente, un voyant par service métier | 1, 8 |
 | **Serveur** | CPU (iowait, steal, charge), mémoire, swap, OOM, disques (espace, **inodes**, prédiction de remplissage), latence disque, descripteurs, uptime, redémarrage requis, dérive de l'horloge, réseau | 2.1, 2.2 |
-| **Conteneurs** | CPU et mémoire par conteneur vs limites, redémarrages, conteneurs arrêtés | 2.4 |
+| **Conteneurs** | Vue en **arbre** (produit → rôle → conteneur, couleur du pire enfant) ou en liste ; CPU et mémoire par conteneur vs limites, redémarrages, conteneurs arrêtés | 2.4 |
 | **Services et sondes** | `/health` des 15 services, sondes HTTPS du site, certificat (J-30 / J-14 / J-7), disponibilité heure par heure | 2.2, 2.3, 3.1 |
 | **Base de données** | PostgreSQL : en marche, connexions vs max, cache, verrous, deadlocks, taille des bases | 2.5 |
 | **Sauvegardes** | Âge de la dernière sauvegarde réussie (orange > 26 h, rouge > 48 h), taille | 4 |
@@ -28,6 +28,7 @@ est cliquable et mène au détail.
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
+| **Tableau** | Kanban des tickets : une colonne par étape, on glisse une fiche pour la faire avancer (les règles de passage restent appliquées par le serveur) | — |
 | **Intégrations** | Jira, GitLab, SonarQube, AWX, Zabbix, Grafana et Control-M lus au même endroit : ce qui est en échec, avec un lien vers l'outil | — |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |

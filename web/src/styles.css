@@ -1830,3 +1830,121 @@ label.etiquette {
 .carte.outil strong {
   color: var(--encre);
 }
+
+/* --- Tableau kanban ----------------------------------------------------------- */
+.kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(250px, 1fr);
+  gap: 14px;
+  overflow-x: auto;
+  align-items: start;
+}
+.colonne {
+  background: #eef2fa;
+  border-radius: 14px;
+  padding: 12px;
+  min-height: 160px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.colonne.survol {
+  outline: 2px dashed var(--bleu);
+}
+.colonne h4 {
+  margin: 0;
+  font-size: 0.82rem;
+  color: var(--encre);
+}
+.colonne .pagination {
+  padding: 4px 0 0;
+  border: 0;
+  flex-wrap: wrap;
+}
+.carte.fiche {
+  padding: 12px;
+  border-radius: 12px;
+}
+.fiche [draggable='true'] {
+  cursor: grab;
+}
+.fiche p {
+  margin: 8px 0;
+  font-size: 0.86rem;
+  font-weight: 600;
+  color: var(--encre);
+}
+.fiche .champ {
+  margin-top: 8px;
+  padding: 4px 8px;
+  font-size: 0.78rem;
+}
+
+/* --- Arbre des conteneurs ----------------------------------------------------- */
+.arbre {
+  display: flex;
+  align-items: center;
+  overflow-x: auto;
+}
+.arbre-branches {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  margin-left: 24px;
+  padding-left: 24px;
+  border-left: 2px solid var(--bord);
+  position: relative;
+}
+.arbre-branches::before,
+.arbre-branche::before,
+.arbre-feuilles::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: -24px;
+  width: 24px;
+  border-top: 2px solid var(--bord);
+}
+.arbre-branches::before {
+  left: -26px;
+}
+.arbre-branche {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.arbre-feuilles {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-left: 24px;
+  position: relative;
+}
+.noeud {
+  flex: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 12px;
+  min-width: 120px;
+  background: var(--carte);
+  border: 1px solid var(--bord);
+  border-left: 4px solid var(--inconnu);
+  border-radius: var(--rayon-petit);
+  font-size: 0.82rem;
+}
+.noeud strong {
+  color: var(--encre);
+}
+.noeud.vert {
+  border-left-color: var(--vert);
+}
+.noeud.orange {
+  border-left-color: var(--orange);
+  background: var(--orange-fond);
+}
+.noeud.rouge {
+  border-left-color: var(--rouge);
+  background: var(--rouge-fond);
+}
