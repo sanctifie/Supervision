@@ -77,6 +77,32 @@ export const prometheus = {
     }
   },
 
+  /** Toutes les séries d'une requête sur `heures` heures ; une requête refusée lève une erreur lisible. */
+  async plage(promql: string, heures: number, points = 120): Promise<{ nom: string; points: Point[] }[]> {
+    const fin = Math.floor(Date.now() / 1000);
+    const pas = Math.max(15, Math.floor((heures * 3600) / points));
+    const url = `${config.prometheusUrl}/api/v1/query_range?query=${encodeURIComponent(promql)}&start=${fin - heures * 3600}&end=${fin}&step=${pas}`;
+    let r: ReponsePrometheus;
+    try {
+      r = await lireJson<ReponsePrometheus>(url);
+    } catch (e) {
+      const message = (e as Error).message;
+      throw new Error(/^4\d\d/.test(message) ? 'Requête refusée par Prometheus : vérifiez la syntaxe PromQL' : 'Prometheus injoignable');
+    }
+    return r.data.result.map((s) => {
+      const { __name__, ...etiquettes } = s.metric;
+      return {
+        nom:
+          Object.entries(etiquettes)
+            .map(([k, v]) => `${k}=${v}`)
+            .join(', ') ||
+          __name__ ||
+          'valeur',
+        points: (s.values ?? []).map(([t, v]) => ({ t: t * 1000, v: Number(v) })).filter((p) => Number.isFinite(p.v)),
+      };
+    });
+  },
+
   async joignable(): Promise<boolean> {
     try {
       await lireJson(`${config.prometheusUrl}/api/v1/status/buildinfo`);

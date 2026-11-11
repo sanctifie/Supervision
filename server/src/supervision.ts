@@ -23,12 +23,14 @@ import { Catalogue } from './catalogue';
 import { Integrations } from './integrations';
 import { Ordonnanceur } from './ordonnanceur';
 import { Projets } from './projets';
+import { Tableaux } from './tableaux';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
 import { RUNBOOKS } from '../../shared/runbooks';
 import { nombre, pourcent } from '../../shared/format';
+import type { SeriePanneau } from '../../shared/tableaux';
 import type {
   Alerte,
   Controle,
@@ -51,6 +53,19 @@ import type {
   VueServices,
 } from '../../shared/types';
 
+/** Mode démonstration : pas de Prometheus, donc une courbe plausible et stable par requête. */
+function serieFictive(requete: string, heures: number): SeriePanneau[] {
+  const graine = [...requete].reduce((n, c) => (n * 31 + c.charCodeAt(0)) % 997, 7);
+  const fin = Date.now();
+  const pas = (heures * 3_600_000) / 120;
+  return [
+    {
+      nom: 'démonstration',
+      points: Array.from({ length: 121 }, (_, i) => ({ t: fin - (120 - i) * pas, v: 40 + (graine % 30) + 15 * Math.sin((fin - (120 - i) * pas) / 3_600_000 + graine) })),
+    },
+  ];
+}
+
 /**
  * Le cœur : choisit la source (réelle ou démonstration), met les lectures en
  * cache quelques secondes, assemble les vues, et fait tourner la boucle de
@@ -71,6 +86,7 @@ export class Supervision {
   readonly integrations: Integrations;
   readonly ordonnanceur: Ordonnanceur;
   readonly projets: Projets;
+  readonly tableaux: Tableaux;
   private horloge: NodeJS.Timeout | null = null;
 
   constructor(
@@ -95,6 +111,9 @@ export class Supervision {
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.integrations = new Integrations(stockage);
     this.projets = new Projets(stockage, this.tickets);
+    this.tableaux = new Tableaux(stockage, (requete, heures) =>
+      this.memo(`plage:${heures}:${requete}`, 15_000, () => (this.mode === 'demo' ? Promise.resolve(serieFictive(requete, heures)) : prometheus.plage(requete, heures))),
+    );
     this.ordonnanceur = new Ordonnanceur(stockage, config.fuseau, () => this.tickets.contexteSla().calendrier);
   }
 

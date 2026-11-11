@@ -19,6 +19,7 @@ est cliquable et mène au détail.
 | Vue | Contenu | Chapitre du guide |
 |-----|---------|-------------------|
 | **Tableau de bord** | État global vert/orange/rouge, disponibilité et SLO (budget d'erreur), trafic vs J-7, activité récente, un voyant par service métier | 1, 8 |
+| **Mes tableaux** | Tableaux de bord personnalisés : des panneaux (courbe ou valeur actuelle) qui tracent une requête PromQL, sur 1 h, 6 h, 24 h ou 7 j. Les agents composent, tout le monde lit | — |
 | **Serveur** | CPU (iowait, steal, charge), mémoire, swap, OOM, disques (espace, **inodes**, prédiction de remplissage), latence disque, descripteurs, uptime, redémarrage requis, dérive de l'horloge, réseau | 2.1, 2.2 |
 | **Conteneurs** | Vue en **arbre** (produit → rôle → conteneur, couleur du pire enfant) ou en liste ; CPU et mémoire par conteneur vs limites, redémarrages, conteneurs arrêtés | 2.4 |
 | **Services et sondes** | `/health` des 15 services, sondes HTTPS du site, certificat (J-30 / J-14 / J-7), disponibilité heure par heure | 2.2, 2.3, 3.1 |

@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   Headset,
   Plug,
+  LayoutPanelLeft,
   FolderKanban,
   CalendarClock,
   SquareKanban,
@@ -55,6 +56,14 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Vue d’ensemble',
     icone: LayoutDashboard,
     motsCles: 'accueil direction vert orange rouge slo',
+  },
+  {
+    chemin: '/tableaux',
+    titre: 'Mes tableaux',
+    description: 'Vos tableaux de bord : des panneaux qui tracent les mesures que vous choisissez.',
+    groupe: 'Vue d’ensemble',
+    icone: LayoutPanelLeft,
+    motsCles: 'tableau de bord personnalisé panneau graphique promql grafana dashboard courbe',
   },
   {
     chemin: '/itsm',

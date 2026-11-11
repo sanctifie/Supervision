@@ -575,6 +575,33 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
+  // Tableaux de bord personnalisés : tout le monde lit, les agents composent.
+  api.get('/tableaux', (_req, res) => {
+    res.json(sup.tableaux.lister());
+  });
+  api.get(
+    '/tableaux/:id',
+    agir((req) => sup.tableaux.vue(String(req.params.id), req.query.heures)),
+  );
+  api.post(
+    '/tableaux',
+    exiger('agir'),
+    agir((req) => sup.tableaux.creer(req.body ?? {}), 201),
+  );
+  api.put(
+    '/tableaux/:id',
+    exiger('agir'),
+    agir((req) => sup.tableaux.modifier(String(req.params.id), req.body ?? {})),
+  );
+  api.delete(
+    '/tableaux/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.tableaux.supprimer(String(req.params.id));
+      return { ok: true };
+    }),
+  );
+
   // Projets, backlog et sprints : les agents planifient, un administrateur crée les projets.
   api.get('/projets', exiger('agir'), (_req, res) => {
     res.json(sup.projets.lister());
