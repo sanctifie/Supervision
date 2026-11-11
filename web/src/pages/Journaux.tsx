@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Pause, Play, ScrollText } from 'lucide-react';
 import { useDonnees } from '../lib/useDonnees';
-import { Carte, Erreur, Squelette, Vide } from '../components/ui';
+import { Carte, Erreur, Pages, Squelette, Vide } from '../components/ui';
 import type { LigneJournal } from '../../../shared/types';
 
 const SERVICES = [
@@ -97,16 +97,20 @@ export default function Journaux() {
         ) : !etat.donnees ? (
           <Squelette hauteur={400} />
         ) : etat.donnees.length ? (
-          <div className="journal">
-            {etat.donnees.map((l, i) => (
-              <div className="journal-ligne" key={`${l.t}-${i}`}>
-                <time>{new Date(l.t).toLocaleTimeString('fr-FR')}</time>
-                <span className="svc">{l.service}</span>
-                <span className={`niv niv-${l.niveau}`}>{l.niveau.toUpperCase()}</span>
-                <span className="msg">{l.message}</span>
+          <Pages liste={etat.donnees} parPage={50}>
+            {(visibles) => (
+              <div className="journal">
+                {visibles.map((l, i) => (
+                  <div className="journal-ligne" key={`${l.t}-${i}`}>
+                    <time>{new Date(l.t).toLocaleTimeString('fr-FR')}</time>
+                    <span className="svc">{l.service}</span>
+                    <span className={`niv niv-${l.niveau}`}>{l.niveau.toUpperCase()}</span>
+                    <span className="msg">{l.message}</span>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            )}
+          </Pages>
         ) : (
           <Vide icone={<ScrollText size={28} />}>Aucune ligne ne correspond à ces filtres.</Vide>
         )}

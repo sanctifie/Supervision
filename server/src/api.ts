@@ -532,6 +532,28 @@ export function creerApi(sup: Supervision): Router {
     res.json(sup.tickets.contexteSla());
   });
 
+  // Intégrations : connecteurs vers les outils externes. Le jeton ne ressort jamais.
+  api.get(
+    '/integrations',
+    exiger('agir'),
+    agir((req) =>
+      Promise.all(sup.integrations.lister().map(async (v) => ({ ...v, lecture: v.configure ? await sup.integrations.lire(v.cle, req.query.forcer !== undefined) : null }))),
+    ),
+  );
+  api.put(
+    '/integrations/:outil',
+    exiger('administrer'),
+    agir((req, res) => sup.integrations.configurer(String(req.params.outil), req.body ?? {}, res.locals.nom)),
+  );
+  api.delete(
+    '/integrations/:outil',
+    exiger('administrer'),
+    agir((req, res) => {
+      sup.integrations.supprimer(String(req.params.outil), res.locals.nom);
+      return { ok: true };
+    }),
+  );
+
   // Comptes (administrateurs).
   api.get('/comptes', exiger('agir'), (_req, res) => {
     res.json(sup.comptes.lister());

@@ -8,6 +8,8 @@ import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
 import type { Article } from '../../shared/connaissances';
 import type { ArticleCatalogue } from '../../shared/catalogue';
+import type { Outil } from '../../shared/integrations';
+import type { ConnecteurStocke } from './integrations';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -49,6 +51,8 @@ export interface Etat {
   catalogueInitialise?: boolean;
   /** Absent : valeurs par défaut (config + délais du guide). */
   parametres?: Parametres;
+  /** Connecteurs vers les outils externes (Jira, GitLab, Zabbix…). */
+  integrations?: Partial<Record<Outil, ConnecteurStocke>>;
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;

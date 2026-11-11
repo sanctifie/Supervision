@@ -3,7 +3,7 @@ import { KeyRound, Plus, UserPlus, X } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { appeler } from '../../lib/api';
 import { useSupervision } from '../../components/Coquille';
-import { Carte, Erreur, Modale, Pastille, Squelette } from '../../components/ui';
+import { Carte, Erreur, Modale, Pages, Pastille, Squelette } from '../../components/ui';
 import { depuis } from '../../../../shared/format';
 import { AIDE_ROLE, LIBELLE_ROLE, ROLES, type Compte, type Role } from '../../../../shared/comptes';
 
@@ -173,59 +173,63 @@ export default function Equipe() {
               <Squelette hauteur={200} />
             </div>
           ) : (
-            <div className="tableau-conteneur">
-              <table className="tableau">
-                <thead>
-                  <tr>
-                    <th>Nom</th>
-                    <th>Identifiant</th>
-                    <th>Rôle</th>
-                    <th>Groupes</th>
-                    <th>Dernière connexion</th>
-                    {admin && <th />}
-                  </tr>
-                </thead>
-                <tbody>
-                  {comptes.donnees.map((c) => (
-                    <tr key={c.id} style={{ opacity: c.actif ? 1 : 0.5 }}>
-                      <td>
-                        <strong style={{ color: 'var(--encre)' }}>{c.nom}</strong>
-                        {!c.actif && <span className="discret"> · désactivé</span>}
-                        {c.doitChangerMotDePasse && c.actif && <span className="discret"> · mot de passe provisoire</span>}
-                      </td>
-                      <td className="mono">{c.identifiant}</td>
-                      <td>
-                        <div className="chips">
-                          <Pastille statut={c.role === 'admin' ? 'violet' : c.role === 'agent' ? 'bleu' : 'inconnu'}>{LIBELLE_ROLE[c.role]}</Pastille>
-                          {c.approbateur && c.role !== 'admin' && <span className="pastille violet">CAB</span>}
-                        </div>
-                      </td>
-                      <td className="discret">{c.groupes.join(', ') || '—'}</td>
-                      <td className="discret">{c.derniereConnexion ? depuis(c.derniereConnexion) : 'jamais'}</td>
-                      {admin && (
-                        <td className="num" style={{ whiteSpace: 'nowrap' }}>
-                          <button className="bouton petit" onClick={() => setEdition(c)}>
-                            Modifier
-                          </button>{' '}
-                          <button
-                            className="bouton petit"
-                            title="Réinitialiser le mot de passe"
-                            onClick={async () => {
-                              if (!confirm(`Réinitialiser le mot de passe de ${c.nom} ? Ses sessions seront fermées.`)) return;
-                              const r = await appeler<{ motDePasseProvisoire: string }>(`/comptes/${c.id}/reinitialiser`, { methode: 'POST', corps: {} });
-                              setProvisoire({ identifiant: c.identifiant, motDePasse: r.motDePasseProvisoire });
-                              void comptes.recharger();
-                            }}
-                          >
-                            <KeyRound size={13} />
-                          </button>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <Pages liste={comptes.donnees}>
+              {(visibles) => (
+                <div className="tableau-conteneur">
+                  <table className="tableau">
+                    <thead>
+                      <tr>
+                        <th>Nom</th>
+                        <th>Identifiant</th>
+                        <th>Rôle</th>
+                        <th>Groupes</th>
+                        <th>Dernière connexion</th>
+                        {admin && <th />}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibles.map((c) => (
+                        <tr key={c.id} style={{ opacity: c.actif ? 1 : 0.5 }}>
+                          <td>
+                            <strong style={{ color: 'var(--encre)' }}>{c.nom}</strong>
+                            {!c.actif && <span className="discret"> · désactivé</span>}
+                            {c.doitChangerMotDePasse && c.actif && <span className="discret"> · mot de passe provisoire</span>}
+                          </td>
+                          <td className="mono">{c.identifiant}</td>
+                          <td>
+                            <div className="chips">
+                              <Pastille statut={c.role === 'admin' ? 'violet' : c.role === 'agent' ? 'bleu' : 'inconnu'}>{LIBELLE_ROLE[c.role]}</Pastille>
+                              {c.approbateur && c.role !== 'admin' && <span className="pastille violet">CAB</span>}
+                            </div>
+                          </td>
+                          <td className="discret">{c.groupes.join(', ') || '—'}</td>
+                          <td className="discret">{c.derniereConnexion ? depuis(c.derniereConnexion) : 'jamais'}</td>
+                          {admin && (
+                            <td className="num" style={{ whiteSpace: 'nowrap' }}>
+                              <button className="bouton petit" onClick={() => setEdition(c)}>
+                                Modifier
+                              </button>{' '}
+                              <button
+                                className="bouton petit"
+                                title="Réinitialiser le mot de passe"
+                                onClick={async () => {
+                                  if (!confirm(`Réinitialiser le mot de passe de ${c.nom} ? Ses sessions seront fermées.`)) return;
+                                  const r = await appeler<{ motDePasseProvisoire: string }>(`/comptes/${c.id}/reinitialiser`, { methode: 'POST', corps: {} });
+                                  setProvisoire({ identifiant: c.identifiant, motDePasse: r.motDePasseProvisoire });
+                                  void comptes.recharger();
+                                }}
+                              >
+                                <KeyRound size={13} />
+                              </button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Pages>
           )}
         </Carte>
       )}

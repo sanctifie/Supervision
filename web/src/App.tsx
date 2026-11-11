@@ -27,6 +27,7 @@ import Article, { NouvelArticle } from './pages/itsm/Article';
 import Catalogue, { CommandeCatalogue } from './pages/itsm/Catalogue';
 import GestionCatalogue from './pages/itsm/GestionCatalogue';
 import Securite from './pages/Securite';
+import Integrations from './pages/Integrations';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
 
@@ -58,6 +59,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/tickets/nouveau': NouveauTicket,
   '/tickets/:numero': FicheTicket,
   '/securite': Securite,
+  '/integrations': Integrations,
   '/automatisations': Automatisations,
   '/feuille-de-route': FeuilleDeRoute,
 };

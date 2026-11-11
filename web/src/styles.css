@@ -1806,3 +1806,27 @@ label.etiquette {
     display: none;
   }
 }
+
+/* --- Pagination et intégrations --------------------------------------------- */
+.pagination {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 20px;
+  border-top: 1px solid var(--bord);
+}
+.carte.outil {
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.carte.outil.choisi {
+  border-color: var(--bleu);
+  box-shadow: 0 0 0 2px var(--bleu-clair);
+}
+.carte.outil strong {
+  color: var(--encre);
+}

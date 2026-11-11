@@ -28,10 +28,30 @@ est cliquable et mène au détail.
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
+| **Intégrations** | Jira, GitLab, SonarQube, AWX, Zabbix, Grafana et Control-M lus au même endroit : ce qui est en échec, avec un lien vers l'outil | — |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
 | **Feuille de route** | Les 5 phases et la checklist de mise en production, cochée automatiquement quand la supervision peut le vérifier | 10 |
 | **`/statut`** | Page de statut **publique** (sans connexion, sans détail technique) pour informer pendant un incident | 3.7 |
+
+## Intégrations
+
+Un administrateur relie chaque outil depuis **Intégrations → Relier** : son adresse et un
+jeton **en lecture seule**. Les agents voient ensuite les éléments, 10 par page.
+
+| Outil | Ce qui est lu | Jeton |
+|-------|---------------|-------|
+| Jira | Tickets modifiés depuis 30 jours | Cloud : jeton d'API + e-mail. Data Center : jeton personnel |
+| GitLab | Dernier pipeline des 20 projets les plus actifs | Portée `read_api` |
+| SonarQube | Porte qualité, bugs, vulnérabilités, couverture | Jeton utilisateur |
+| AWX | Dernières exécutions de jobs | Jeton OAuth2, lecture |
+| Zabbix (≥ 6.4) | Problèmes en cours | Jeton d'API |
+| Grafana | Tableaux de bord | Compte de service, Viewer |
+| Control-M (≥ 9.0.21) | État des jobs | Jeton Automation API |
+
+- Le jeton reste sur le serveur (`donnees/etat.json`, en clair : protégez ce dossier) ; l'API ne le renvoie jamais.
+- Changer l'adresse d'un connecteur oblige à ressaisir le jeton ; les redirections sont refusées.
+- Chaque outil est relu au plus une fois par minute ; une panne de l'outil s'affiche comme une erreur du connecteur.
 
 ## Comptes et rôles
 

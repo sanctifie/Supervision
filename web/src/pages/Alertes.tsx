@@ -4,7 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useSupervision } from '../components/Coquille';
 import { useDonnees } from '../lib/useDonnees';
 import { appeler } from '../lib/api';
-import { Carte, Charge, Modale, Pastille, Vide } from '../components/ui';
+import { Carte, Charge, Modale, Pages, Pastille, Vide } from '../components/ui';
 import { dateHeure, depuis } from '../../../shared/format';
 import { RUNBOOKS, runbookDe } from '../../../shared/runbooks';
 import type { Alerte, Priorite, Statut, VueAlertes } from '../../../shared/types';
@@ -161,11 +161,15 @@ export default function Alertes() {
         {(v) => (
           <>
             {v.alertes.length ? (
-              <div className="empile">
-                {v.alertes.map((a) => (
-                  <CarteAlerte key={a.id} a={a} silence={agent ? setCible : null} declarer={declarer} />
-                ))}
-              </div>
+              <Pages liste={v.alertes} parPage={10}>
+                {(visibles) => (
+                  <div className="empile">
+                    {visibles.map((a) => (
+                      <CarteAlerte key={a.id} a={a} silence={agent ? setCible : null} declarer={declarer} />
+                    ))}
+                  </div>
+                )}
+              </Pages>
             ) : (
               <Carte>
                 <Vide icone={<BellRing size={28} />}>Aucune alerte active. Tout est calme.</Vide>

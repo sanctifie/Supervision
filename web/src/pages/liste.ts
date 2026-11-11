@@ -6,6 +6,7 @@ import {
   ClipboardList,
   GitPullRequest,
   Headset,
+  Plug,
   Users,
   Settings,
   BookOpen,
@@ -210,6 +211,15 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Réagir',
     icone: Bell,
     motsCles: 'alertmanager silence runbook telegram',
+  },
+  {
+    chemin: '/integrations',
+    titre: 'Intégrations',
+    description: 'Jira, GitLab, SonarQube, AWX, Zabbix, Grafana et Control-M, lus au même endroit.',
+    groupe: 'Réagir',
+    icone: Plug,
+    permission: 'agir',
+    motsCles: 'connecteurs jira gitlab sonarqube sonar awx ansible zabbix grafana control-m ctrl-m ordonnanceur pipeline',
   },
   {
     chemin: '/securite',

@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { CalendarDays, List, Plus, Search } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
-import { Carte, Erreur, Squelette, Vide } from '../../components/ui';
+import { Carte, Erreur, Pages, Squelette, Vide } from '../../components/ui';
 import { BadgeSla, IconeType, LienTicket, PastillePriorite, PastilleStatut } from '../../components/itsm';
 import { depuis, dateHeure } from '../../../../shared/format';
 import { LIBELLE_TYPE, type TicketResume, type TypeTicket } from '../../../../shared/itsm';
@@ -102,69 +102,73 @@ export default function ListeTickets({ type }: { type: TypeTicket }) {
               <Squelette hauteur={240} />
             </div>
           ) : etat.donnees.length ? (
-            <div className="tableau-conteneur">
-              <table className="tableau">
-                <thead>
-                  <tr>
-                    <th>Numéro</th>
-                    <th>Titre</th>
-                    <th>Priorité</th>
-                    <th>État</th>
-                    {changement ? (
-                      <>
-                        <th>Type</th>
-                        <th>Risque</th>
-                        <th>Fenêtre</th>
-                      </>
-                    ) : (
-                      <th>SLA</th>
-                    )}
-                    <th>CI</th>
-                    <th>Assigné à</th>
-                    <th>Mis à jour</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {etat.donnees.map((t) => (
-                    <tr key={t.id} className="ligne-cliquable" onClick={(e) => (e.target as HTMLElement).closest('a') || naviguer(`/tickets/${t.numero}`)}>
-                      <td>
-                        <LienTicket t={t} />
-                      </td>
-                      <td style={{ maxWidth: 380 }}>
-                        <strong style={{ color: 'var(--encre)', fontWeight: 600 }}>{t.titre}</strong>
-                        {t.automatique && <span className="discret"> · alerte</span>}
-                      </td>
-                      <td>
-                        <PastillePriorite p={t.priorite} />
-                      </td>
-                      <td>
-                        <PastilleStatut type={t.type} statut={t.statut} />
-                      </td>
-                      {changement ? (
-                        <>
-                          <td>{t.typeChangement ? LIBELLE_TYPE_CHG[t.typeChangement] : '—'}</td>
-                          <td>{t.risque ? LIBELLE_RISQUE[t.risque] : '—'}</td>
-                          <td className="discret" style={{ whiteSpace: 'nowrap' }}>
-                            {t.debutPrevu
-                              ? `${dateHeure(t.debutPrevu)} → ${t.finPrevue ? new Date(t.finPrevue).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}`
-                              : 'à planifier'}
+            <Pages liste={etat.donnees}>
+              {(visibles) => (
+                <div className="tableau-conteneur">
+                  <table className="tableau">
+                    <thead>
+                      <tr>
+                        <th>Numéro</th>
+                        <th>Titre</th>
+                        <th>Priorité</th>
+                        <th>État</th>
+                        {changement ? (
+                          <>
+                            <th>Type</th>
+                            <th>Risque</th>
+                            <th>Fenêtre</th>
+                          </>
+                        ) : (
+                          <th>SLA</th>
+                        )}
+                        <th>CI</th>
+                        <th>Assigné à</th>
+                        <th>Mis à jour</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {visibles.map((t) => (
+                        <tr key={t.id} className="ligne-cliquable" onClick={(e) => (e.target as HTMLElement).closest('a') || naviguer(`/tickets/${t.numero}`)}>
+                          <td>
+                            <LienTicket t={t} />
                           </td>
-                        </>
-                      ) : (
-                        <td>
-                          <BadgeSla etat={t.sla} echeance={t.echeance} />
-                        </td>
-                      )}
-                      <td className="mono">{t.ci ?? '—'}</td>
-                      <td>{t.assigneA ?? <span className="discret">{t.groupe ?? 'personne'}</span>}</td>
-                      <td className="discret" style={{ whiteSpace: 'nowrap' }}>
-                        {depuis(t.majLe)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                          <td style={{ maxWidth: 380 }}>
+                            <strong style={{ color: 'var(--encre)', fontWeight: 600 }}>{t.titre}</strong>
+                            {t.automatique && <span className="discret"> · alerte</span>}
+                          </td>
+                          <td>
+                            <PastillePriorite p={t.priorite} />
+                          </td>
+                          <td>
+                            <PastilleStatut type={t.type} statut={t.statut} />
+                          </td>
+                          {changement ? (
+                            <>
+                              <td>{t.typeChangement ? LIBELLE_TYPE_CHG[t.typeChangement] : '—'}</td>
+                              <td>{t.risque ? LIBELLE_RISQUE[t.risque] : '—'}</td>
+                              <td className="discret" style={{ whiteSpace: 'nowrap' }}>
+                                {t.debutPrevu
+                                  ? `${dateHeure(t.debutPrevu)} → ${t.finPrevue ? new Date(t.finPrevue).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' }) : '—'}`
+                                  : 'à planifier'}
+                              </td>
+                            </>
+                          ) : (
+                            <td>
+                              <BadgeSla etat={t.sla} echeance={t.echeance} />
+                            </td>
+                          )}
+                          <td className="mono">{t.ci ?? '—'}</td>
+                          <td>{t.assigneA ?? <span className="discret">{t.groupe ?? 'personne'}</span>}</td>
+                          <td className="discret" style={{ whiteSpace: 'nowrap' }}>
+                            {depuis(t.majLe)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </Pages>
           ) : (
             <Vide icone={<IconeType type={type} taille={28} />}>Aucun ticket dans cette vue.</Vide>
           )}

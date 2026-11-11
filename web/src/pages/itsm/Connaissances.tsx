@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { BookOpen, Eye, Plus, Search, ThumbsUp } from 'lucide-react';
 import { useDonnees } from '../../lib/useDonnees';
 import { useSupervision } from '../../components/Coquille';
-import { Erreur, Squelette, Vide } from '../../components/ui';
+import { Erreur, Pages, Squelette, Vide } from '../../components/ui';
 import { depuis } from '../../../../shared/format';
 import { CATEGORIES_ARTICLES, LIBELLE_STATUT_ARTICLE, type ArticleResume } from '../../../../shared/connaissances';
 
@@ -82,34 +82,38 @@ export default function Connaissances() {
       ) : !etat.donnees ? (
         <Squelette hauteur={240} />
       ) : etat.donnees.length ? (
-        <div className="grille g3">
-          {etat.donnees.map((a) => (
-            <Link key={a.id} to={`/connaissances/${a.numero}`} className="carte domaine" style={{ display: 'block' }}>
-              <div className="ligne-flex" style={{ marginBottom: 8 }}>
-                <span className="tuile">
-                  <BookOpen size={16} />
-                </span>
-                <span className="discret mono">{a.numero}</span>
-                <span className="espace" />
-                {a.statut !== 'publie' && <span className={`pastille ${a.statut === 'brouillon' ? 'orange' : 'inconnu'}`}>{LIBELLE_STATUT_ARTICLE[a.statut]}</span>}
-                {agent && a.audience === 'equipe' && <span className="pastille violet">Interne</span>}
-              </div>
-              <h4>{a.titre}</h4>
-              <p>{a.resume || a.categorie}</p>
-              <div className="ligne-flex discret" style={{ fontSize: '0.74rem' }}>
-                <span>{a.categorie}</span>
-                <span className="espace" />
-                <span>
-                  <Eye size={12} style={{ verticalAlign: -2 }} /> {a.vues}
-                </span>
-                <span>
-                  <ThumbsUp size={12} style={{ verticalAlign: -2 }} /> {a.avis.utile}
-                </span>
-                <span>{depuis(a.majLe)}</span>
-              </div>
-            </Link>
-          ))}
-        </div>
+        <Pages liste={etat.donnees} parPage={12}>
+          {(visibles) => (
+            <div className="grille g3">
+              {visibles.map((a) => (
+                <Link key={a.id} to={`/connaissances/${a.numero}`} className="carte domaine" style={{ display: 'block' }}>
+                  <div className="ligne-flex" style={{ marginBottom: 8 }}>
+                    <span className="tuile">
+                      <BookOpen size={16} />
+                    </span>
+                    <span className="discret mono">{a.numero}</span>
+                    <span className="espace" />
+                    {a.statut !== 'publie' && <span className={`pastille ${a.statut === 'brouillon' ? 'orange' : 'inconnu'}`}>{LIBELLE_STATUT_ARTICLE[a.statut]}</span>}
+                    {agent && a.audience === 'equipe' && <span className="pastille violet">Interne</span>}
+                  </div>
+                  <h4>{a.titre}</h4>
+                  <p>{a.resume || a.categorie}</p>
+                  <div className="ligne-flex discret" style={{ fontSize: '0.74rem' }}>
+                    <span>{a.categorie}</span>
+                    <span className="espace" />
+                    <span>
+                      <Eye size={12} style={{ verticalAlign: -2 }} /> {a.vues}
+                    </span>
+                    <span>
+                      <ThumbsUp size={12} style={{ verticalAlign: -2 }} /> {a.avis.utile}
+                    </span>
+                    <span>{depuis(a.majLe)}</span>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
+        </Pages>
       ) : (
         <Vide icone={<BookOpen size={28} />}>
           {q ? (

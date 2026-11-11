@@ -1,5 +1,5 @@
-import type { ReactNode } from 'react';
-import { AlertTriangle, CheckCircle2, CircleHelp, Inbox, OctagonAlert } from 'lucide-react';
+import { useState, type ReactNode } from 'react';
+import { AlertTriangle, CheckCircle2, ChevronLeft, ChevronRight, CircleHelp, Inbox, OctagonAlert } from 'lucide-react';
 import { LIBELLE_STATUT } from '../../../shared/seuils';
 import { duree, millisecondes, nombre, octets, pourcent } from '../../../shared/format';
 import type { Mesure, Statut } from '../../../shared/types';
@@ -162,6 +162,36 @@ export function Vide({ icone, children }: { icone?: ReactNode; children: ReactNo
       {icone ?? <Inbox size={28} />}
       <div>{children}</div>
     </div>
+  );
+}
+
+/** Découpe une liste en pages : jamais de liste interminable à l'écran. */
+export function Pages<T>({ liste, parPage = 20, children }: { liste: T[]; parPage?: number; children: (visibles: T[]) => ReactNode }) {
+  const [page, setPage] = useState(0);
+  const total = Math.max(1, Math.ceil(liste.length / parPage));
+  // Un filtre peut raccourcir la liste : on retombe sur la dernière page qui existe.
+  const p = Math.min(page, total - 1);
+  return (
+    <>
+      {children(liste.slice(p * parPage, (p + 1) * parPage))}
+      {total > 1 && (
+        <nav className="pagination" aria-label="Pages">
+          <span className="discret">
+            {p * parPage + 1}–{Math.min((p + 1) * parPage, liste.length)} sur {liste.length}
+          </span>
+          <span className="espace" />
+          <button type="button" className="bouton petit" disabled={p === 0} onClick={() => setPage(p - 1)}>
+            <ChevronLeft size={14} /> Précédent
+          </button>
+          <span className="discret">
+            Page {p + 1} / {total}
+          </span>
+          <button type="button" className="bouton petit" disabled={p >= total - 1} onClick={() => setPage(p + 1)}>
+            Suivant <ChevronRight size={14} />
+          </button>
+        </nav>
+      )}
+    </>
   );
 }
 
