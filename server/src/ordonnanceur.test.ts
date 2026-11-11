@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest';
 import { Stockage } from './stockage';
 import { Ordonnanceur } from './ordonnanceur';
 import { cronCorrespond, cronValide, instantLocal } from '../../shared/ordonnanceur';
+import { calendrierParDefaut } from '../../shared/calendrier';
 
 function preparer() {
   const stockage = new Stockage(fs.mkdtempSync(path.join(os.tmpdir(), 'ord-')));
@@ -84,6 +85,34 @@ describe('ordonnanceur', () => {
     expect(() => o.modifierJob(a.id, { apres: a.id }, 'Admin')).toThrow(/boucle/);
     o.supprimerJob(a.id, 'Admin');
     expect(o.vue().jobs).toMatchObject([{ nom: 'B', apres: null }]);
+  });
+
+  it('relance après un échec, puis signale l’échec définitif', () => {
+    const { stockage, o, agent, jeton } = preparer();
+    const j = o.creerJob({ nom: 'Fragile', agentId: agent.id, commande: 'false', relances: 2 }, 'Admin');
+    o.lancerALaMain(j.id, 'Awa');
+    for (let i = 0; i < 3; i++) o.resultat(jeton, { id: o.travail(jeton)!.id, code: 1 });
+    expect(o.travail(jeton)).toBeNull();
+    expect(o.vue().executions.map((x) => [x.statut, x.declenchePar])).toEqual([
+      ['echoue', 'relance 2/2'],
+      ['echoue', 'relance 1/2'],
+      ['echoue', 'Awa'],
+    ]);
+    // Un seul événement rouge : à l'échec définitif.
+    expect(stockage.donnees.evenements.filter((e) => e.statut === 'rouge')).toHaveLength(1);
+  });
+
+  it('saute les jours fériés et de repos quand le job le demande', () => {
+    const stockage = new Stockage(fs.mkdtempSync(path.join(os.tmpdir(), 'ord-')));
+    const o = new Ordonnanceur(stockage, 'UTC', () => ({ ...calendrierParDefaut('UTC', 8, 20), feries: ['11-11'] }));
+    const { agent } = o.creerAgent('srv', 'Admin');
+    o.creerJob({ nom: 'Ouvré', agentId: agent.id, commande: 'true', cron: '0 2 * * *', joursOuvres: true }, 'Admin');
+    o.creerJob({ nom: 'Tous les jours', agentId: agent.id, commande: 'true', cron: '0 2 * * *' }, 'Admin');
+    o.tic(Date.UTC(2026, 10, 11, 2)); // mercredi 11 novembre, férié
+    o.tic(Date.UTC(2026, 10, 15, 2)); // dimanche, repos
+    expect(o.vue().executions.map((x) => x.nomJob)).toEqual(['Tous les jours']);
+    o.tic(Date.UTC(2026, 10, 12, 2)); // jeudi
+    expect(o.vue().executions.map((x) => x.nomJob)).toEqual(['Ouvré', 'Tous les jours']);
   });
 
   it('lance à l’heure, une seule fois par minute, et clôt ce qui ne répond plus', () => {

@@ -93,6 +93,11 @@ function plageDuJour(t: number, cal: CalendrierService): { plage: [number, numbe
   return { plage: fin > debut ? [debut, fin] : null, lendemain: Math.max(lendemain, minuit + JOUR / 2) };
 }
 
+/** Le jour local de `t` est-il travaillé (ni repos hebdomadaire, ni férié) ? */
+export function jourOuvre(t: number, cal: CalendrierService): boolean {
+  return plageDuJour(t, cal).plage !== null;
+}
+
 /** `depart` + `duree` d'heures ouvrées. */
 export function ajouterHeuresOuvrees(depart: number, duree: number, cal: CalendrierService): number {
   if (duree <= 0) return depart;

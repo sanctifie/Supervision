@@ -1,6 +1,7 @@
 import crypto from 'node:crypto';
 import { ErreurMetier } from './erreurs';
 import type { Stockage } from './stockage';
+import { jourOuvre, type CalendrierService } from '../../shared/calendrier';
 import { cronCorrespond, cronValide, instantLocal, type Agent, type Execution, type Job, type VueOrdonnanceur } from '../../shared/ordonnanceur';
 
 /**
@@ -28,6 +29,7 @@ export class Ordonnanceur {
   constructor(
     private readonly stockage: Stockage,
     private readonly fuseau: string,
+    private readonly calendrier?: () => CalendrierService | null,
   ) {}
 
   private get agents(): AgentStocke[] {
@@ -106,7 +108,8 @@ export class Ordonnanceur {
       if (suivant === id || pas > this.jobs.length) throw new ErreurMetier('Cette dépendance forme une boucle');
     }
     const delaiMax = Math.min(3600, Math.max(5, Math.round(Number(corps.delaiMax) || 300)));
-    return { nom, commande, agentId, cron, apres, delaiMax, actif: corps.actif !== false };
+    const relances = Math.min(5, Math.max(0, Math.round(Number(corps.relances) || 0)));
+    return { nom, commande, agentId, cron, apres, delaiMax, relances, joursOuvres: corps.joursOuvres === true, actif: corps.actif !== false };
   }
 
   creerJob(corps: Record<string, unknown>, par: string): Job {
@@ -140,7 +143,7 @@ export class Ordonnanceur {
 
   // --- Exécutions -------------------------------------------------------------
   /** Met le job en file ; rien si une exécution du même job n'est pas encore finie. */
-  lancer(id: string, declenchePar: string, maintenant = Date.now()): Execution | null {
+  lancer(id: string, declenchePar: string, maintenant = Date.now(), tentative = 1): Execution | null {
     const j = this.job(id);
     if (this.executions.some((e) => e.jobId === id && !fini(e))) return null;
     const x: Execution = {
@@ -154,6 +157,7 @@ export class Ordonnanceur {
       finLe: null,
       code: null,
       declenchePar,
+      tentative,
     };
     this.stockage.modifier((e) => {
       e.executions = [x, ...(e.executions ?? [])].slice(0, EXECUTIONS_GARDEES);
@@ -178,15 +182,21 @@ export class Ordonnanceur {
     this.stockage.modifier(() => Object.assign(x, { statut, code, sortie: sortie.slice(-SORTIE_MAX), finLe: maintenant }));
     if (statut === 'reussi') {
       for (const suite of this.jobs.filter((j) => j.apres === x.jobId && j.actif)) this.lancer(suite.id, `suite de « ${x.nomJob} »`, maintenant);
-    } else {
-      this.stockage.ajouterEvenement({
-        t: maintenant,
-        type: 'info',
-        titre: `Job « ${x.nomJob} » ${statut === 'expire' ? 'sans réponse' : 'en échec'}`,
-        detail: statut === 'expire' ? 'L’agent n’a pas rendu de résultat dans le délai' : `Code de sortie ${code}`,
-        statut: 'rouge',
-      });
+      return;
     }
+    const j = this.jobs.find((y) => y.id === x.jobId);
+    const tentative = x.tentative ?? 1;
+    if (j?.actif && tentative <= (j.relances ?? 0)) {
+      this.lancer(j.id, `relance ${tentative}/${j.relances}`, maintenant, tentative + 1);
+      return;
+    }
+    this.stockage.ajouterEvenement({
+      t: maintenant,
+      type: 'info',
+      titre: `Job « ${x.nomJob} » ${statut === 'expire' ? 'sans réponse' : 'en échec'}`,
+      detail: statut === 'expire' ? 'L’agent n’a pas rendu de résultat dans le délai' : `Code de sortie ${code}`,
+      statut: 'rouge',
+    });
   }
 
   /** Toutes les 20 s : lance les jobs dont l'heure est venue, clôt ceux qui ne répondent plus. */
@@ -195,6 +205,8 @@ export class Ordonnanceur {
     const instant = instantLocal(maintenant, this.fuseau);
     for (const j of this.jobs) {
       if (!j.actif || !j.cron || j.derniereMinute === minute || !cronCorrespond(j.cron, instant)) continue;
+      const cal = j.joursOuvres ? this.calendrier?.() : null;
+      if (cal && !jourOuvre(maintenant, cal)) continue;
       this.stockage.modifier(() => {
         j.derniereMinute = minute;
       });

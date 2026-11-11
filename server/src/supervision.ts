@@ -92,7 +92,7 @@ export class Supervision {
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.integrations = new Integrations(stockage);
-    this.ordonnanceur = new Ordonnanceur(stockage, config.fuseau);
+    this.ordonnanceur = new Ordonnanceur(stockage, config.fuseau, () => this.tickets.contexteSla().calendrier);
   }
 
   get mode() {

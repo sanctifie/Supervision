@@ -36,6 +36,10 @@ export interface Job {
   apres: string | null;
   /** Durée maximale, en secondes. */
   delaiMax: number;
+  /** Nouvelles tentatives après un échec ou une absence de réponse (0 à 5). */
+  relances: number;
+  /** La planification saute les jours de repos et les jours fériés du calendrier de service. */
+  joursOuvres: boolean;
   actif: boolean;
 }
 
@@ -51,6 +55,8 @@ export interface Execution {
   /** Code de sortie de la commande. */
   code: number | null;
   declenchePar: string;
+  /** 1 pour le premier essai, 2 pour la première relance… */
+  tentative?: number;
   /** Sortie de la commande (fin tronquée) ; absente des listes. */
   sortie?: string;
 }

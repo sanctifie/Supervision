@@ -41,6 +41,8 @@ function FormulaireJob({ job, v, fermer, fait }: { job: Job | null; v: VueOrdonn
     cron: job?.cron ?? '',
     apres: job?.apres ?? '',
     delaiMax: job?.delaiMax ?? 300,
+    relances: job?.relances ?? 0,
+    joursOuvres: job?.joursOuvres ?? false,
     actif: job?.actif ?? true,
   });
   const [erreur, setErreur] = useState<string | null>(null);
@@ -104,6 +106,23 @@ function FormulaireJob({ job, v, fermer, fait }: { job: Job | null; v: VueOrdonn
             <input id="job-delai" className="champ" type="number" min={5} max={3600} value={d.delaiMax} onChange={(e) => champ('delaiMax', Number(e.target.value))} />
           </div>
         </div>
+        <div className="champ-groupe">
+          <label htmlFor="job-relances">Relances après un échec (0 à 5)</label>
+          <input
+            id="job-relances"
+            className="champ"
+            style={{ maxWidth: 120 }}
+            type="number"
+            min={0}
+            max={5}
+            value={d.relances}
+            onChange={(e) => champ('relances', Number(e.target.value))}
+          />
+        </div>
+        <label className="ligne-flex" style={{ marginTop: 12, gap: 8, fontSize: '0.86rem' }}>
+          <input type="checkbox" checked={d.joursOuvres} onChange={(e) => champ('joursOuvres', e.target.checked)} /> Planification les jours ouvrés seulement (ni repos, ni jours
+          fériés : voir Paramètres)
+        </label>
         <label className="ligne-flex" style={{ marginTop: 12, gap: 8, fontSize: '0.86rem' }}>
           <input type="checkbox" checked={d.actif} onChange={(e) => champ('actif', e.target.checked)} /> Job actif (décoché : plus de lancement planifié ni en chaîne)
         </label>
@@ -263,6 +282,8 @@ export default function Ordonnanceur() {
                                   {j.cron && <span className="mono">{j.cron} </span>}
                                   {j.apres && `après « ${v.jobs.find((y) => y.id === j.apres)?.nom ?? '?'} »`}
                                   {!j.cron && !j.apres && 'À la demande'}
+                                  {j.joursOuvres && ' · jours ouvrés'}
+                                  {j.relances > 0 && ` · ${j.relances} relance(s)`}
                                   {!j.actif && ' · en pause'}
                                 </td>
                                 <td>

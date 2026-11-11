@@ -69,6 +69,7 @@ chercher ses jobs toutes les 10 secondes : aucun port n'est ouvert sur le serveu
 
 - Seul un **administrateur** crée ou modifie un job (c'est une commande exécutée sur le serveur) ;
   un agent du service desk peut lancer un job existant et lire sa sortie. Chaque changement est tracé dans l'activité.
+- **Relances** : jusqu'à 5 nouvelles tentatives après un échec ou une absence de réponse. **Jours ouvrés** : la planification peut sauter les jours de repos et les fériés du calendrier de service (Paramètres).
 - Un job déjà en file ou en cours n'est pas relancé. Un échec ou une absence de réponse apparaît dans l'activité.
 - La supervision ne garde que l'empreinte du jeton. Exposez-la en **HTTPS** : le jeton et les commandes transitent par là.
 - Limites actuelles : pas d'arrêt d'une commande en cours depuis l'interface, 500 exécutions gardées, 20 000 caractères de sortie.
