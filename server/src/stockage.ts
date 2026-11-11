@@ -14,6 +14,7 @@ import type { AgentStocke, JobStocke } from './ordonnanceur';
 import type { Execution } from '../../shared/ordonnanceur';
 import type { Projet, Sprint } from '../../shared/projets';
 import type { TableauPerso } from '../../shared/tableaux';
+import type { Sonde } from '../../shared/sondes';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -65,6 +66,8 @@ export interface Etat {
   sprints?: Sprint[];
   /** Tableaux de bord personnalisés. */
   tableaux?: TableauPerso[];
+  /** Sondes HTTP / TCP configurées, avec leur historique. */
+  sondes?: Sonde[];
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;

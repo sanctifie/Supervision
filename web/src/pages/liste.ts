@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   Headset,
   Plug,
+  Crosshair,
   LayoutPanelLeft,
   FolderKanban,
   CalendarClock,
@@ -188,6 +189,15 @@ export const PAGES: DescriptionPage[] = [
     icone: Radar,
     domaine: 'services',
     motsCles: 'health blackbox ssl certificat disponibilité sonde',
+  },
+  {
+    chemin: '/sondes',
+    titre: 'Sondes',
+    description: 'Vos propres contrôles : une adresse web ou un port, vérifiés à intervalle régulier.',
+    groupe: 'Infrastructure',
+    icone: Crosshair,
+    permission: 'agir',
+    motsCles: 'sonde http tcp port ping disponibilité zabbix hôte contrôle uptime',
   },
   {
     chemin: '/bdd',

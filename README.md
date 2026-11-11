@@ -23,6 +23,7 @@ est cliquable et mène au détail.
 | **Serveur** | CPU (iowait, steal, charge), mémoire, swap, OOM, disques (espace, **inodes**, prédiction de remplissage), latence disque, descripteurs, uptime, redémarrage requis, dérive de l'horloge, réseau | 2.1, 2.2 |
 | **Conteneurs** | Vue en **arbre** (produit → rôle → conteneur, couleur du pire enfant) ou en liste ; CPU et mémoire par conteneur vs limites, redémarrages, conteneurs arrêtés | 2.4 |
 | **Services et sondes** | `/health` des 15 services, sondes HTTPS du site, certificat (J-30 / J-14 / J-7), disponibilité heure par heure | 2.2, 2.3, 3.1 |
+| **Sondes** | Vos propres contrôles HTTP(S) ou TCP, toutes les 1, 5, 15 ou 60 min : état, temps de réponse, disponibilité sur les 100 derniers contrôles. En panne après 3 échecs de suite, avec ouverture d'un incident si demandé. Seul un administrateur choisit les cibles | 2.3 |
 | **Base de données** | PostgreSQL : en marche, connexions vs max, cache, verrous, deadlocks, taille des bases | 2.5 |
 | **Sauvegardes** | Âge de la dernière sauvegarde réussie (orange > 26 h, rouge > 48 h), taille | 4 |
 | **API** | Métriques RED par service (débit, 5xx, refus, p50/p95/p99), chute de trafic vs J-7, runtime Node.js (event loop lag, heap, GC) | 3.1, 3.2 |

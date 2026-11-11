@@ -575,6 +575,34 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
+  // Sondes HTTP / TCP : un administrateur choisit les cibles, les agents consultent et relancent.
+  api.get('/sondes', exiger('agir'), (_req, res) => {
+    res.json(sup.sondes.lister());
+  });
+  api.post(
+    '/sondes',
+    exiger('administrer'),
+    agir((req, res) => sup.sondes.creer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.put(
+    '/sondes/:id',
+    exiger('administrer'),
+    agir((req, res) => sup.sondes.modifier(String(req.params.id), req.body ?? {}, res.locals.nom)),
+  );
+  api.delete(
+    '/sondes/:id',
+    exiger('administrer'),
+    agir((req, res) => {
+      sup.sondes.supprimer(String(req.params.id), res.locals.nom);
+      return { ok: true };
+    }),
+  );
+  api.post(
+    '/sondes/:id/controler',
+    exiger('agir'),
+    agir((req) => sup.sondes.controler(String(req.params.id))),
+  );
+
   // Tableaux de bord personnalisés : tout le monde lit, les agents composent.
   api.get('/tableaux', (_req, res) => {
     res.json(sup.tableaux.lister());

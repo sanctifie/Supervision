@@ -31,6 +31,7 @@ import GestionCatalogue from './pages/itsm/GestionCatalogue';
 import Securite from './pages/Securite';
 import Integrations from './pages/Integrations';
 import Ordonnanceur from './pages/Ordonnanceur';
+import Sondes from './pages/Sondes';
 import Tableaux, { PageTableau } from './pages/Tableaux';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
@@ -68,6 +69,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/securite': Securite,
   '/integrations': Integrations,
   '/ordonnanceur': Ordonnanceur,
+  '/sondes': Sondes,
   '/tableaux': Tableaux,
   '/tableaux/:id': PageTableau,
   '/automatisations': Automatisations,

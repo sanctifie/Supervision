@@ -24,6 +24,7 @@ import { Integrations } from './integrations';
 import { Ordonnanceur } from './ordonnanceur';
 import { Projets } from './projets';
 import { Tableaux } from './tableaux';
+import { Sondes } from './sondes';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -87,6 +88,7 @@ export class Supervision {
   readonly ordonnanceur: Ordonnanceur;
   readonly projets: Projets;
   readonly tableaux: Tableaux;
+  readonly sondes: Sondes;
   private horloge: NodeJS.Timeout | null = null;
 
   constructor(
@@ -111,6 +113,23 @@ export class Supervision {
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.integrations = new Integrations(stockage);
     this.projets = new Projets(stockage, this.tickets);
+    this.sondes = new Sondes(stockage, {
+      panne: (s, detail) =>
+        this.tickets.creer(
+          'incident',
+          { titre: `Sonde « ${s.nom} » en panne`, description: `La sonde ${s.type.toUpperCase()} sur ${s.cible} échoue : ${detail}.`, impact: 2, urgence: 2, categorie: 'Réseau' },
+          'supervision',
+          { automatique: true },
+        ).numero,
+      retablie: (numero, texte) => {
+        // Le ticket peut avoir disparu : le rétablissement de la sonde ne doit pas en dépendre.
+        try {
+          this.tickets.ajouterActivite(numero, 'note', texte, 'supervision');
+        } catch {
+          /* rien à noter */
+        }
+      },
+    });
     this.tableaux = new Tableaux(stockage, (requete, heures) =>
       this.memo(`plage:${heures}:${requete}`, 15_000, () => (this.mode === 'demo' ? Promise.resolve(serieFictive(requete, heures)) : prometheus.plage(requete, heures))),
     );
@@ -149,7 +168,10 @@ export class Supervision {
     };
     void tour();
     this.boucle = setInterval(tour, 30_000);
-    this.horloge = setInterval(() => this.ordonnanceur.tic(), 20_000);
+    this.horloge = setInterval(() => {
+      this.ordonnanceur.tic();
+      void this.sondes.tic();
+    }, 20_000);
   }
 
   arreter(): void {
