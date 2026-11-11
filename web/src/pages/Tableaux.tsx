@@ -202,7 +202,7 @@ export function PageTableau() {
                           sousTitre={<span className="mono">{p.requete.length > 70 ? `${p.requete.slice(0, 70)}…` : p.requete}</span>}
                           droite={
                             agent && (
-                              <div className="ligne-flex" style={{ gap: 6 }}>
+                              <div className="ligne-flex" style={{ gap: 6, flexWrap: 'nowrap' }}>
                                 <button className="icone-bouton" title="Modifier" aria-label={`Modifier ${p.titre}`} onClick={() => setFormulaire(p)}>
                                   <Pencil size={13} />
                                 </button>
