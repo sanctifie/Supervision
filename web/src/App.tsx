@@ -29,6 +29,7 @@ import Catalogue, { CommandeCatalogue } from './pages/itsm/Catalogue';
 import GestionCatalogue from './pages/itsm/GestionCatalogue';
 import Securite from './pages/Securite';
 import Integrations from './pages/Integrations';
+import Ordonnanceur from './pages/Ordonnanceur';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
 
@@ -62,6 +63,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/tickets/:numero': FicheTicket,
   '/securite': Securite,
   '/integrations': Integrations,
+  '/ordonnanceur': Ordonnanceur,
   '/automatisations': Automatisations,
   '/feuille-de-route': FeuilleDeRoute,
 };

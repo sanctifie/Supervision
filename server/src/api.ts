@@ -39,6 +39,24 @@ export function creerApi(sup: Supervision): Router {
     lire(() => sup.statutPublic()),
   );
 
+  // Agents installés sur les serveurs : pas de session, un jeton par agent.
+  const jetonAgent = (req: Request) => /^Bearer (.+)$/.exec(String(req.headers.authorization ?? ''))?.[1];
+  const agent = (f: (req: Request) => unknown) => (req: Request, res: Response) => {
+    try {
+      res.json(f(req) ?? null);
+    } catch (e) {
+      res.status(/Jeton/.test((e as Error).message) ? 401 : 404).json({ erreur: (e as Error).message });
+    }
+  };
+  api.post(
+    '/agent/travail',
+    agent((req) => sup.ordonnanceur.travail(jetonAgent(req))),
+  );
+  api.post(
+    '/agent/resultat',
+    agent((req) => sup.ordonnanceur.resultat(jetonAgent(req), req.body ?? {})),
+  );
+
   // --- Protégés -------------------------------------------------------------
   api.use(acces.exigerSession);
 
@@ -550,6 +568,57 @@ export function creerApi(sup: Supervision): Router {
     exiger('administrer'),
     agir((req, res) => {
       sup.integrations.supprimer(String(req.params.outil), res.locals.nom);
+      return { ok: true };
+    }),
+  );
+
+  // Ordonnanceur : un agent du service desk lance, un administrateur écrit les commandes.
+  api.get('/ordonnanceur', exiger('agir'), (_req, res) => {
+    res.json(sup.ordonnanceur.vue());
+  });
+  api.get(
+    '/ordonnanceur/executions/:id',
+    exiger('agir'),
+    agir((req) => sup.ordonnanceur.execution(String(req.params.id))),
+  );
+  api.post(
+    '/ordonnanceur/executions/:id/annuler',
+    exiger('agir'),
+    agir((req, res) => sup.ordonnanceur.annuler(String(req.params.id), res.locals.nom)),
+  );
+  api.post(
+    '/ordonnanceur/jobs/:id/lancer',
+    exiger('agir'),
+    agir((req, res) => sup.ordonnanceur.lancerALaMain(String(req.params.id), res.locals.nom), 201),
+  );
+  api.post(
+    '/ordonnanceur/agents',
+    exiger('administrer'),
+    agir((req, res) => sup.ordonnanceur.creerAgent(req.body?.nom, res.locals.nom), 201),
+  );
+  api.delete(
+    '/ordonnanceur/agents/:id',
+    exiger('administrer'),
+    agir((req, res) => {
+      sup.ordonnanceur.supprimerAgent(String(req.params.id), res.locals.nom);
+      return { ok: true };
+    }),
+  );
+  api.post(
+    '/ordonnanceur/jobs',
+    exiger('administrer'),
+    agir((req, res) => sup.ordonnanceur.creerJob(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.patch(
+    '/ordonnanceur/jobs/:id',
+    exiger('administrer'),
+    agir((req, res) => sup.ordonnanceur.modifierJob(String(req.params.id), req.body ?? {}, res.locals.nom)),
+  );
+  api.delete(
+    '/ordonnanceur/jobs/:id',
+    exiger('administrer'),
+    agir((req, res) => {
+      sup.ordonnanceur.supprimerJob(String(req.params.id), res.locals.nom);
       return { ok: true };
     }),
   );

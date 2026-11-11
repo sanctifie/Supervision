@@ -21,6 +21,7 @@ import { PiecesJointes } from './pieces';
 import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
 import { Integrations } from './integrations';
+import { Ordonnanceur } from './ordonnanceur';
 import { canauxReels, type Canaux } from './canaux';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
@@ -67,6 +68,8 @@ export class Supervision {
   readonly connaissances: BaseConnaissances;
   readonly catalogue: Catalogue;
   readonly integrations: Integrations;
+  readonly ordonnanceur: Ordonnanceur;
+  private horloge: NodeJS.Timeout | null = null;
 
   constructor(
     readonly stockage: Stockage,
@@ -89,6 +92,7 @@ export class Supervision {
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
     this.integrations = new Integrations(stockage);
+    this.ordonnanceur = new Ordonnanceur(stockage, config.fuseau);
   }
 
   get mode() {
@@ -123,10 +127,12 @@ export class Supervision {
     };
     void tour();
     this.boucle = setInterval(tour, 30_000);
+    this.horloge = setInterval(() => this.ordonnanceur.tic(), 20_000);
   }
 
   arreter(): void {
     if (this.boucle) clearInterval(this.boucle);
+    if (this.horloge) clearInterval(this.horloge);
     this.stockage.ecrireMaintenant();
   }
 

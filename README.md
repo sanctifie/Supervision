@@ -29,6 +29,7 @@ est cliquable et mène au détail.
 | **Journaux** | Journaux de tous les conteneurs (Loki), filtres par service / niveau / texte, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
 | **Tableau** | Kanban des tickets : une colonne par étape, on glisse une fiche pour la faire avancer (les règles de passage restent appliquées par le serveur) | — |
+| **Ordonnanceur** | Des jobs (une commande) sur vos serveurs : à la demande, à heure fixe (cron) ou à la suite d'un autre job ; sortie et code de retour de chaque exécution | 4 |
 | **Intégrations** | Jira, GitLab, SonarQube, AWX, Zabbix, Grafana et Control-M lus au même endroit : ce qui est en échec, avec un lien vers l'outil | — |
 | **Sécurité** | Contrôles par couche (accès, réseau, détection, durcissement, vulnérabilités, données), signaux mesurés | 2.6, 6 |
 | **Automatisations** | Les 12 automatisations côté serveur et les 9 étapes du pipeline CI/CD | 4, 5 |
@@ -53,6 +54,24 @@ jeton **en lecture seule**. Les agents voient ensuite les éléments, 10 par pag
 - Le jeton reste sur le serveur (`donnees/etat.json`, en clair : protégez ce dossier) ; l'API ne le renvoie jamais.
 - Changer l'adresse d'un connecteur oblige à ressaisir le jeton ; les redirections sont refusées.
 - Chaque outil est relu au plus une fois par minute ; une panne de l'outil s'affiche comme une erreur du connecteur.
+
+## Ordonnanceur et agents
+
+Un **agent** (`agent/agent.py`, Python 3 sans dépendance) tourne sur chaque serveur et vient
+chercher ses jobs toutes les 10 secondes : aucun port n'est ouvert sur le serveur.
+
+1. **Ordonnanceur → Ajouter un serveur** : le jeton de l'agent s'affiche une seule fois.
+2. Sur le serveur, avec un compte dédié **sans droits root** :
+   `SUPERVISION_URL=https://supervision.exemple.fr AGENT_JETON=… python3 agent.py`
+   (à mettre dans un service systemd avec `Restart=always`).
+3. **Nouveau job** : nom, serveur, commande, et au choix une planification cron
+   (heure du fuseau `FUSEAU`) ou « lancer après la réussite de » un autre job.
+
+- Seul un **administrateur** crée ou modifie un job (c'est une commande exécutée sur le serveur) ;
+  un agent du service desk peut lancer un job existant et lire sa sortie. Chaque changement est tracé dans l'activité.
+- Un job déjà en file ou en cours n'est pas relancé. Un échec ou une absence de réponse apparaît dans l'activité.
+- La supervision ne garde que l'empreinte du jeton. Exposez-la en **HTTPS** : le jeton et les commandes transitent par là.
+- Limites actuelles : pas d'arrêt d'une commande en cours depuis l'interface, 500 exécutions gardées, 20 000 caractères de sortie.
 
 ## Comptes et rôles
 

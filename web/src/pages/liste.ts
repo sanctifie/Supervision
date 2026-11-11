@@ -7,6 +7,7 @@ import {
   GitPullRequest,
   Headset,
   Plug,
+  CalendarClock,
   SquareKanban,
   Users,
   Settings,
@@ -229,6 +230,15 @@ export const PAGES: DescriptionPage[] = [
     icone: Plug,
     permission: 'agir',
     motsCles: 'connecteurs jira gitlab sonarqube sonar awx ansible zabbix grafana control-m ctrl-m ordonnanceur pipeline',
+  },
+  {
+    chemin: '/ordonnanceur',
+    titre: 'Ordonnanceur',
+    description: 'Les jobs sur vos serveurs : à la demande, à heure fixe ou en chaîne, avec leur sortie.',
+    groupe: 'Réagir',
+    icone: CalendarClock,
+    permission: 'agir',
+    motsCles: 'jobs cron planification batch control-m awx ansible agent commande exécution',
   },
   {
     chemin: '/securite',
