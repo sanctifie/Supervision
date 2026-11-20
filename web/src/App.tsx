@@ -30,6 +30,7 @@ import Securite from './pages/Securite';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
 import Ressources from './pages/Ressources';
+import TableauxJournaux from './pages/TableauxJournaux';
 import Qualite from './pages/Qualite';
 import Taches, { FicheTravail } from './pages/Taches';
 
@@ -64,6 +65,7 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/automatisations': Automatisations,
   '/feuille-de-route': FeuilleDeRoute,
   '/ressources': Ressources,
+  '/tableaux': TableauxJournaux,
   '/qualite': Qualite,
   '/taches': Taches,
   '/taches/:id': FicheTravail,

@@ -33,6 +33,8 @@ services:
       #   scripts de scripts/ y ont accès, lancés par des agents, les sensibles approuvés.
       # - /var/run/docker.sock:/var/run/docker.sock
       # - /opt/officine-os:/officina:ro
+      # Test de restauration : le dossier des sauvegardes (SAUVEGARDES_DIR, /officina/backups par défaut).
+      # - /opt/officine-os/backups:/officina/backups:ro
     # group_add: ['${DOCKER_GID:-999}']   # stat -c %g /var/run/docker.sock
     networks:
       - officina

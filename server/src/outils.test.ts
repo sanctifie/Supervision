@@ -234,3 +234,25 @@ describe('explorateur de journaux (façon Kibana)', () => {
     expect(prevenus).toHaveLength(1);
   });
 });
+
+describe('tableaux de bord de journaux (façon Kibana Dashboard)', () => {
+  it('valide les panneaux et détache ceux d’une recherche supprimée', () => {
+    const stockage = new Stockage(dossier());
+    const ex = new Explorateur(
+      stockage,
+      async () => [],
+      () => undefined,
+    );
+    const r = ex.creer({ nom: 'Erreurs notify', filtre: { service: 'notify', niveau: 'error' } }, 'Béa');
+    expect(() => ex.creerTableau({ nom: 'X', minutes: 42, panneaux: [] }, 'Béa')).toThrow(/Période/);
+    expect(() => ex.creerTableau({ nom: 'X', minutes: 60, panneaux: [{ type: 'camembert' }] }, 'Béa')).toThrow(/inconnu/);
+    expect(() => ex.creerTableau({ nom: 'X', minutes: 60, panneaux: [{ type: 'compteur', recherche: 'nulle-part' }] }, 'Béa')).toThrow(/introuvable/);
+    const t = ex.creerTableau({ nom: 'Garde', minutes: 360, panneaux: [{ type: 'histogramme', titre: 'Notify', recherche: r.id, largeur: 2 }, { type: 'repartition' }] }, 'Béa');
+    expect(t.panneaux).toMatchObject([
+      { type: 'histogramme', recherche: r.id, largeur: 2 },
+      { type: 'repartition', recherche: null, largeur: 1, titre: 'Panneau' },
+    ]);
+    ex.supprimer(r.id);
+    expect(ex.tableaux()[0].panneaux[0].recherche).toBeNull();
+  });
+});

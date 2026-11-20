@@ -22,6 +22,7 @@ import {
   Siren,
   Workflow,
   Network,
+  LayoutGrid,
   Terminal,
   ScanSearch,
   type LucideIcon,
@@ -213,6 +214,14 @@ export const PAGES: DescriptionPage[] = [
     groupe: 'Application',
     icone: ScrollText,
     motsCles: 'logs loki erreurs kibana discover explorer recherche enregistrée csv',
+  },
+  {
+    chemin: '/tableaux',
+    titre: 'Tableaux de journaux',
+    description: 'Vos tableaux de bord composés à partir des journaux : histogrammes, compteurs, répartitions, dernières lignes.',
+    groupe: 'Application',
+    icone: LayoutGrid,
+    motsCles: 'kibana dashboard tableau de bord panneau visualisation journaux',
   },
   {
     chemin: '/alertes',

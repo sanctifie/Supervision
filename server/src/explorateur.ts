@@ -26,6 +26,31 @@ export interface Recherche {
   alerte: RegleAlerteJournaux | null;
 }
 
+export type TypePanneau = 'histogramme' | 'compteur' | 'repartition' | 'lignes';
+
+/** Un panneau de tableau de bord : une visualisation d'une recherche enregistrée (ou de tout). */
+export interface Panneau {
+  id: string;
+  titre: string;
+  type: TypePanneau;
+  /** Recherche enregistrée filtrant le panneau ; null : toutes les lignes. */
+  recherche: string | null;
+  /** 1 : demi-largeur, 2 : pleine largeur. */
+  largeur: 1 | 2;
+}
+
+export interface TableauDeBord {
+  id: string;
+  nom: string;
+  /** Période commune à tous les panneaux. */
+  minutes: number;
+  panneaux: Panneau[];
+  par: string;
+  majLe: number;
+}
+
+const TYPES_PANNEAU: TypePanneau[] = ['histogramme', 'compteur', 'repartition', 'lignes'];
+
 const texte = (v: unknown, max: number) => (typeof v === 'string' ? v.trim().slice(0, max) : '');
 
 export class Explorateur {
@@ -84,7 +109,11 @@ export class Explorateur {
   }
 
   supprimer(id: string): void {
-    this.stockage.modifier((e) => (e.recherches = e.recherches.filter((r) => r.id !== id)));
+    this.stockage.modifier((e) => {
+      e.recherches = e.recherches.filter((r) => r.id !== id);
+      // Les panneaux qui l'utilisaient montrent désormais toutes les lignes.
+      for (const t of e.tableaux) for (const p of t.panneaux) if (p.recherche === id) p.recherche = null;
+    });
   }
 
   /** Boucle de fond : évalue chaque règle au plus une fois par minute. */
@@ -101,5 +130,45 @@ export class Explorateur {
       this.stockage.ajouterEvenement({ t: maintenant, type: 'alerte', titre: `Journaux : « ${r.nom} »`, detail: texteAlerte, statut: 'orange' });
       this.prevenir({ titre: `🔎 Alerte journaux : ${r.nom}`, texte: texteAlerte, lien: `/journaux?recherche=${r.id}` });
     }
+  }
+
+  // --- Tableaux de bord (façon Kibana Dashboard) -------------------------------------
+
+  tableaux(): TableauDeBord[] {
+    return this.stockage.donnees.tableaux;
+  }
+
+  private validerTableau(d: Record<string, unknown>): Pick<TableauDeBord, 'nom' | 'minutes' | 'panneaux'> {
+    const nom = texte(d.nom, 80);
+    if (!nom) throw new ErreurMetier('Donnez un nom au tableau de bord');
+    const minutes = Number(d.minutes);
+    if (![15, 60, 360, 1440].includes(minutes)) throw new ErreurMetier('Période : 15, 60, 360 ou 1440 minutes');
+    if (!Array.isArray(d.panneaux) || d.panneaux.length > 20) throw new ErreurMetier('Panneaux : une liste de 20 au plus');
+    const panneaux = d.panneaux.map((x: Record<string, unknown>): Panneau => {
+      const type = x?.type as TypePanneau;
+      if (!TYPES_PANNEAU.includes(type)) throw new ErreurMetier('Type de panneau inconnu');
+      const recherche = texte(x.recherche, 60) || null;
+      if (recherche && !this.stockage.donnees.recherches.some((r) => r.id === recherche)) throw new ErreurMetier('Recherche enregistrée introuvable');
+      return { id: texte(x.id, 60) || randomUUID(), titre: texte(x.titre, 80) || 'Panneau', type, recherche, largeur: x.largeur === 2 ? 2 : 1 };
+    });
+    return { nom, minutes, panneaux };
+  }
+
+  creerTableau(d: Record<string, unknown>, par: string): TableauDeBord {
+    const t: TableauDeBord = { ...this.validerTableau(d), id: randomUUID(), par, majLe: Date.now() };
+    this.stockage.modifier((e) => e.tableaux.push(t));
+    return t;
+  }
+
+  modifierTableau(id: string, d: Record<string, unknown>, par: string): TableauDeBord {
+    const t = this.stockage.donnees.tableaux.find((x) => x.id === id);
+    if (!t) throw new ErreurMetier('Tableau de bord introuvable');
+    const v = this.validerTableau({ ...t, ...d });
+    this.stockage.modifier(() => Object.assign(t, v, { par, majLe: Date.now() }));
+    return t;
+  }
+
+  supprimerTableau(id: string): void {
+    this.stockage.modifier((e) => (e.tableaux = e.tableaux.filter((t) => t.id !== id)));
   }
 }

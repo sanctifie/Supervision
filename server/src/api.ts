@@ -634,6 +634,29 @@ export function creerApi(sup: Supervision): Router {
     }),
   );
 
+  // Tableaux de bord de journaux : tout le monde les voit, les agents les composent.
+  api.get('/tableaux', (_req, res) => {
+    res.json(sup.explorateur.tableaux());
+  });
+  api.post(
+    '/tableaux',
+    exiger('agir'),
+    agir((req, res) => sup.explorateur.creerTableau(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.patch(
+    '/tableaux/:id',
+    exiger('agir'),
+    agir((req, res) => sup.explorateur.modifierTableau(String(req.params.id), req.body ?? {}, res.locals.nom)),
+  );
+  api.delete(
+    '/tableaux/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.explorateur.supprimerTableau(String(req.params.id));
+      return { ok: true };
+    }),
+  );
+
   // --- Analyse de code (façon Coverity) ----------------------------------------------
   api.get(
     '/qualite',

@@ -19,6 +19,8 @@ export interface EtatTaches {
   plannings: Planning[];
   travaux: Travail[];
   initialises?: boolean;
+  /** Scripts des modèles de départ déjà proposés (un modèle supprimé ne revient pas). */
+  proposes?: string[];
 }
 
 export const TACHES_VIDE: EtatTaches = { modeles: [], plannings: [], travaux: [] };
@@ -59,6 +61,17 @@ const DEPART: Omit<ModeleTache, 'id'>[] = [
     actif: true,
   },
   {
+    nom: 'Tester la restauration',
+    description:
+      'Restaure la dernière sauvegarde PostgreSQL dans une base jetable (conteneur supprimé ensuite) et compte les lignes des plus grosses tables. Ne touche pas à la production.',
+    script: 'tester-restauration.sh',
+    arguments: [],
+    parametre: null,
+    approbation: false,
+    delaiMinutes: 60,
+    actif: true,
+  },
+  {
     nom: 'Nettoyer Docker',
     description: 'Supprime les images et le cache de construction inutilisés pour libérer le disque.',
     script: 'nettoyer-docker.sh',
@@ -91,6 +104,13 @@ export class Taches {
         e.taches.modeles = DEPART.map((m) => ({ ...m, id: randomUUID() }));
         e.taches.initialises = true;
       }
+      // Modèles ajoutés depuis : proposés une fois aux installations existantes.
+      e.taches.proposes ??= DEPART.map((m) => m.script).filter((s) => s !== 'tester-restauration.sh');
+      for (const m of DEPART)
+        if (!e.taches.proposes.includes(m.script)) {
+          e.taches.proposes.push(m.script);
+          if (!e.taches.modeles.some((x) => x.script === m.script)) e.taches.modeles.push({ ...m, id: randomUUID() });
+        }
       // Un redémarrage de l'application interrompt les tâches en cours.
       for (const t of e.taches.travaux)
         if (t.statut === 'en-cours' || t.statut === 'attente') {
@@ -294,7 +314,7 @@ export class Taches {
         PATH: process.env.PATH ?? '/usr/bin:/bin',
         HOME: '/tmp',
         LANG: 'C.UTF-8',
-        ...Object.fromEntries(['PROMETHEUS_URL', 'OFFICINA_DIR'].filter((k) => process.env[k]).map((k) => [k, process.env[k] as string])),
+        ...Object.fromEntries(['PROMETHEUS_URL', 'OFFICINA_DIR', 'SAUVEGARDES_DIR'].filter((k) => process.env[k]).map((k) => [k, process.env[k] as string])),
         SUPERVISION_TACHE: String(t.id),
         SUPERVISION_PAR: t.approuvePar ?? t.lancePar,
       },

@@ -27,6 +27,7 @@ est cliquable et mène au détail.
 | **Sauvegardes** | Âge de la dernière sauvegarde réussie (orange > 26 h, rouge > 48 h), taille | 4 |
 | **API** | Métriques RED par service (débit, 5xx, refus, p50/p95/p99), chute de trafic vs J-7, runtime Node.js (event loop lag, heap, GC) | 3.1, 3.2 |
 | **Métier** | Ventes par heure vs J-7, connexions refusées, **alerte « zéro vente » en heure d'ouverture** | 3.6 |
+| **Tableaux de journaux** | Tableaux de bord composés de panneaux (histogramme, compteur, répartition, dernières lignes) sur des recherches enregistrées | 3.3 |
 | **Journaux** | Explorateur des journaux de tous les conteneurs (Loki) : recherche et exclusion, histogramme, champs, détail d'une ligne, export CSV, recherches enregistrées avec alertes, en direct | 3.3 |
 | **Alertes** | Alertes actives classées P1 → Info, **runbook** pour chaque alerte, silences, envoi d'une alerte de test, « déclarer un incident » | 7.1, 7.2 |
 | **Tâches** | Scripts d'exploitation lancés depuis l'interface : modèles, approbation, sortie en direct, historique, plannings | 4, 7 |
@@ -72,6 +73,15 @@ mêmes comptes, même cloche, mêmes tickets, rien à installer en plus.
 - **Recherches enregistrées**, partagées avec l'équipe, avec en option une **alerte** :
   « au moins N lignes en M minutes → prévenir les agents » (une alerte par fenêtre).
 
+### Tableaux de journaux (à la manière de Kibana « Dashboard »)
+
+- Un **tableau de bord** regroupe jusqu'à 20 **panneaux** sur une même période (15 min à 24 h),
+  partagé avec toute l'équipe ; les agents le composent, tout le monde le consulte.
+- Chaque panneau montre une **recherche enregistrée** (ou toutes les lignes) en **histogramme**,
+  **compteur** (total, erreurs, avertissements), **répartition par service** ou **dernières lignes** ;
+  pleine ou demi-largeur, dans l'ordre choisi. Mise à jour toutes les 30 s.
+- Supprimer une recherche ne casse pas les tableaux : ses panneaux montrent alors toutes les lignes.
+
 ### Tâches (à la manière d'AWX)
 
 - Un **modèle de tâche** lance un **script du dossier `scripts/`**, jamais autre chose : pas de
@@ -89,9 +99,16 @@ mêmes comptes, même cloche, mêmes tickets, rien à installer en plus.
   | Vérifier les services (/health) | `verifier-services.mjs` (lit Prometheus) | non |
   | Sauvegarder maintenant | `sauvegarder.sh` (lance `deploy/backup.sh` d'Officina) | non |
   | Redémarrer un service | `redemarrer-service.sh <service>` | oui |
+  | Tester la restauration | `tester-restauration.sh` (base jetable, voir plus bas) | non |
   | Nettoyer Docker | `nettoyer-docker.sh` (images et cache de plus de 7 jours) | oui |
 
-- `verifier-services.mjs` marche tel quel. Les trois autres agissent sur Docker : il faut
+- **Tester la restauration** prend la sauvegarde la plus récente du dossier `SAUVEGARDES_DIR`
+  (`/officina/backups` par défaut, à monter dans `docker-compose.yml`) : `.dump` (`pg_dump -Fc`),
+  `.sql.gz` ou `.sql`. Il la restaure dans un conteneur PostgreSQL **jetable** (supprimé à la fin),
+  vérifie qu'il y a des tables et des lignes, et affiche les plus grosses tables. Code 0 : réussi ;
+  1 : la restauration échoue ou la base est vide ; 2 : rien à tester (dossier vide, sauvegarde
+  chiffrée à déchiffrer d'abord). À planifier chaque semaine dans l'onglet Plannings.
+- `verifier-services.mjs` marche tel quel. Les quatre autres agissent sur Docker : il faut
   décommenter dans `docker-compose.yml` le socket Docker, le dossier d'Officina et `group_add`.
   **Le socket Docker donne l'équivalent d'un accès root au serveur** : ne l'ouvrez que si vous
   en avez besoin.
@@ -230,7 +247,7 @@ L'outil de travail principal de l'équipe, inspiré d'ITIL / ServiceNow.
 ### Où sont les tickets, et comment les sauvegarder
 
 Tout est dans le volume Docker `donnees` (monté sur `/donnees`) : `etat.json` pour les
-tickets, comptes, paramètres, défauts de code, tâches, recherches et états des ressources, `pieces/` pour les pièces jointes.
+tickets, comptes, paramètres, défauts de code, tâches, recherches, tableaux de bord et états des ressources, `pieces/` pour les pièces jointes.
 L'application en garde **une copie par jour** dans `donnees/copies/` (30 jours). Si le
 fichier devient illisible, il est mis de côté (`etat.json.illisible-…`), jamais écrasé.
 
@@ -303,6 +320,7 @@ supervision.mon-officine.ga {
 | `COOKIE_SECURISE` | `false` | `true` derrière HTTPS |
 | `RESEAU_OFFICINA` | `officine-os_default` | Réseau Docker d'Officina |
 | `SUPERVISION_JETON_CI` | *(vide)* | Jeton du CI pour envoyer les rapports d'analyse de code. Vide : import manuel seulement |
+| `SAUVEGARDES_DIR` | `/officina/backups` | Dossier des sauvegardes lu par « Tester la restauration » |
 | `DOSSIER_SCRIPTS` | `./scripts` (`/app/scripts` dans l'image) | Les seuls scripts que les tâches peuvent lancer |
 | `DOSSIER_DONNEES` | `./donnees` | Tickets, équipe, checklist, fil d'activité (`etat.json` + copies quotidiennes) |
 

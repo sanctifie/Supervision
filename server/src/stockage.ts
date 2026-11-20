@@ -11,7 +11,7 @@ import type { ArticleCatalogue } from '../../shared/catalogue';
 import { QUALITE_VIDE, type EtatQualite } from './qualite';
 import { TACHES_VIDE, type EtatTaches } from './taches';
 import { RESSOURCES_VIDE, type EtatRessources } from './ressources';
-import type { Recherche } from './explorateur';
+import type { Recherche, TableauDeBord } from './explorateur';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -62,6 +62,8 @@ export interface Etat {
   taches: EtatTaches;
   /** Recherches enregistrées et règles d'alerte sur journaux (façon Kibana). */
   recherches: Recherche[];
+  /** Tableaux de bord de journaux composés par l'équipe. */
+  tableaux: TableauDeBord[];
   /** Ressources (façon Centreon) : états suivis, journal, arrêts planifiés. */
   ressources: EtatRessources;
   /** Mémoire de ce qui a déjà été vu, pour ne publier chaque événement qu'une fois. */
@@ -83,6 +85,7 @@ const VIDE: Etat = {
   qualite: QUALITE_VIDE,
   taches: TACHES_VIDE,
   recherches: [],
+  tableaux: [],
   ressources: RESSOURCES_VIDE,
   vus: { alertes: {}, derniereSauvegarde: null },
 };
@@ -117,6 +120,7 @@ export class Stockage {
         qualite: { ...structuredClone(QUALITE_VIDE), ...(brut.qualite ?? {}) },
         taches: { ...structuredClone(TACHES_VIDE), ...(brut.taches ?? {}) },
         recherches: brut.recherches ?? [],
+        tableaux: brut.tableaux ?? [],
         ressources: { ...structuredClone(RESSOURCES_VIDE), ...(brut.ressources ?? {}) },
       } as Etat;
     } catch (e) {

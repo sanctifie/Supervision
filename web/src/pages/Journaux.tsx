@@ -31,7 +31,7 @@ const SERVICES = [
   'nats',
 ];
 
-interface Filtre {
+export interface Filtre {
   service?: string;
   niveau?: string;
   texte?: string;
@@ -39,7 +39,7 @@ interface Filtre {
   minutes: number;
 }
 
-interface Recherche {
+export interface Recherche {
   id: string;
   nom: string;
   filtre: Filtre;
@@ -47,7 +47,33 @@ interface Recherche {
   alerte: { seuil: number; minutes: number; actif: boolean; derniere: number | null } | null;
 }
 
-const LIBELLE_NIVEAU: Record<string, string> = { warn: 'Avertissements et erreurs', error: 'Erreurs' };
+/** Volume de lignes par intervalle, empilé par niveau (aussi utilisé par les tableaux de bord). */
+export function Histogramme({ volume, hauteur = 150 }: { volume: VolumeJournaux[]; hauteur?: number }) {
+  return (
+    <div style={{ width: '100%', height: hauteur }}>
+      <ResponsiveContainer>
+        <BarChart data={volume.map((v) => ({ t: v.t, erreurs: v.erreurs, avertissements: v.avertissements, autres: Math.max(0, v.total - v.erreurs - v.avertissements) }))}>
+          <CartesianGrid stroke="#eef2f9" vertical={false} />
+          <XAxis dataKey="t" tickFormatter={heure} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} minTickGap={40} />
+          <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={40} allowDecimals={false} />
+          <Tooltip labelFormatter={(t) => dateHeure(Number(t))} />
+          <Bar dataKey="autres" name="Info" stackId="v" fill="#93b4f5" isAnimationActive={false} />
+          <Bar dataKey="avertissements" name="Avertissements" stackId="v" fill="#e5860a" isAnimationActive={false} />
+          <Bar dataKey="erreurs" name="Erreurs" stackId="v" fill="#dc2626" isAnimationActive={false} />
+        </BarChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
+/** Paramètres d'URL de /journaux pour un filtre. */
+export function parametresFiltre(f: Partial<Filtre>, minutes: number, limite: number): URLSearchParams {
+  const q = new URLSearchParams({ minutes: String(minutes), limite: String(limite) });
+  for (const k of ['service', 'niveau', 'texte', 'sauf'] as const) if (f[k]) q.set(k, f[k] as string);
+  return q;
+}
+
+export const LIBELLE_NIVEAU: Record<string, string> = { warn: 'Avertissements et erreurs', error: 'Erreurs' };
 
 /** Les champs d'une ligne JSON (pino…), pour le détail. */
 function champsJson(message: string): [string, string][] | null {
@@ -91,8 +117,7 @@ export default function Journaux() {
     }
   }, [idRecherche, recherches.donnees]);
 
-  const q = new URLSearchParams({ minutes: String(filtre.minutes), limite: '500' });
-  for (const k of ['service', 'niveau', 'texte', 'sauf'] as const) if (filtre[k]) q.set(k, filtre[k] as string);
+  const q = parametresFiltre(filtre, filtre.minutes, 500);
   const etat = useDonnees<LigneJournal[]>(`/journaux?${q}`, direct ? 10_000 : 0);
   const volume = useDonnees<VolumeJournaux[]>(`/journaux/volume?${q}`, direct ? 30_000 : 0);
 
@@ -202,27 +227,7 @@ export default function Journaux() {
       </Carte>
 
       <Carte titre="Volume" sousTitre="Nombre de lignes par intervalle (tous niveaux, pour ce filtre)">
-        {volume.erreur ? (
-          <Erreur message={volume.erreur} />
-        ) : !volume.donnees ? (
-          <Squelette hauteur={140} />
-        ) : (
-          <div style={{ width: '100%', height: 150 }}>
-            <ResponsiveContainer>
-              <BarChart
-                data={volume.donnees.map((v) => ({ t: v.t, erreurs: v.erreurs, avertissements: v.avertissements, autres: Math.max(0, v.total - v.erreurs - v.avertissements) }))}
-              >
-                <CartesianGrid stroke="#eef2f9" vertical={false} />
-                <XAxis dataKey="t" tickFormatter={heure} tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} minTickGap={40} />
-                <YAxis tick={{ fontSize: 11, fill: '#94a3b8' }} axisLine={false} tickLine={false} width={40} allowDecimals={false} />
-                <Tooltip labelFormatter={(t) => dateHeure(Number(t))} />
-                <Bar dataKey="autres" name="Info" stackId="v" fill="#93b4f5" isAnimationActive={false} />
-                <Bar dataKey="avertissements" name="Avertissements" stackId="v" fill="#e5860a" isAnimationActive={false} />
-                <Bar dataKey="erreurs" name="Erreurs" stackId="v" fill="#dc2626" isAnimationActive={false} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+        {volume.erreur ? <Erreur message={volume.erreur} /> : !volume.donnees ? <Squelette hauteur={140} /> : <Histogramme volume={volume.donnees} />}
       </Carte>
 
       <div className="explorateur">
