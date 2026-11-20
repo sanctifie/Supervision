@@ -21,6 +21,11 @@ import { PiecesJointes } from './pieces';
 import { BaseConnaissances } from './connaissances';
 import { Catalogue } from './catalogue';
 import { canauxReels, type Canaux } from './canaux';
+import { Qualite } from './qualite';
+import { Taches } from './taches';
+import { Explorateur } from './explorateur';
+import { Ressources } from './ressources';
+import type { Controle as ControleRessource, EtatRessource } from '../../shared/ressources';
 import { Stockage } from './stockage';
 import { AUTOMATISATIONS, CHECKLIST, CONTROLES_SECURITE, PHASES, PIPELINE } from './catalogues';
 import { SEUILS, SLO_DISPONIBILITE, evaluer, pire } from '../../shared/seuils';
@@ -33,6 +38,7 @@ import type {
   ElementChecklist,
   EtatSources,
   Kpi,
+  Mesure,
   Statut,
   VueAlertes,
   VueApplication,
@@ -65,6 +71,10 @@ export class Supervision {
   readonly pieces: PiecesJointes;
   readonly connaissances: BaseConnaissances;
   readonly catalogue: Catalogue;
+  readonly qualite: Qualite;
+  readonly taches: Taches;
+  readonly explorateur: Explorateur;
+  readonly ressources: Ressources;
 
   constructor(
     readonly stockage: Stockage,
@@ -86,6 +96,19 @@ export class Supervision {
     this.pieces = new PiecesJointes(stockage.dossier, stockage, this.tickets);
     this.connaissances = new BaseConnaissances(stockage, this.tickets);
     this.catalogue = new Catalogue(stockage, this.tickets);
+    this.qualite = new Qualite(stockage, this.tickets);
+    this.taches = new Taches(stockage, {
+      mode: () => this.mode,
+      fuseau: config.fuseau,
+      dossierScripts: config.dossierScripts,
+      prevenir: (qui, n, sauf) => this.notifications.prevenir(qui, n, sauf),
+    });
+    this.explorateur = new Explorateur(
+      stockage,
+      (f) => this.journaux(f),
+      (n) => this.notifications.prevenir('agents', n),
+    );
+    this.ressources = new Ressources(stockage);
   }
 
   get mode() {
@@ -114,6 +137,9 @@ export class Supervision {
         else this.tickets.verifierSla();
         this.stockage.copieDuJour();
         await this.suivreSauvegardes();
+        this.taches.echeances();
+        this.ressources.actualiser(await this.collecterRessources());
+        await this.explorateur.evaluer();
       } catch (e) {
         console.error('[supervision] boucle :', (e as Error).message);
       }
@@ -185,6 +211,87 @@ export class Supervision {
 
   journaux(filtre: Parameters<Fournisseur['journaux']>[0]) {
     return this.fournisseur.journaux(filtre);
+  }
+
+  volumeJournaux(filtre: Parameters<Fournisseur['journaux']>[0]) {
+    // Environ 60 barres sur la période, arrondies à la minute.
+    const pas = Math.max(60, Math.round(((filtre.minutes ?? 60) * 60) / 60 / 60) * 60);
+    return this.fournisseur.volumeJournaux(filtre, pas);
+  }
+
+  /** « Forcer le contrôle » : relit toutes les sources sans attendre le cache. */
+  async controlerMaintenant() {
+    this.cache.clear();
+    this.ressources.actualiser(await this.collecterRessources());
+    return this.ressources.vue();
+  }
+
+  /**
+   * Les contrôles façon Centreon, tirés des vues existantes : un hôte par
+   * domaine (serveur, docker, services, site public, API, PostgreSQL…).
+   * Une source muette donne un contrôle « Inconnu » ; une mesure absente
+   * (exporteur non installé) n'est pas un contrôle.
+   */
+  async collecterRessources(): Promise<ControleRessource[]> {
+    const etatDe = (s: Statut): EtatRessource => (s === 'vert' ? 'ok' : s === 'orange' ? 'avertissement' : s === 'rouge' ? 'critique' : 'inconnu');
+    const sortieMesure = (m: Mesure) =>
+      `${m.libelle} : ${m.valeur === null ? '—' : `${nombre(m.valeur, Number.isInteger(m.valeur) ? 0 : 1)}${m.unite && m.unite !== 'bool' ? ` ${m.unite}` : ''}`}${m.seuilWarning ? ` (alerte ${m.seuilWarning}` : ''}${m.seuilCritique ? `, critique ${m.seuilCritique})` : m.seuilWarning ? ')' : ''}`;
+    const c: ControleRessource[] = [];
+    const ajouter = (hote: string, nom: string, statut: Statut, sortie: string, lien: string) =>
+      c.push({ cle: `${hote}/${nom}`.toLowerCase(), hote, nom, etat: etatDe(statut), sortie, lien });
+    const mesures = (hote: string, liste: Mesure[], lien: string) => {
+      for (const m of liste) if (m.valeur !== null) ajouter(hote, m.libelle, m.statut, sortieMesure(m), lien);
+    };
+    const muet = (hote: string, lien: string) => ajouter(hote, 'Collecte', 'inconnu', 'Source injoignable : aucune mesure', lien);
+    const [serveur, conteneurs, services, application, bdd, metier, sauvegardes] = await Promise.all([
+      this.serveur().catch(() => null),
+      this.conteneurs().catch(() => null),
+      this.services().catch(() => null),
+      this.application().catch(() => null),
+      this.bdd().catch(() => null),
+      this.metier().catch(() => null),
+      this.sauvegardes().catch(() => null),
+    ]);
+    if (serveur) {
+      for (const g of serveur.groupes) mesures(serveur.hote, g.mesures, '/serveur');
+      for (const p of serveur.partitions)
+        ajouter(
+          serveur.hote,
+          `Disque ${p.point}`,
+          p.statut,
+          `${pourcent(p.utilisePct, 0)} utilisé${p.inodesPct !== null ? `, inodes ${pourcent(p.inodesPct, 0)}` : ''}${p.joursAvantPlein ? `, plein dans ~${nombre(p.joursAvantPlein)} j` : ''}`,
+          '/serveur',
+        );
+    } else muet('serveur', '/serveur');
+    if (conteneurs)
+      for (const x of conteneurs.conteneurs)
+        ajouter(
+          'docker',
+          x.nom,
+          x.statut,
+          x.enMarche
+            ? `En marche · CPU ${pourcent(x.cpuPct, 0)}${x.memoirePctLimite !== null ? ` · mémoire ${pourcent(x.memoirePctLimite, 0)} de la limite` : ''}${x.redemarrages1h ? ` · ${x.redemarrages1h} redémarrage(s) en 1 h` : ''}`
+            : 'Arrêté',
+          '/conteneurs',
+        );
+    else muet('docker', '/conteneurs');
+    if (services) {
+      for (const x of services.internes)
+        ajouter('officina', `${x.service} /health`, x.statut, x.ok === null ? 'Non sondé' : x.ok ? `Répond en ${nombre(x.dureeMs)} ms` : 'Ne répond pas', '/services');
+      for (const x of services.publiques) {
+        ajouter('site public', `HTTPS ${x.url}`, x.statut, x.ok ? `HTTP ${x.code ?? '—'} en ${nombre(x.dureeMs)} ms` : `En échec (HTTP ${x.code ?? '—'})`, '/services');
+        if (x.joursCertificat !== null) ajouter('site public', `Certificat ${x.url}`, x.statutCertificat, `Expire dans ${nombre(x.joursCertificat)} j`, '/services');
+      }
+    } else muet('officina', '/services');
+    if (application)
+      for (const r of application.routes)
+        ajouter('api', r.service, r.statut, `${nombre(r.debitRps, 1)} req/s · ${pourcent((r.erreurs5xx ?? 0) * 100, 2)} de 5xx · p95 ${nombre(r.p95)} ms`, '/application');
+    else muet('api', '/application');
+    if (bdd) mesures('postgresql', bdd.mesures, '/bdd');
+    else muet('postgresql', '/bdd');
+    if (metier) mesures('métier', metier.mesures, '/metier');
+    if (sauvegardes) mesures('sauvegardes', sauvegardes.mesures, '/sauvegardes');
+    return c;
   }
 
   async sources(): Promise<EtatSources> {

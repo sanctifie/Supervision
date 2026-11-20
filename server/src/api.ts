@@ -7,6 +7,8 @@ import { RUNBOOKS } from '../../shared/runbooks';
 import { ErreurMetier } from './erreurs';
 import { estOuvert, type Ticket, type TypeTicket } from '../../shared/itsm';
 import { motDePasseProvisoire, type CompteStocke } from './comptes';
+import { createHash, timingSafeEqual } from 'node:crypto';
+import { config } from './config';
 
 const TYPES: TypeTicket[] = ['incident', 'probleme', 'changement', 'demande'];
 /** Ce qu'un demandeur peut renseigner en ouvrant un ticket. */
@@ -37,6 +39,36 @@ export function creerApi(sup: Supervision): Router {
   api.get(
     '/statut-public',
     lire(() => sup.statutPublic()),
+  );
+
+  // Analyse de code : le CI envoie son rapport SARIF avec son jeton (Authorization: Bearer …).
+  // Sans jeton, il faut une session d'agent (envoi depuis l'interface).
+  const jetonCi = (req: Request) => {
+    const fourni = /^Bearer (.+)$/.exec(String(req.headers.authorization ?? ''))?.[1];
+    if (!config.jetonCi || !fourni) return false;
+    const h = (x: string) => createHash('sha256').update(x).digest();
+    return timingSafeEqual(h(fourni), h(config.jetonCi));
+  };
+  api.post(
+    '/qualite/analyses',
+    express.json({ limit: '20mb' }),
+    (req, res, suivant) => {
+      if (jetonCi(req)) {
+        res.locals.nom = 'CI';
+        return suivant();
+      }
+      acces.exigerSession(req, res, () => exiger('agir')(req, res, suivant));
+    },
+    (req, res) => {
+      try {
+        const q = req.query as Record<string, string | undefined>;
+        const a = sup.qualite.importer(req.body, { projet: q.projet, branche: q.branche, commit: q.commit }, res.locals.nom);
+        // 422 si la politique n'est pas respectée : le CI peut faire échouer la construction.
+        res.status(a.politique.respectee || q.politique === 'ignorer' ? 201 : 422).json(a);
+      } catch (e) {
+        res.status(e instanceof ErreurMetier ? 400 : 500).json({ erreur: (e as Error).message });
+      }
+    },
   );
 
   // --- Protégés -------------------------------------------------------------
@@ -128,18 +160,24 @@ export function creerApi(sup: Supervision): Router {
     res.json(sup.stockage.donnees.evenements.slice(0, 100));
   });
 
+  const filtreJournaux = (req: Request) => {
+    const q = req.query as Record<string, string | undefined>;
+    return {
+      service: q.service || undefined,
+      niveau: q.niveau || undefined,
+      texte: q.texte?.slice(0, 200) || undefined,
+      sauf: q.sauf?.slice(0, 200) || undefined,
+      minutes: Math.min(24 * 60, Math.max(5, Number(q.minutes) || 60)),
+      limite: Math.min(1000, Math.max(10, Number(q.limite) || 200)),
+    };
+  };
   api.get(
     '/journaux',
-    lire((req) => {
-      const q = req.query as Record<string, string | undefined>;
-      return sup.journaux({
-        service: q.service || undefined,
-        niveau: q.niveau || undefined,
-        texte: q.texte?.slice(0, 200) || undefined,
-        minutes: Math.min(24 * 60, Math.max(5, Number(q.minutes) || 60)),
-        limite: Math.min(1000, Math.max(10, Number(q.limite) || 200)),
-      });
-    }),
+    lire((req) => sup.journaux(filtreJournaux(req))),
+  );
+  api.get(
+    '/journaux/volume',
+    lire((req) => sup.volumeJournaux(filtreJournaux(req))),
   );
 
   // Alertes et silences (Alertmanager).
@@ -571,6 +609,171 @@ export function creerApi(sup: Supervision): Router {
     }
     const { fait, note } = req.body ?? {};
     res.json(sup.stockage.confirmer(cle, !!fait, res.locals.nom, typeof note === 'string' ? note.slice(0, 500) : undefined));
+  });
+
+  // --- Explorateur de journaux : recherches enregistrées et alertes ---------------
+  api.get('/recherches', (_req, res) => {
+    res.json(sup.explorateur.lister());
+  });
+  api.post(
+    '/recherches',
+    exiger('agir'),
+    agir((req, res) => sup.explorateur.creer(req.body ?? {}, res.locals.nom), 201),
+  );
+  api.patch(
+    '/recherches/:id',
+    exiger('agir'),
+    agir((req) => sup.explorateur.modifier(String(req.params.id), req.body ?? {})),
+  );
+  api.delete(
+    '/recherches/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.explorateur.supprimer(String(req.params.id));
+      return { ok: true };
+    }),
+  );
+
+  // --- Analyse de code (façon Coverity) ----------------------------------------------
+  api.get(
+    '/qualite',
+    agir((req) => sup.qualite.synthese(typeof req.query.projet === 'string' ? req.query.projet : undefined)),
+  );
+  api.get(
+    '/qualite/defauts',
+    agir((req) => {
+      const q = req.query as Record<string, string | undefined>;
+      return sup.qualite.lister({ ...q, q: q.q?.slice(0, 200) });
+    }),
+  );
+  api.get(
+    '/qualite/defauts/:cid',
+    agir((req) => sup.qualite.trouver(Number(req.params.cid))),
+  );
+  api.patch(
+    '/qualite/defauts/:cid',
+    exiger('agir'),
+    agir((req, res) => sup.qualite.trier(Number(req.params.cid), req.body ?? {}, res.locals.nom)),
+  );
+  api.post(
+    '/qualite/defauts/:cid/ticket',
+    exiger('agir'),
+    agir((req, res) => sup.qualite.creerTicket(Number(req.params.cid), res.locals.nom), 201),
+  );
+
+  // --- Tâches automatisées (façon AWX) ---------------------------------------------
+  api.get('/taches/modeles', (_req, res) => {
+    res.json(sup.taches.modeles());
+  });
+  api.post(
+    '/taches/modeles',
+    exiger('administrer'),
+    agir((req) => sup.taches.creerModele(req.body ?? {}), 201),
+  );
+  api.patch(
+    '/taches/modeles/:id',
+    exiger('administrer'),
+    agir((req) => sup.taches.modifierModele(String(req.params.id), req.body ?? {})),
+  );
+  api.delete(
+    '/taches/modeles/:id',
+    exiger('administrer'),
+    agir((req) => {
+      sup.taches.supprimerModele(String(req.params.id));
+      return { ok: true };
+    }),
+  );
+  api.post(
+    '/taches/modeles/:id/lancer',
+    exiger('agir'),
+    agir((req, res) => sup.taches.lancer(String(req.params.id), req.body?.valeur, res.locals.nom), 201),
+  );
+  api.get('/taches/travaux', (req, res) => {
+    res.json(sup.taches.travaux(typeof req.query.modele === 'string' ? req.query.modele : undefined));
+  });
+  api.get(
+    '/taches/travaux/:id',
+    agir((req) => sup.taches.travail(Number(req.params.id))),
+  );
+  api.post(
+    '/taches/travaux/:id/decision',
+    exiger('approuver'),
+    agir((req, res) => sup.taches.decider(Number(req.params.id), req.body?.decision === 'approuve', res.locals.nom)),
+  );
+  api.post(
+    '/taches/travaux/:id/annuler',
+    exiger('agir'),
+    agir((req, res) => sup.taches.annuler(Number(req.params.id), res.locals.nom)),
+  );
+  api.get('/taches/plannings', (_req, res) => {
+    res.json(sup.taches.plannings());
+  });
+  api.post(
+    '/taches/plannings',
+    exiger('agir'),
+    agir((req, res) => sup.taches.creerPlanning(req.body ?? {}, res.locals.nom, peut(res, 'approuver')), 201),
+  );
+  api.patch(
+    '/taches/plannings/:id',
+    exiger('agir'),
+    agir((req) => sup.taches.basculerPlanning(String(req.params.id), !!req.body?.actif)),
+  );
+  api.delete(
+    '/taches/plannings/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.taches.supprimerPlanning(String(req.params.id));
+      return { ok: true };
+    }),
+  );
+
+  // --- Ressources (façon Centreon) -----------------------------------------------------
+  api.get('/ressources', (_req, res) => {
+    res.json(sup.ressources.vue());
+  });
+  api.post(
+    '/ressources/controler',
+    exiger('agir'),
+    agir(() => sup.controlerMaintenant()),
+  );
+  api.post(
+    '/ressources/acquitter',
+    exiger('agir'),
+    agir((req, res) => {
+      const cles: unknown[] = Array.isArray(req.body?.cles) ? req.body.cles.slice(0, 200) : [];
+      for (const cle of cles) sup.ressources.acquitter(String(cle), req.body?.commentaire, res.locals.nom);
+      return sup.ressources.vue();
+    }),
+  );
+  api.delete(
+    '/ressources/acquitter/:cle',
+    exiger('agir'),
+    agir((req) => {
+      sup.ressources.retirerAcquittement(String(req.params.cle));
+      return sup.ressources.vue();
+    }),
+  );
+  api.post(
+    '/ressources/arrets',
+    exiger('agir'),
+    agir((req, res) => {
+      sup.ressources.planifierArret(req.body ?? {}, res.locals.nom);
+      return sup.ressources.vue();
+    }, 201),
+  );
+  api.delete(
+    '/ressources/arrets/:id',
+    exiger('agir'),
+    agir((req) => {
+      sup.ressources.supprimerArret(String(req.params.id));
+      return sup.ressources.vue();
+    }),
+  );
+  api.get('/ressources/journal', (_req, res) => {
+    res.json(sup.ressources.journal());
+  });
+  api.get('/ressources/rapport', (req, res) => {
+    res.json(sup.ressources.rapport([1, 7, 30].includes(Number(req.query.jours)) ? Number(req.query.jours) : 7));
   });
 
   return api;

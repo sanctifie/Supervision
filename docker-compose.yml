@@ -25,6 +25,15 @@ services:
       - '127.0.0.1:${PORT_PUBLIE:-8080}:8080'
     volumes:
       - donnees:/donnees
+      # Scripts que les tâches peuvent lancer (page Tâches) : modifiables sans reconstruire.
+      - ./scripts:/app/scripts:ro
+      # Tâches qui agissent sur Docker (redémarrer un service, nettoyer, sauvegarder) :
+      # décommentez ces lignes ET group_add plus bas.
+      # ⚠ Le socket Docker donne l'équivalent d'un accès root au serveur : seuls les
+      #   scripts de scripts/ y ont accès, lancés par des agents, les sensibles approuvés.
+      # - /var/run/docker.sock:/var/run/docker.sock
+      # - /opt/officine-os:/officina:ro
+    # group_add: ['${DOCKER_GID:-999}']   # stat -c %g /var/run/docker.sock
     networks:
       - officina
     mem_limit: 192m

@@ -206,8 +206,18 @@ export interface FiltreJournaux {
   service?: string;
   niveau?: string;
   texte?: string;
+  /** Texte à exclure (« filtrer hors de »). */
+  sauf?: string;
   minutes?: number;
   limite?: number;
+}
+
+/** Nombre de lignes par intervalle (histogramme de l'explorateur). */
+export interface VolumeJournaux {
+  t: number;
+  total: number;
+  erreurs: number;
+  avertissements: number;
 }
 
 // ---------------------------------------------------------------------------

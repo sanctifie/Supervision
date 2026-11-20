@@ -13,6 +13,8 @@ import type {
   FiltreJournaux,
   LigneJournal,
   Silence,
+  VolumeJournaux,
+  Point,
 } from '../../../shared/types';
 
 /**
@@ -366,12 +368,7 @@ export class FournisseurReel implements Fournisseur {
   }
 
   async journaux(f: FiltreJournaux): Promise<LigneJournal[]> {
-    const selecteur = f.service ? `{service="${echapper(f.service)}"}` : '{service=~".+"}';
-    let logql = selecteur;
-    if (f.niveau === 'error') logql += ' |~ "(?i)(error|erreur|fatal)"';
-    else if (f.niveau === 'warn') logql += ' |~ "(?i)(warn|avertissement|error|erreur|fatal)"';
-    if (f.texte) logql += ` |~ "(?i)${echapper(f.texte)}"`;
-    const flux = await loki.requete(logql, f.minutes ?? 60, f.limite ?? 200);
+    const flux = await loki.requete(logqlDe(f), f.minutes ?? 60, f.limite ?? 200);
     const lignes: LigneJournal[] = [];
     for (const s of flux) {
       for (const [ns, message] of s.values) {
@@ -381,10 +378,28 @@ export class FournisseurReel implements Fournisseur {
     return lignes.sort((a, b) => b.t - a.t).slice(0, f.limite ?? 200);
   }
 
+  async volumeJournaux(f: FiltreJournaux, pasSecondes: number): Promise<VolumeJournaux[]> {
+    const base = logqlDe({ ...f, niveau: undefined });
+    const compter = (filtre: string) => loki.serie(`sum(count_over_time(${base}${filtre} [${pasSecondes}s]))`, f.minutes ?? 60, pasSecondes);
+    const [total, erreurs, avertissements] = await Promise.all([compter(''), compter(' |~ "(?i)(error|erreur|fatal)"'), compter(' |~ "(?i)(warn|avertissement)"')]);
+    const valeur = (pts: Point[], t: number) => pts.find((p) => p.t === t)?.v ?? 0;
+    return total.map((p) => ({ t: p.t, total: p.v, erreurs: valeur(erreurs, p.t), avertissements: valeur(avertissements, p.t) }));
+  }
+
   async disponibilite() {
     const [prom, am, lk] = await Promise.all([prometheus.joignable(), alertmanager.joignable(), loki.joignable()]);
     return { prometheus: prom, alertmanager: am, loki: lk };
   }
+}
+
+/** Le filtre LogQL d'une recherche : service, niveau, texte cherché, texte exclu. */
+function logqlDe(f: FiltreJournaux): string {
+  let logql = f.service ? `{service="${echapper(f.service)}"}` : '{service=~".+"}';
+  if (f.niveau === 'error') logql += ' |~ "(?i)(error|erreur|fatal)"';
+  else if (f.niveau === 'warn') logql += ' |~ "(?i)(warn|avertissement|error|erreur|fatal)"';
+  if (f.texte) logql += ` |~ "(?i)${echapper(f.texte)}"`;
+  if (f.sauf) logql += ` !~ "(?i)${echapper(f.sauf)}"`;
+  return logql;
 }
 
 /** Échappe une saisie pour une chaîne LogQL / expression régulière. */

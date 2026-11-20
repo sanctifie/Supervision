@@ -11,6 +11,7 @@ import type {
   LigneJournal,
   Mode,
   Silence,
+  VolumeJournaux,
 } from '../../../shared/types';
 
 /**
@@ -35,6 +36,8 @@ export interface Fournisseur {
   /** Envoie une alerte « TestSupervision » (5 min) pour vérifier le canal Telegram / e-mail. */
   envoyerAlerteTest(auteur: string): Promise<void>;
   journaux(filtre: FiltreJournaux): Promise<LigneJournal[]>;
+  /** Volume de lignes par intervalle de `pasSecondes` (total, erreurs, avertissements). */
+  volumeJournaux(filtre: FiltreJournaux, pasSecondes: number): Promise<VolumeJournaux[]>;
   /** Les sources joignables, pour l'en-tête de l'interface. */
   disponibilite(): Promise<{ prometheus: boolean; alertmanager: boolean; loki: boolean }>;
 }

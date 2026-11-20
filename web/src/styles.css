@@ -1806,3 +1806,106 @@ label.etiquette {
     display: none;
   }
 }
+
+/* --- Outils : analyse de code, tâches, explorateur, ressources -------------- */
+.bloc-code,
+.sortie-terminal {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: #0f172a;
+  color: #e2e8f0;
+  font: 0.78rem/1.5 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: auto;
+}
+.sortie-terminal {
+  min-height: 240px;
+  max-height: 62vh;
+}
+.explorateur {
+  display: grid;
+  grid-template-columns: 260px 1fr;
+  gap: 18px;
+  align-items: start;
+}
+.explorateur > * {
+  min-width: 0;
+}
+.champ-valeur {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 4px 6px;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  font-size: 0.78rem;
+  text-align: left;
+  cursor: pointer;
+}
+.champ-valeur:hover {
+  background: var(--bleu-clair);
+}
+.champ-valeur > span:first-child {
+  width: 80px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.journal-detail {
+  margin: 2px 0 8px 12px;
+  padding: 8px 12px;
+  border-left: 3px solid var(--bleu);
+  background: #f8faff;
+  color: var(--encre);
+  font-size: 0.78rem;
+}
+.grille > .champ-groupe {
+  margin-top: 0;
+}
+.journal-detail th {
+  padding: 2px 12px 2px 0;
+  color: var(--discret, #64748b);
+  font-weight: 600;
+  text-align: left;
+  vertical-align: top;
+  white-space: nowrap;
+}
+.journal-detail td {
+  word-break: break-word;
+}
+.barre-repartition {
+  display: flex;
+  height: 10px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--inconnu-fond);
+}
+.barre-repartition .vert {
+  background: var(--vert);
+}
+.barre-repartition .orange {
+  background: #e5860a;
+}
+.barre-repartition .rouge {
+  background: var(--rouge);
+}
+.barre-repartition .inconnu {
+  background: #cbd5e1;
+}
+.tourne {
+  animation: tourner 1s linear infinite;
+}
+@keyframes tourner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (max-width: 900px) {
+  .explorateur {
+    grid-template-columns: 1fr;
+  }
+}

@@ -35,6 +35,10 @@ export const config = {
   /** Cookies « Secure » : à laisser à true derrière HTTPS. */
   cookieSecurise: texte('COOKIE_SECURISE', 'false') === 'true',
   dossierDonnees: path.resolve(texte('DOSSIER_DONNEES', './donnees')),
+  /** Scripts que les tâches automatisées ont le droit de lancer (monté en lecture seule). */
+  dossierScripts: path.resolve(texte('DOSSIER_SCRIPTS', './scripts')),
+  /** Jeton du CI pour envoyer les rapports d'analyse de code (SARIF). Vide : envoi depuis l'interface seulement. */
+  jetonCi: texte('SUPERVISION_JETON_CI'),
   /** Nom affiché de l'officine / du produit supervisé. */
   nomProduit: texte('NOM_PRODUIT', 'Officina'),
   delaiRequeteMs: Number(texte('DELAI_REQUETE_MS', '4000')),

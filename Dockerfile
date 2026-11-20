@@ -7,11 +7,14 @@ COPY . .
 RUN npm run build && npm prune --omit=dev
 
 FROM node:22-alpine
-ENV NODE_ENV=production PORT=8080 DOSSIER_DONNEES=/donnees
+ENV NODE_ENV=production PORT=8080 DOSSIER_DONNEES=/donnees DOSSIER_SCRIPTS=/app/scripts
+# Pour les tâches (scripts/) : bash et le client Docker. Sans socket monté, ils ne peuvent rien faire.
+RUN apk add --no-cache bash docker-cli
 WORKDIR /app
 COPY --from=construction /app/node_modules ./node_modules
 COPY --from=construction /app/dist ./dist
 COPY package.json ./
+COPY scripts ./scripts
 RUN mkdir -p /donnees && chown node:node /donnees
 USER node
 EXPOSE 8080

@@ -148,6 +148,13 @@ export const loki = {
     const r = await lireJson<ReponseLoki>(url);
     return r.data.result;
   },
+  /** Requête métrique (count_over_time…) : une série de points. */
+  async serie(logql: string, minutes: number, pasSecondes: number): Promise<Point[]> {
+    const fin = Math.floor(Date.now() / 1000);
+    const url = `${config.lokiUrl}/loki/api/v1/query_range?query=${encodeURIComponent(logql)}&start=${fin - minutes * 60}&end=${fin}&step=${pasSecondes}`;
+    const r = await lireJson<{ data: { result: { values: [number, string][] }[] } }>(url);
+    return (r.data.result[0]?.values ?? []).map(([t, v]) => ({ t: Math.round(Number(t) * 1000), v: Number(v) }));
+  },
   async joignable(): Promise<boolean> {
     try {
       const controle = new AbortController();

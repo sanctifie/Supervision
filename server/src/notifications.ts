@@ -133,6 +133,14 @@ export class Notifications {
     return assigne.length ? assigne : this.agents(t.groupe);
   }
 
+  /** Prévient hors ticket (tâches, journaux) : les agents ou les approbateurs, sauf l'auteur. */
+  prevenir(qui: 'agents' | 'approbateurs', n: { titre: string; texte: string; lien: string }, sauf?: string): void {
+    this.envoyer(
+      (qui === 'agents' ? this.agents() : this.approbateurs()).filter((c) => c.nom !== sauf),
+      n,
+    );
+  }
+
   traiter(e: EvenementTicket): void {
     const t = e.ticket;
     const lien = `/tickets/${t.numero}`;

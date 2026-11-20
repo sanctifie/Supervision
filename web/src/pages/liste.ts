@@ -21,6 +21,9 @@ import {
   ShoppingBag,
   Siren,
   Workflow,
+  Network,
+  Terminal,
+  ScanSearch,
   type LucideIcon,
 } from 'lucide-react';
 import type { Permission } from '../../../shared/comptes';
@@ -133,6 +136,14 @@ export const PAGES: DescriptionPage[] = [
   { chemin: '/profil', titre: 'Mon profil', description: 'Coordonnées, notifications et mot de passe.', groupe: 'Service desk', icone: Users, cachee: true },
   { chemin: '/tickets', titre: 'Ticket', description: 'Fiche du ticket.', groupe: 'Service desk', icone: ClipboardList, cachee: true },
   {
+    chemin: '/ressources',
+    titre: 'Ressources',
+    description: 'Tous les hôtes et leurs contrôles (OK, avertissement, critique) : acquitter, arrêts planifiés, journal, disponibilité.',
+    groupe: 'Infrastructure',
+    icone: Network,
+    motsCles: 'centreon nagios hôtes contrôles acquitter acquittement arrêt planifié downtime disponibilité rapport sla',
+  },
+  {
     chemin: '/serveur',
     titre: 'Serveur',
     description: 'Processeur, mémoire, disques, réseau, horloge — avec les seuils du guide.',
@@ -198,10 +209,10 @@ export const PAGES: DescriptionPage[] = [
   {
     chemin: '/journaux',
     titre: 'Journaux',
-    description: 'Les journaux de tous les conteneurs, filtrables (Loki).',
+    description: 'Explorer les journaux de tous les conteneurs : recherche, histogramme, champs, recherches enregistrées et alertes (Loki).',
     groupe: 'Application',
     icone: ScrollText,
-    motsCles: 'logs loki erreurs',
+    motsCles: 'logs loki erreurs kibana discover explorer recherche enregistrée csv',
   },
   {
     chemin: '/alertes',
@@ -212,6 +223,14 @@ export const PAGES: DescriptionPage[] = [
     motsCles: 'alertmanager silence runbook telegram',
   },
   {
+    chemin: '/taches',
+    titre: 'Tâches',
+    description: 'Lancer, approuver et planifier les scripts d’exploitation (sauvegarde, redémarrage…), sortie en direct.',
+    groupe: 'Réagir',
+    icone: Terminal,
+    motsCles: 'awx ansible tower job modèle lancer planifier script redémarrer sauvegarde',
+  },
+  {
     chemin: '/securite',
     titre: 'Sécurité',
     description: 'Accès, réseau, détection, vulnérabilités, données.',
@@ -219,6 +238,14 @@ export const PAGES: DescriptionPage[] = [
     icone: ShieldCheck,
     domaine: 'securite',
     motsCles: 'ssh fail2ban crowdsec cve trivy',
+  },
+  {
+    chemin: '/qualite',
+    titre: 'Analyse de code',
+    description: 'Les défauts trouvés dans le code d’Officina par le CI : nouveaux, à traiter, corrigés ; tri et politique de qualité.',
+    groupe: 'Améliorer',
+    icone: ScanSearch,
+    motsCles: 'coverity sast semgrep codeql eslint sarif cwe défauts qualité vulnérabilités cid',
   },
   {
     chemin: '/automatisations',

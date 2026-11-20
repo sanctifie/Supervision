@@ -29,6 +29,9 @@ import GestionCatalogue from './pages/itsm/GestionCatalogue';
 import Securite from './pages/Securite';
 import Automatisations from './pages/Automatisations';
 import FeuilleDeRoute from './pages/FeuilleDeRoute';
+import Ressources from './pages/Ressources';
+import Qualite from './pages/Qualite';
+import Taches, { FicheTravail } from './pages/Taches';
 
 const COMPOSANTS: Record<string, ComponentType> = {
   '/': TableauDeBord,
@@ -60,6 +63,10 @@ const COMPOSANTS: Record<string, ComponentType> = {
   '/securite': Securite,
   '/automatisations': Automatisations,
   '/feuille-de-route': FeuilleDeRoute,
+  '/ressources': Ressources,
+  '/qualite': Qualite,
+  '/taches': Taches,
+  '/taches/:id': FicheTravail,
 };
 
 interface Session {

@@ -19,8 +19,8 @@ const sup = new Supervision(stockage);
 const app = express();
 app.disable('x-powered-by');
 app.set('trust proxy', 'loopback, linklocal, uniquelocal');
-// JSON partout, sauf l'envoi d'une pièce jointe (corps brut, voir api.ts).
-app.use(express.json({ limit: '100kb', type: (req) => /^application\/json/.test(String(req.headers['content-type'])) && !/\/pieces\/?$/.test(req.url ?? '') }));
+// JSON partout (100 Ko), sauf l'envoi d'une pièce jointe (corps brut) et d'un rapport SARIF (20 Mo) : voir api.ts.
+app.use(express.json({ limit: '100kb', type: (req) => /^application\/json/.test(String(req.headers['content-type'])) && !/\/(pieces|qualite\/analyses)\/?(\?.*)?$/.test(req.url ?? '') }));
 
 app.use((_req, res, suivant) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');

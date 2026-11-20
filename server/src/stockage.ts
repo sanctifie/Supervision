@@ -8,6 +8,10 @@ import type { CompteStocke, SessionStockee } from './comptes';
 import type { Notification } from './notifications';
 import type { Article } from '../../shared/connaissances';
 import type { ArticleCatalogue } from '../../shared/catalogue';
+import { QUALITE_VIDE, type EtatQualite } from './qualite';
+import { TACHES_VIDE, type EtatTaches } from './taches';
+import { RESSOURCES_VIDE, type EtatRessources } from './ressources';
+import type { Recherche } from './explorateur';
 
 /**
  * Ce que la supervision retient elle-même : tickets ITSM, fil d'activité,
@@ -52,6 +56,14 @@ export interface Etat {
   evenements: Evenement[];
   /** checklist, contrôles de sécurité, automatisations, étapes du pipeline. */
   confirmations: Record<string, Confirmation>;
+  /** Analyse de code (façon Coverity) : analyses SARIF et défauts suivis. */
+  qualite: EtatQualite;
+  /** Tâches automatisées (façon AWX) : modèles, plannings, exécutions. */
+  taches: EtatTaches;
+  /** Recherches enregistrées et règles d'alerte sur journaux (façon Kibana). */
+  recherches: Recherche[];
+  /** Ressources (façon Centreon) : états suivis, journal, arrêts planifiés. */
+  ressources: EtatRessources;
   /** Mémoire de ce qui a déjà été vu, pour ne publier chaque événement qu'une fois. */
   vus: { alertes: Record<string, number>; derniereSauvegarde: number | null };
 }
@@ -68,6 +80,10 @@ const VIDE: Etat = {
   catalogue: [],
   evenements: [],
   confirmations: {},
+  qualite: QUALITE_VIDE,
+  taches: TACHES_VIDE,
+  recherches: [],
+  ressources: RESSOURCES_VIDE,
   vus: { alertes: {}, derniereSauvegarde: null },
 };
 
@@ -98,6 +114,10 @@ export class Stockage {
         notifications: brut.notifications ?? [],
         articles: brut.articles ?? [],
         catalogue: brut.catalogue ?? [],
+        qualite: { ...structuredClone(QUALITE_VIDE), ...(brut.qualite ?? {}) },
+        taches: { ...structuredClone(TACHES_VIDE), ...(brut.taches ?? {}) },
+        recherches: brut.recherches ?? [],
+        ressources: { ...structuredClone(RESSOURCES_VIDE), ...(brut.ressources ?? {}) },
       } as Etat;
     } catch (e) {
       // Ne jamais écraser des tickets : on met le fichier illisible de côté.

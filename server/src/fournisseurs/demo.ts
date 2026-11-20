@@ -13,6 +13,7 @@ import type {
   LigneJournal,
   Point,
   Silence,
+  VolumeJournaux,
 } from '../../../shared/types';
 
 /**
@@ -407,7 +408,24 @@ export class FournisseurDemo implements Fournisseur {
       .filter((l) => !f.service || l.service === f.service)
       .filter((l) => !f.niveau || ordre[l.niveau] >= ordre[f.niveau as keyof typeof ordre])
       .filter((l) => !f.texte || l.message.toLowerCase().includes(f.texte.toLowerCase()))
+      .filter((l) => !f.sauf || !l.message.toLowerCase().includes(f.sauf.toLowerCase()))
       .slice(0, f.limite ?? 200);
+  }
+
+  async volumeJournaux(f: FiltreJournaux, pasSecondes: number): Promise<VolumeJournaux[]> {
+    const lignes = await this.journaux({ ...f, niveau: undefined, limite: 100_000 });
+    const pas = pasSecondes * 1000;
+    const fin = Math.floor(Date.now() / pas) * pas;
+    const cases = new Map<number, VolumeJournaux>();
+    for (let t = fin - (f.minutes ?? 60) * MINUTE; t <= fin; t += pas) cases.set(t, { t, total: 0, erreurs: 0, avertissements: 0 });
+    for (const l of lignes) {
+      const c = cases.get(Math.floor(l.t / pas) * pas);
+      if (!c) continue;
+      c.total++;
+      if (l.niveau === 'error') c.erreurs++;
+      if (l.niveau === 'warn') c.avertissements++;
+    }
+    return [...cases.values()];
   }
 
   async disponibilite() {
